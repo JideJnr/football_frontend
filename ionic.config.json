@@ -1,0 +1,15 @@
+{
+  "name": "Test",
+  "integrations": {
+    "capacitor": {}
+  },
+  
+    "proxies": [
+      {
+        "path": "/api",
+        "proxyUrl": "https://bj-hotel-api.onrender.com"
+      }
+    ],
+  "type": "react-vite",
+  "id": "49e27a35"
+}
