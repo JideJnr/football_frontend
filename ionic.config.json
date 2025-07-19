@@ -7,7 +7,7 @@
     "proxies": [
       {
         "path": "/api",
-        "proxyUrl": "https://bj-hotel-api.onrender.com"
+        "proxyUrl": "https://api-football-cy7l.onrender.com"
       }
     ],
   "type": "react-vite",

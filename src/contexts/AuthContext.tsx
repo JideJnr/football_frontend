@@ -23,34 +23,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const response = await login(email, password); 
   
       if (response.success && response.user?.role) {
-        const role = response.user.role.toLowerCase();
-  
-        // Navigate based on role
-        switch (role) {
-          case 'admin':
-            router.push('/admin/dashboard', 'forward', 'replace');
-            break;
-          case 'staff':
-            router.push('/staff/dashboard', 'forward', 'replace');
-            break;
-          case 'client':
-            router.push('/client/dashboard', 'forward', 'replace');
-            break;
-          default:
-            console.warn('Unknown role:', role);
-            router.push('/staff/dashboard', 'forward', 'replace');
-            break;
-        }
-      } else {
-        
-        console.error('Login failed:', response.message);
-      }
+        router.push('/main', 'forward', 'replace');}
+
     } catch (error) {
       console.error('Login error:', error);
     }
   };
-  
-  
+   
   const wrappedLogout = async () => {
     await logout();
 

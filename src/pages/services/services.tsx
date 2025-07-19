@@ -35,7 +35,7 @@ function Services() {
     <Tab.Panels className="h-full mx-auto flex flex-1 overflow-y-auto shadow-t-xl bg-gray-50">
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">
-        {/*<ControlCenter/> */}       
+        <ControlCenter/>     
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">

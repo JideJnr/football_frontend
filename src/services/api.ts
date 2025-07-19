@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { ApiErrorResponse, Customer, DeleteCustomerResponse, DeleteExpenseResponse, DeleteRoomResponse, Expense, GetAllExpensesResponse, GetAllRoomsResponse, GetAvailableRoomsResponse, Room, SingleCustomerResponse, SingleExpenseResponse, SingleRoomResponse } from '../interfaces/interface';
 
-const BASE_URL = 'https://bj-hotel-api.onrender.com';
+const BASE_URL = 'https://api-football-cy7l.onrender.com';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -70,10 +70,24 @@ export const getRunningBookings = async () => {
   return response.data;
 };
 
-export const getBookingById = async (id: number) => {
+export const getBookingById = async (id: string) => {
   const response = await api.get<SingleBookingResponse | ApiErrorResponse>(`/bookings/${id}`);
   return response.data;
 };
 
+export const startBot = async () => {
+  const response = await api.post<any>(`/start`);
+  return response.data;
+};
+
+export const endBot = async () => {
+  const response = await api.post<any>(`/stop`);
+  return response.data;
+};
+
+export const getAllRooms = async () => {
+  const response = await api.get<GetAllRoomsResponse | ApiErrorResponse>('/rooms');
+  return response.data;
+};
 
 export default api;

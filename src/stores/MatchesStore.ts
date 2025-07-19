@@ -32,10 +32,10 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   loading: false,
   error: null,
 
-  fetchMatchesByDate: async () => {
+  fetchMatchesByDate: async (date:string) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.getAllMatchesByDate();
+      const response = await api.getAllMatchesByDate(date);
       if (!response.success) throw new Error(response.error || 'Failed to fetch Matches');
       set({ Matches: response.Matches, loading: false });
     } catch (err: any) {
@@ -54,7 +54,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     }
   },
 
-  getMatchById: async (id: number) => {
+  getMatchById: async (id: string) => {
     set({ loading: true, error: null });
     try {
       const response = await api.getMatchById(id);
