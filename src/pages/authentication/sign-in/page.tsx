@@ -2,7 +2,7 @@ import OnboardingTemplate from '../../../components/templates/onboarding/onboard
 import { IonLabel, useIonRouter } from '@ionic/react';
 import { useState, useEffect } from 'react';
 import Button from '../../../components/button/button';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/useAuthContext';
 
 const Signin = () => {
   const router = useIonRouter();

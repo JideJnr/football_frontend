@@ -1,10 +1,10 @@
-import { IonButton, IonCol, IonContent, IonIcon, IonRow, IonText, useIonRouter } from '@ionic/react';
-import React, { useMemo } from 'react';
+import {  IonContent, useIonRouter } from '@ionic/react';
+import { useData } from '../../../../contexts/useDataContext';
 
 
-const Home = () => {
+const League = () => {
   const router = useIonRouter();
-
+  const { league, getLeagueById , loading, error } = useData()
 
   return (
     <IonContent>
@@ -13,4 +13,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default League;

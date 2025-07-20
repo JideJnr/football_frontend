@@ -1,7 +1,7 @@
 import React from "react";
 import { Redirect, Route } from "react-router-dom";
 import { IonRouterOutlet } from "@ionic/react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/useAuthContext";
 
 const Loading= React.lazy(() => import( "../components/loading/Loading"));
 const Main = React.lazy(() => import("../pages/main/main"));

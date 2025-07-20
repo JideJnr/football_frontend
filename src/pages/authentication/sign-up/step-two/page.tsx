@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import Button from "../../../../components/button/button";
 import TextInput from "../../../../components/input/text/input";
-import { useAuth } from "../../../../contexts/AuthContext";
+import { useAuth } from "../../../../contexts/useAuthContext";
 
 const SignupContinue = () => {
   const router = useIonRouter();

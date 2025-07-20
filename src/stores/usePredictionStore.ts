@@ -32,10 +32,10 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   loading: false,
   error: null,
 
-  fetchBookingByDate: async () => {
+  fetchPredictionByDate: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await api.getBookingByDate();
+      const response = await api.getAllPredictionsByDate('date');
       if (!response.success) throw new Error(response.error || 'Failed to fetch Booking');
       set({ Booking: response.Booking, loading: false });
     } catch (err: any) {
@@ -43,26 +43,5 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
   },
 
-  getRunningBooking: async () => {
-    set({ loading: true, error: null });
-    try {
-      const response = await api.getRunningBookings();
-      if (!response.success) throw new Error(response.error || 'Failed to fetch available Booking');
-      set({ availableBooking: response.Booking, loading: false });
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
-    }
-  },
-
-  getBookingById: async (id: string) => {
-    set({ loading: true, error: null });
-    try {
-      const response = await api.getBookingById(id);
-      if (!response.success) throw new Error(response.error || 'Booking not found');
-      set({ currentBooking: response.Booking, loading: false });
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
-    }
-  },
 
 }));

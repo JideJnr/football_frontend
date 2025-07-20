@@ -12,7 +12,7 @@ import React from "react";
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
 }
-
+const Home = React.lazy(() => import("./home/page"));
 const Settings = React.lazy(() => import("./settings/page"));
 const League = React.lazy(() => import("./league/page"));
 const Prediction = React.lazy(() => import("./prediction/page"));
@@ -33,7 +33,7 @@ function Main() {
     <Tab.Panels className="h-full mx-auto flex flex-1 overflow-y-auto shadow-t-xl bg-gray-50">
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">
-        {/* Home */}
+        < Home />
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">

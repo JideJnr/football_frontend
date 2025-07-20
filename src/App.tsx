@@ -16,7 +16,7 @@ import "@ionic/react/css/flex-utils.css";
 import "@ionic/react/css/display.css";
 import "@ionic/react/css/palettes/dark.system.css";
 import "./index.css";
-import { ContextProvider } from "./contexts/ContextProvider";
+import { ContextProvider } from "./contexts/useContextProvider";
 import Loading from "./components/loading/Loading";
 import Routes from "./routes/Routes";
 

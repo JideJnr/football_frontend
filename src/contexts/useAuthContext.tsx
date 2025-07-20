@@ -1,16 +1,8 @@
 import { createContext, useContext, ReactNode } from 'react';
 import { useIonRouter } from '@ionic/react';
-import { useAuthStore } from '../stores/AuthStore';
+import { useAuthStore } from '../stores/useAuthStore';
 
-interface AuthContextType {
-  user: any;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (payload: any) => Promise<void>;
-  logout: () => Promise<void>;
-  isAuthenticated: boolean;
-  loading: boolean;
-  error: string | null;
-}
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -22,7 +14,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await login(email, password); 
   
-      if (response.success && response.user?.role) {
+      if (response.success) {
         router.push('/main', 'forward', 'replace');}
 
     } catch (error) {
