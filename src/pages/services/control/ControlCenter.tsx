@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { IonButton, IonToast } from '@ionic/react';
-import { useBotStore } from '../../../stores/useBotStore'; // Update path if needed
+import { IonButton } from '@ionic/react';
+import { useControl } from '../../../contexts/useControlContext';
 
 interface LogMessage {
   id: string;
@@ -10,12 +10,11 @@ interface LogMessage {
 }
 
 const ControlCenter = () => {
-  const { botStatus, loading, error, startBot, stopBot } = useBotStore();
+  const { engineStatus, loading, error, toggleEngine, } = useControl();
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  const isActive = botStatus === true;
 
   // Auto-scroll logs
   useEffect(() => {
@@ -24,7 +23,7 @@ const ControlCenter = () => {
 
   // WebSocket connection management
   useEffect(() => {
-    if (!isActive) {
+    if (!engineStatus) {
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -60,13 +59,13 @@ const ControlCenter = () => {
     };
 
     wsRef.current.onclose = () => {
-      if (isActive) addLog('Connection closed', 'warning');
+      if (engineStatus) addLog('Connection closed', 'warning');
     };
 
     return () => {
       wsRef.current?.close();
     };
-  }, [isActive]);
+  }, [engineStatus]);
 
   const addLog = (text: string, type: LogMessage['type'] = 'system') => {
     setLogs((prev) => [
@@ -80,15 +79,7 @@ const ControlCenter = () => {
     ]);
   };
 
-  const handleToggle = async () => {
-    if (isActive) {
-      await stopBot();
-      addLog('Shutdown command sent');
-    } else {
-      await startBot();
-      addLog('Activation command sent');
-    }
-  };
+
 
   const getLogClass = (type: LogMessage['type']) => {
     switch (type) {
@@ -112,13 +103,13 @@ const ControlCenter = () => {
           size="large"
           disabled={loading}
           className={`w-32 h-32 rounded-full text-xl font-mono shadow-lg transition-all 
-            ${isActive
+            ${engineStatus
               ? 'bg-gradient-to-br from-red-500 to-red-700 shadow-red-500/30'
               : 'bg-gradient-to-br from-purple-500 to-indigo-700 shadow-purple-500/30'
             }`}
-          onClick={handleToggle}
+          onClick={toggleEngine}
         >
-          {loading ? '...' : isActive ? 'TERMINATE' : 'ACTIVATE'}
+          {loading ? '...' : engineStatus ? 'TERMINATE' : 'ACTIVATE'}
         </IonButton>
       </div>
 
@@ -140,7 +131,7 @@ const ControlCenter = () => {
           </div>
         ) : (
           <div className="text-slate-600 italic">
-            {isActive ? 'Establishing connection...' : 'System offline'}
+            {engineStatus ? 'Establishing connection...' : 'System offline'}
           </div>
         )}
       </div>
@@ -149,7 +140,7 @@ const ControlCenter = () => {
       <div className="mt-4 flex justify-between text-xs text-slate-500">
         <div>
           STATUS:{' '}
-          {isActive ? (
+          {engineStatus ? (
             <span className="text-green-400">OPERATIONAL</span>
           ) : (
             <span className="text-red-400">OFFLINE</span>

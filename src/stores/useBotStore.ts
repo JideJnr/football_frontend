@@ -68,7 +68,33 @@ export const useBotStore = create<BotState>((set) => ({
     }
     },
 
-        startBotById: async () => {
+    startBotById: async (id:string) => {
+    set({ loading: true, error: null })
+    try {
+    const res = await api.startBotById(id)
+    if (!res || !res.message?.includes('stopped')) {
+    throw new Error(res?.error || 'Failed to stop bot')
+    }
+    set({ botStatus: false, loading: false })
+    } catch (err: any) {
+    set({ error: err.message || 'Unknown error', loading: false })
+    }
+    },
+
+    stopBotById: async (id:string) => {
+    set({ loading: true, error: null })
+    try {
+    const res = await api.startBotById(id)
+    if (!res || !res.message?.includes('stopped')) {
+    throw new Error(res?.error || 'Failed to stop bot')
+    }
+    set({ botStatus: false, loading: false })
+    } catch (err: any) {
+    set({ error: err.message || 'Unknown error', loading: false })
+    }
+    },
+
+    getStatusById: async () => {
     set({ loading: true, error: null })
     try {
     const res = await api.stopEngine()
@@ -81,7 +107,7 @@ export const useBotStore = create<BotState>((set) => ({
     }
     },
 
-            getStatusById: async () => {
+    runBetBuilder: async () => {
     set({ loading: true, error: null })
     try {
     const res = await api.stopEngine()
@@ -94,20 +120,7 @@ export const useBotStore = create<BotState>((set) => ({
     }
     },
 
-                runBetBuilder: async () => {
-    set({ loading: true, error: null })
-    try {
-    const res = await api.stopEngine()
-    if (!res || !res.message?.includes('stopped')) {
-    throw new Error(res?.error || 'Failed to stop bot')
-    }
-    set({ botStatus: false, loading: false })
-    } catch (err: any) {
-    set({ error: err.message || 'Unknown error', loading: false })
-    }
-    },
-
-                postPrediction: async () => {
+    postPrediction: async () => {
     set({ loading: true, error: null })
     try {
     const res = await api.stopEngine()

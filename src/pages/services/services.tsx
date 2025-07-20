@@ -9,21 +9,18 @@ import { Tab, TabGroup } from "@headlessui/react";
 import React from "react";
 
 
-
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
 }
 
 const ControlCenter = React.lazy(() => import("./control/ControlCenter"));
 const Settings = React.lazy(() => import("./settings/settings"));
-
-
+const Bots = React.lazy(() => import("./bot/bot"));
+const Activity = React.lazy(() => import( "./activity/activity"));
 
 function Services() {
-
   const refresh = (e: CustomEvent) => {
     try {
-      
       e.detail.complete();
     } catch (err) {
       console.error("Refresh error:", err);
@@ -39,11 +36,11 @@ function Services() {
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">
-        {/* BOTS */}
+        < Bots />
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">
-        {/* Activity */}
+        <Activity/>
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">

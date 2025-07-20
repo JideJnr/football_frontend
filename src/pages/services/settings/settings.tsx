@@ -18,12 +18,6 @@ const Settings = () => {
     console.log("Dark mode toggled");
   };
 
-  const handleSignOut = () => {
-    // Sign-out logic (e.g., clear auth token)
-    console.log("User signed out");
-    router.push("/login", "root", "replace"); // Redirect to login
-  };
-
   return (
     <div className="w-full h-full max-w-screen max-h-screen flex bg-gray-100">
       <div className="w-full h-fit pt-8 gap-8 flex flex-col overflow-x-none overflow-y-auto text-sm">
