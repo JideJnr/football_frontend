@@ -5,6 +5,8 @@ const Home = () => {
   const router = useIonRouter();
   const [view, setView] = useState('main');
 
+  
+
   return (
     <IonContent>  
       

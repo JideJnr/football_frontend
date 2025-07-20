@@ -1,12 +1,10 @@
 import axios from 'axios';
-import { ApiErrorResponse, Customer, DeleteCustomerResponse, DeleteExpenseResponse, DeleteRoomResponse, Expense, GetAllExpensesResponse, GetAllRoomsResponse, GetAvailableRoomsResponse, Room, SingleCustomerResponse, SingleExpenseResponse, SingleRoomResponse } from '../interfaces/interface';
+import { ApiErrorResponse,  } from '../interfaces/interface';
 
 const BASE_URL = 'https://api-football-cy7l.onrender.com';
 
 const api = axios.create({
-  baseURL: BASE_URL,
-  // You can set default headers here if needed
-  // headers: { 'Authorization': `Bearer ${token}` }
+  baseURL: BASE_URL
 });
 
 export const login = async (credentials: { email: string; password: string }) => {
@@ -33,12 +31,6 @@ export const getAllMatchesByDate = async (date: string) => {
   return response.data;
 };
 
-export const getLiveMatches = async () => {
-  const response = await api.get<GetAllMatchesResponse | ApiErrorResponse>('/matches/live');
-  return response.data;
-};
-
-
 export const getMatchById = async (id: string) => {
   const response = await api.get<SingleMatchResponse | ApiErrorResponse>(`/matches/${id}`);
   return response.data;
@@ -54,40 +46,67 @@ export const getCountryById = async (id: string) => {
   return response.data;
 };
 
-
-export const uploadBooking = async (data: Partial<Booking>) => {
-  const response = await api.post<UploadBookingResponse  | ApiErrorResponse>('/bookings', data);
+export const getTeamById = async (id: string) => {
+  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
   return response.data;
 };
 
-export const getBookingByDate = async () => {
-  const response = await api.get<GetAllBookingsResponse | ApiErrorResponse>('/bookings/all');
+export const getPlayerById = async (id: string) => {
+  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
   return response.data;
 };
 
-export const getRunningBookings = async () => {
-  const response = await api.get<GetRunningBookingsResponse | ApiErrorResponse>('/bookings/running');
-  return response.data;
-};
-
-export const getBookingById = async (id: string) => {
-  const response = await api.get<SingleBookingResponse | ApiErrorResponse>(`/bookings/${id}`);
-  return response.data;
-};
-
-export const startBot = async () => {
+export const startEngine = async () => {
   const response = await api.post<any>(`/start`);
   return response.data;
 };
 
-export const endBot = async () => {
+export const stopEngine = async () => {
   const response = await api.post<any>(`/stop`);
   return response.data;
 };
 
-export const getAllRooms = async () => {
-  const response = await api.get<GetAllRoomsResponse | ApiErrorResponse>('/rooms');
+export const getAllBot = async () => {
+  const response = await api.get<any>(`/all`);
   return response.data;
 };
+
+export const startBotById = async () => {
+  const response = await api.post<any>(`/start/id`);
+  return response.data;
+};
+
+export const stopBotById = async () => {
+  const response = await api.post<any>(`/stop/id`);
+  return response.data;
+};
+
+export const getBotStatus = async () => {
+  const response = await api.post<any>(`/status/id`);
+  return response.data;
+};
+
+export const runBetBuilder = async () => {
+  const response = await api.get<any>(`/betBuilder`);
+  return response.data;
+};
+
+export const postPrediction = async () => {
+  const response = await api.post<any>(`/prediction`);
+  return response.data;
+};
+
+export const getAllPredictionsByDate = async (id: string) => {
+  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
+  return response.data;
+};
+
+export const getPredictionById = async (id: string) => {
+  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
+  return response.data;
+};
+
+
+
 
 export default api;

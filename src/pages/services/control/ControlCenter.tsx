@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IonButton } from '@ionic/react';
+import { IonButton, IonToast } from '@ionic/react';
 import { useBotStore } from '../../../stores/useBotStore'; // Update path if needed
 
 interface LogMessage {
@@ -15,7 +15,7 @@ const ControlCenter = () => {
   const logEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  const isActive = botStatus === 'running';
+  const isActive = botStatus === true;
 
   // Auto-scroll logs
   useEffect(() => {
@@ -121,13 +121,6 @@ const ControlCenter = () => {
           {loading ? '...' : isActive ? 'TERMINATE' : 'ACTIVATE'}
         </IonButton>
       </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="mb-4 p-2 bg-red-900/50 text-red-200 rounded text-center">
-          {error}
-        </div>
-      )}
 
       {/* Log Console */}
       <div className="bg-slate-800 rounded-xl p-4 h-96 overflow-y-auto font-mono text-sm">
