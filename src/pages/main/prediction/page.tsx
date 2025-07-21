@@ -1,12 +1,18 @@
-import { IonContent,  useIonRouter } from '@ionic/react';
-import { useState } from 'react';
+import {   useIonRouter } from '@ionic/react';
+
 
 const Prediction = () => {
   const router = useIonRouter();
   return (
-    <IonContent>
-      
-    </IonContent>
+    
+    <div  className='text-black'>
+      nav<p>Bet Builder</p>
+      nav<p>Engines</p>
+      nav<p>Upcoming Suggestions</p>
+      nav<p> User Rating  </p>
+
+
+    </div>
   );
 };
 

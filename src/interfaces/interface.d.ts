@@ -1,4 +1,3 @@
-
 interface Match {
   id: string;
   number: string;
@@ -26,6 +25,25 @@ interface MatchState {
   getPlayerById: (id: string) => Promise<void>; 
 }
 
+interface DataContextType {
+  currentCountry: any;
+  league :any;
+  countries : any;
+  team:any;
+  matches: any;
+  currentMatch: Match | null;
+  loading: boolean;
+  error: string |null;
+  
+  fetchMatchesByDate: (date: string,) => Promise<void>;
+  getMatchById: (id: string) => Promise<void>;
+  getAllCountries: () => Promise<void>;
+  getCountryById: (id: string) => Promise<void>;
+  getTeamById: (id: string) => Promise<void>;
+  getPlayerById: (id: string) => Promise<void>;
+  getLeagueById: (id: string) => Promise<void>;
+}
+
 interface AuthContextType {
   user: any;
   login: (email: string, password: string) => Promise<void>;
@@ -35,3 +53,24 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
 }
+
+interface EngineState {
+  bot: [];
+  bots:[];
+  engineStatus:false;
+
+  availableMatches: Match[];
+  currentMatch: Match | null;
+  loading: boolean;
+  error: string | null;
+  
+  toggleEngine: () => Promise<void>;
+  stopEngine: () => Promise<void>;
+  getAllBot: () => Promise<void>;
+  startBotById: () => Promise<void>;
+  stopBotById: () => Promise<void>;
+  getBotById: () => Promise<void>;
+  getPlayerById: () => Promise<void>; 
+}
+
+

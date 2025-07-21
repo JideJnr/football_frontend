@@ -13,9 +13,9 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
 }
 
-const ControlCenter = React.lazy(() => import("./control/ControlCenter"));
+const Home = React.lazy(() => import("./home/home"));
 const Settings = React.lazy(() => import("./settings/settings"));
-const Bots = React.lazy(() => import("./bot/bot"));
+const Bots = React.lazy(() => import("./bot/bots"));
 const Activity = React.lazy(() => import( "./activity/activity"));
 
 function Services() {
@@ -32,7 +32,7 @@ function Services() {
     <Tab.Panels className="h-full mx-auto flex flex-1 overflow-y-auto shadow-t-xl bg-gray-50">
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">
-        <ControlCenter/>     
+        <Home/>     
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">

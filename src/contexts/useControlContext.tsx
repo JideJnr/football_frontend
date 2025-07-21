@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode, useState } from 'react';
 import { useBotStore } from '../stores/useBotStore';
+import { getBotStatus } from '../services/api';
 
 
 const ControlContext = createContext<EngineState | undefined>(undefined);
@@ -10,7 +11,12 @@ export const ControlProvider: React.FC<{ children: ReactNode }> = ({ children })
   
   const [loading , setLoading] = useState(false)
 
-  const engineStatus = false
+  const engineStatus = false;
+  const botStatus = false;
+  const bot = null
+  const bots = null
+
+
 
 
   const wrappedStartEngine = async () => {
@@ -67,7 +73,7 @@ export const ControlProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const wrappedGetBotStatusById = async (id:string) => {
     try {
-      const response = await getStatusById(id); 
+      const response = await  getBotStatus(id);
   
       if (response.success) {
         
@@ -93,7 +99,7 @@ export const ControlProvider: React.FC<{ children: ReactNode }> = ({ children })
   
   return (
     <ControlContext.Provider value={{
-      toggleEngine: engineStatus ? wrappedStartEngine : wrappedStartEngine,
+      toggleEngine: engineStatus ? wrappedStartEngine : wrappedStopEngine,
       getAllBot: WrappedGetAllBot,
       getBotById: wrappedGetBotStatusById,
       startBot: wrappedStartBotById,

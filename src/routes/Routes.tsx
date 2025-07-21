@@ -3,6 +3,9 @@ import { Redirect, Route } from "react-router-dom";
 import { IonRouterOutlet } from "@ionic/react";
 import { useAuth } from "../contexts/useAuthContext";
 
+
+const Splash = React.lazy(() => import( "../pages/splash/splash"));
+const Home = React.lazy(() => import( "../pages/main/main"));
 const Loading= React.lazy(() => import( "../components/loading/Loading"));
 const Main = React.lazy(() => import("../pages/main/main"));
 const Services = React.lazy(() => import("../pages/services/services"));
@@ -47,7 +50,8 @@ const Routes: React.FC = () => {
       <Route path="/league/:id" exact component={LeagueDetails} />
       <Route path="/match/:id" exact component={MatchDetails} />
       <Route path="/services" exact component={Services} />
-      <Route path="/" exact component={Main} />
+      <Route path="/home" exact component={Home} />
+      <Route path="/" exact component={Splash} />
 
       
       <Route render={() => <Redirect to="/" />} />

@@ -14,7 +14,7 @@ function classNames(...classes: string[]) {
 }
 const Home = React.lazy(() => import("./home/page"));
 const Settings = React.lazy(() => import("./settings/page"));
-const League = React.lazy(() => import("./league/page"));
+const Country = React.lazy(() => import("./country/page"));
 const Prediction = React.lazy(() => import("./prediction/page"));
 
 function Main() {
@@ -37,7 +37,7 @@ function Main() {
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">
-        < League />
+        < Country />
       </Tab.Panel>
 
       <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">

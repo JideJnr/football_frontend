@@ -4,7 +4,8 @@ const Activity = () => {
   const router = useIonRouter();
 
   return (
-   <></>
+   <>
+   <p>p</p></>
   );
 };
 

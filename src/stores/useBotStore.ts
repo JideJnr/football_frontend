@@ -7,6 +7,11 @@ interface BotState {
     error: string | null
     startEngine: () => Promise<void>
     stopEngine: () => Promise<void>
+    getAllBot: () => Promise<void>;
+    startBotById: () => Promise<void>;
+    stopBotById: () => Promise<void>;
+    getStatusById: () => Promise<void>;
+    getPlayerById: () => Promise<void>; 
 }
 
 export const useBotStore = create<BotState>((set) => ({

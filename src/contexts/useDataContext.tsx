@@ -2,18 +2,19 @@ import { createContext, useContext, ReactNode, useState } from 'react';
 import { useMatchStore } from '../stores/useMatchStore';
 
 
-const DataContext = createContext<MatchState | undefined>(undefined);
+const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { fetchMatchesByDate, getMatchById, getAllCountries, getTeamById, getPlayerById, error , loading:apiLoading } = useMatchStore();
 
   const [loading , setLoading] = useState(false)
 
-  const countries = ['america'];
-  const league = ['america'];
-  const country = ['america'];
-  const team = ['america'];
-  const match = ['america'];
+  const countries = null;
+  const league = null;
+  const currentCountry = null;
+  const team = null;
+  const currentMatch = null;
+  const matches = null;
 
   const wrappedFetchMatchesByDate = async (date:string) => {
     try {
@@ -28,9 +29,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
    
-  const wrappedGetMatchById = async (date:string) => {
+  const wrappedGetMatchById = async (id:string) => {
     try {
-      const response = await fetchMatchesByDate(date); 
+      const response = await getMatchById(id); 
   
       if (response.success) {
         
@@ -41,9 +42,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
    
-  const wrappedGetAllCountries = async (date:string) => {
+  const wrappedGetAllCountries = async () => {
     try {
-      const response = await fetchMatchesByDate(date); 
+      const response = await getAllCountries(); 
   
       if (response.success) {
         
@@ -93,6 +94,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
   
+  const wrappedGetLeagueById = async (date:string) => {
+    try {
+      const response = await fetchMatchesByDate(date); 
+  
+      if (response.success) {
+        
+      }
+
+    } catch (error) {
+      console.error('Login error:', error);
+    }
+  };
+
   return (
     <DataContext.Provider value={{
       fetchMatchesByDate: wrappedFetchMatchesByDate,
@@ -101,11 +115,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       getCountryById: wrappedGetCountryById,
       getTeamById: wrappedGetTeamById,
       getPlayerById: wrappedGetPlayerById,
-      getLeagueById: wrappedGetPlayerById,
+      getLeagueById: wrappedGetLeagueById,
       team,
       league,
-      match,
-      country,
+      currentMatch,
+      matches,
+      currentCountry,
       countries,
       loading,
       error

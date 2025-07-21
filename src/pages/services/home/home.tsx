@@ -9,14 +9,14 @@ interface LogMessage {
   type: 'system' | 'bot' | 'warning' | 'error';
 }
 
-const ControlCenter = () => {
+const Home = () => {
   const { engineStatus, loading, error, toggleEngine, } = useControl();
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
 
-  // Auto-scroll logs
+{/*  // Auto-scroll logs
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
@@ -78,7 +78,7 @@ const ControlCenter = () => {
       },
     ]);
   };
-
+*/}
 
 
   const getLogClass = (type: LogMessage['type']) => {
@@ -153,4 +153,4 @@ const ControlCenter = () => {
   );
 };
 
-export default ControlCenter;
+export default Home;

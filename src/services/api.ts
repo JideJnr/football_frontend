@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { ApiErrorResponse,  } from '../interfaces/interface';
 
 const BASE_URL = 'https://api-football-cy7l.onrender.com';
 
@@ -8,7 +7,7 @@ const api = axios.create({
 });
 
 export const login = async (credentials: { email: string; password: string }) => {
-  const response = await api.post<LoginSuccessResponse | ApiErrorResponse>(
+  const response = await api.post<ApiSuccessResponse | ApiErrorResponse>(
     '/api/v1/auth/signin', 
     credentials
   );
@@ -27,7 +26,7 @@ export const logout = () => api.post('/api/v1/auth/logout');
 
 
 export const getAllMatchesByDate = async (date: string) => {
-  const response = await api.get<GetAllMatchesResponse | ApiErrorResponse>('/matches',{params: { date }});
+  const response = await api.get<ApiSuccessResponse | ApiErrorResponse>('/matches',{params: { date }});
   return response.data;
 };
 
@@ -47,12 +46,12 @@ export const getCountryById = async (id: string) => {
 };
 
 export const getTeamById = async (id: string) => {
-  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
+  const response = await api.get<ApiSuccessResponse | ApiErrorResponse>(`/team/${id}`);
   return response.data;
 };
 
 export const getPlayerById = async (id: string) => {
-  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
+  const response = await api.get<ApiSuccessResponse | ApiErrorResponse>(`/player/${id}`);
   return response.data;
 };
 
@@ -71,22 +70,30 @@ export const getAllBot = async () => {
   return response.data;
 };
 
-export const startBotById = async () => {
-  const response = await api.post<any>(`/start/id`);
+export const startBotById = async (
+  id:string
+) => {
+  const response = await api.post<any>(`/start/${id}`);
   return response.data;
 };
 
-export const stopBotById = async () => {
-  const response = await api.post<any>(`/stop/id`);
+export const stopBotById = async (
+    id:string
+) => {
+  const response = await api.post<any>(`/stop/${id}`);
   return response.data;
 };
 
-export const getBotStatus = async () => {
-  const response = await api.post<any>(`/status/id`);
+export const getBotStatus = async (
+  id:string
+) => {
+  const response = await api.post<any>(`/status/${id} `);
   return response.data;
 };
 
-export const runBetBuilder = async () => {
+export const runBetBuilder = async (
+
+) => {
   const response = await api.get<any>(`/betBuilder`);
   return response.data;
 };
@@ -96,17 +103,14 @@ export const postPrediction = async () => {
   return response.data;
 };
 
-export const getAllPredictionsByDate = async (id: string) => {
-  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
+export const getAllPredictionsByDate = async (date: string) => {
+  const response = await api.get<ApiSuccessResponse | ApiErrorResponse>(`/prediction/${date}`);
   return response.data;
 };
 
 export const getPredictionById = async (id: string) => {
-  const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
+  const response = await api.get<ApiSuccessResponse | ApiErrorResponse>(`/prediction/${id}`);
   return response.data;
 };
-
-
-
 
 export default api;

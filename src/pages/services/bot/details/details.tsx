@@ -3,11 +3,13 @@ import { useControl } from "../../../../contexts/useControlContext";
 
 const Bots = () => {
   const router = useIonRouter();
-  const {  bot, getBotById, loading , startBot, stopBot  } = useControl();
+  const {  bot, getBotById, loading , startBotById, stopBotById  } = useControl();
   
   return (
    <>
-   
+   <p>
+    a
+   </p>
    </>
   );
 };
