@@ -40,6 +40,8 @@ export const getAllCountry = async () => {
   return response.data;
 };
 
+
+
 export const getCountryById = async (id: string) => {
   const response = await api.get<SingleCountryResponse | ApiErrorResponse>(`/country/${id}`);
   return response.data;
@@ -110,6 +112,11 @@ export const getAllPredictionsByDate = async (date: string) => {
 
 export const getPredictionById = async (id: string) => {
   const response = await api.get<ApiSuccessResponse | ApiErrorResponse>(`/prediction/${id}`);
+  return response.data;
+};
+
+export const getAnalyticsOverview = async () => {
+  const response = await api.get<GetAllCountriesResponse | ApiErrorResponse>('/analytic/overview');
   return response.data;
 };
 

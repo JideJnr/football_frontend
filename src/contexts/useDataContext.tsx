@@ -46,9 +46,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const response = await getAllCountries(); 
   
-      if (response.success) {
-        
-      }
 
     } catch (error) {
       console.error('Login error:', error);

@@ -1,17 +1,20 @@
-import { IonContent, IonPage, useIonRouter } from '@ionic/react';
-import { useEffect, useState } from 'react';
+import { useIonRouter } from '@ionic/react';
+import { useEffect } from 'react';
 import { useData } from '../../../contexts/useDataContext';
 
 const mockCountries = [
   {
+    country: 'Spain',
     name: 'International - Copa America, Women',
+
     matches: [
       {
         date: '21/07',
         time: '22:00',
         home: 'Argentina',
         away: 'Peru',
-        odds: ['1.04', '11.50', '33.00']
+        odds: ['1.04', '11.50', '33.00'],
+        id: 0
       },
     ]
   },
@@ -23,8 +26,10 @@ const mockCountries = [
         time: '18:00',
         home: 'Boca Juniors',
         away: 'River Plate',
-        odds: ['2.40', '3.10', '2.80']
+        odds: ['2.40', '3.10', '2.80'],
+        id: 1
       },
+      
     ]
   },
   {
@@ -35,7 +40,8 @@ const mockCountries = [
         time: '20:30',
         home: 'Malmo',
         away: 'AIK',
-        odds: ['1.70', '3.50', '4.20']
+        odds: ['1.70', '3.50', '4.20'],
+        id: 2
       },
     ]
   },
@@ -47,7 +53,8 @@ const mockCountries = [
         time: '17:00',
         home: 'HJK',
         away: 'KuPS',
-        odds: ['2.00', '3.00', '3.50']
+        odds: ['2.00', '3.00', '3.50'],
+        id: 3
       },
     ]
   },
@@ -59,28 +66,18 @@ const Home = () => {
   const {  getAllCountries, loading, error } = useData();
 
   useEffect(() => {
-    getAllCountries(); // fetch countries or matches on mount
+    getAllCountries();
   }, []);
 
-  // const { countries, getAllCountries, loading, error } = useData();
   const countries = mockCountries;
-
-
   return (
-    
-      <div className="bg-black text-green-400 font-mono w-full h-full">
-        <div className="p-4">
-          <h1 className="text-xl mb-4 border-b border-green-700 pb-2">🧠 GODSCRAPR LIVE FEED</h1>
-
-          {loading && <p className="text-green-500">Loading data...</p>}
-          {error && <p className="text-red-400">Error: {error}</p>}
-
+  <div className='w-full h-full flex flex-col gap-4'>
           {countries?.length > 0 ? (
-            <div className="space-y-6">
+            <div className="space-y-4 ">
               {countries.map((country:any, idx:any) => (
-                <div key={idx}>
+                <div key={idx} className='border border-y p-2  '  >
                   {/* Tournament Name */}
-                  <p className="text-green-300 uppercase text-sm mb-1">
+                  <p className="text-green-300 uppercase text-sm mb-1 ">
                     🏆 {country.name || 'Unknown League'}
                   </p>
 
@@ -105,9 +102,7 @@ const Home = () => {
           ) : (
             <p className="text-green-500">No live data available.</p>
           )}
-        </div>
-      </div>
-    
+  </div>    
   );
 };
 

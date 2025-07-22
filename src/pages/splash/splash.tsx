@@ -23,7 +23,7 @@ const Splash: React.FC = () => {
       } else {
         clearInterval(interval);
         setTimeout(() => {
-          router.push('/home', 'root'); // ✅ Ionic-style navigation
+          router.push('/home', 'root');
         }, 1000);
       }
     }, 300);
@@ -33,10 +33,13 @@ const Splash: React.FC = () => {
 
   return (
     <IonPage>
-      <IonContent className="bg-black">
-        <pre className="text-green-400 font-mono text-sm p-4 whitespace-pre-wrap">
+      <IonContent className="bg-black flex flex-col gap-4 w-full h-full py-8  ">
+        <pre className="text-green-400 font-mono text-sm p-4 whitespace-pre-wrap mx-auto h-2/3">
           {output}
         </pre>
+        <div className=' mx-auto w-fit h-1/3  '>
+          Loading
+        </div>
       </IonContent>
     </IonPage>
   );

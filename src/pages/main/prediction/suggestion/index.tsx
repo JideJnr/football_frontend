@@ -1,19 +1,22 @@
-import {   useIonRouter } from '@ionic/react';
+import BackTemplate from "../../../../components/templates/back/back";
 
+function Suggestions() {
 
-const Suggestion = () => {
-  const router = useIonRouter();
+  const refresh = (e: CustomEvent) => {
+    try {
+      
+      e.detail.complete();
+    } catch (err) {
+      console.error("Refresh error:", err);
+      e.detail.complete();
+    }
+  };
+
   return (
-    
-    <div  className='text-black'>
-      <p>Bet Builder</p>
-      <p>Engines</p>
-      <p>Upcoming Suggestions</p>
-      <p> User Rating  </p>
+    <BackTemplate refresh={refresh}>
 
-
-    </div>
+    </BackTemplate>
   );
-};
+}
 
-export default Suggestion;
+export default Suggestions;

@@ -1,5 +1,5 @@
 
-import OnboardingTemplate from "../../../../components/templates/onboarding/onboarding"
+import OnboardingTemplate from "../../../../components/templates/back/back"
 import { IonInput, IonLabel, useIonRouter } from "@ionic/react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";

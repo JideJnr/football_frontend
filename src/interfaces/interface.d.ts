@@ -25,6 +25,17 @@ interface MatchState {
   getPlayerById: (id: string) => Promise<void>; 
 }
 
+interface AnalyticsState {
+  analytics: [];
+  bot: [];
+  loading: boolean;
+  error: string | null;
+  
+  getOverview: () => Promise<void>;
+  getBotMetrics: (id:string) => Promise<void>;
+  getBotPredictions: (id:string) => Promise<void>;
+}
+
 interface DataContextType {
   currentCountry: any;
   league :any;
@@ -42,6 +53,17 @@ interface DataContextType {
   getTeamById: (id: string) => Promise<void>;
   getPlayerById: (id: string) => Promise<void>;
   getLeagueById: (id: string) => Promise<void>;
+}
+
+interface AnalyticContextType {
+  bot: any;
+  bots :any;
+  loading: boolean;
+  error: string |null;
+  
+
+  getAll: () => Promise<void>;
+  getBotById: (id: string) => Promise<void>;
 }
 
 interface AuthContextType {

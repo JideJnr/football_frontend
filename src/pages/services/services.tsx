@@ -170,14 +170,13 @@ function Services() {
           as="div"
           className=" grid grid-cols-1 grid-rows-12 h-full w-full "
         >
-          <IonHeader className="!bg-white border-none  !shadow-none col-span-1 row-span-1">
-            <div className="!bg-white p-2 flex ">
-              <img
-                src="assets/images/bjimage.png"
-                alt="logo"
-                className="h-12 w-fit px-5 mx-auto"
-              />
-            </div>
+          <IonHeader className="bg-black text-green-400 font-mono w-full h-full p-4">
+          
+              
+                <div className="text-xl mb-4 border-green-700 pb-2">
+                  🧠 SIGNAL
+                </div>
+            
           </IonHeader>
           <div className="col-span-1 row-span-10">{renderTabs()}</div>
           <div className="col-span-1 row-span-1">{renderTabList()}</div>

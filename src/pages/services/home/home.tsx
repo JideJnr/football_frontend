@@ -10,13 +10,12 @@ interface LogMessage {
 }
 
 const Home = () => {
-  const { engineStatus, loading, error, toggleEngine, } = useControl();
+  const { engineStatus, loading, error, toggleEngine } = useControl();
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-
-{/*  // Auto-scroll logs
+  // Auto-scroll logs
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
@@ -34,7 +33,7 @@ const Home = () => {
     wsRef.current = new WebSocket('wss://bot-football.onrender.com');
 
     wsRef.current.onopen = () => {
-      addLog('Connected to God Complex engine');
+      addLog('Connected to GODSCRAPR engine');
     };
 
     wsRef.current.onmessage = (event) => {
@@ -78,8 +77,6 @@ const Home = () => {
       },
     ]);
   };
-*/}
-
 
   const getLogClass = (type: LogMessage['type']) => {
     switch (type) {
@@ -90,14 +87,15 @@ const Home = () => {
       case 'bot':
         return 'text-purple-400';
       default:
-        return 'text-gray-100';
+        return 'text-slate-300';
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      {/* Activation Button */}
-      <div className="flex justify-center mb-8">
+    <div className="bg-black text-green-400 font-mono w-full h-full p-4">
+
+      {/* Activate / Terminate Button */}
+      <div className="flex justify-center mb-6">
         <IonButton
           shape="round"
           size="large"
@@ -113,14 +111,14 @@ const Home = () => {
         </IonButton>
       </div>
 
-      {/* Log Console */}
-      <div className="bg-slate-800 rounded-xl p-4 h-96 overflow-y-auto font-mono text-sm">
-        <div className="mb-2 text-purple-400">// SYSTEM CONSOLE [v2.4.0]</div>
+      {/* Live Logs */}
+      <div className="bg-slate-900 rounded-xl p-4 h-96 overflow-y-auto text-sm">
+        <div className="mb-2 text-green-400">// LIVE FEED</div>
 
         {logs.length > 0 ? (
           <div className="space-y-1">
             {logs.map((log) => (
-              <div key={log.id} className="border-l-2 border-purple-500 pl-3 py-1">
+              <div key={log.id} className="border-l-2 border-green-500 pl-3 py-1">
                 <span className="text-slate-500 mr-2">
                   [{log.timestamp.toLocaleTimeString()}]
                 </span>

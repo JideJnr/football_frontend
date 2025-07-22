@@ -3,6 +3,13 @@ import { Redirect, Route } from "react-router-dom";
 import { IonRouterOutlet } from "@ionic/react";
 import { useAuth } from "../contexts/useAuthContext";
 
+const Analytics = React.lazy(() => import( "../pages/analytics/analytics"));
+const Builder = React.lazy(() => import( "../pages/main/prediction/betbuilder/index"));
+const Engine = React.lazy(() => import( "../pages/main/prediction/engines/index"));
+const Suggestions = React.lazy(() => import( "../pages/main/prediction/suggestion/index"));
+const Rating = React.lazy(() => import( "../pages/main/prediction/rating/index"));
+
+
 
 const Splash = React.lazy(() => import( "../pages/splash/splash"));
 const Home = React.lazy(() => import( "../pages/main/main"));
@@ -45,16 +52,23 @@ const ProtectedRoute: React.FC<{
 const Routes: React.FC = () => {
   return (
     <IonRouterOutlet>
+      <Route path="/analytics" exact component={Analytics} />
+      <Route path="/services" exact component={Services} />
+
+      <Route path="/builder" exact component={Builder} />
+      <Route path="/engines" exact component={Engine} />
+      <Route path="/suggestions" exact component={Suggestions} />
+      <Route path="/rating" exact component={Rating} />
+
       <Route path="/country/:id" exact component={CountryDetails} />
       <Route path="/team/:id" exact component={TeamDetails} />
       <Route path="/league/:id" exact component={LeagueDetails} />
       <Route path="/match/:id" exact component={MatchDetails} />
-      <Route path="/services" exact component={Services} />
+
       <Route path="/home" exact component={Home} />
       <Route path="/" exact component={Splash} />
 
-      
-      <Route render={() => <Redirect to="/" />} />
+      <Route render={() => <Redirect to="/home" />} />
    
     </IonRouterOutlet>
   );

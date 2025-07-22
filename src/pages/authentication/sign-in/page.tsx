@@ -1,4 +1,4 @@
-import OnboardingTemplate from '../../../components/templates/onboarding/onboarding';
+import OnboardingTemplate from '../../../components/templates/back/back';
 import { IonLabel, useIonRouter } from '@ionic/react';
 import { useState, useEffect } from 'react';
 import Button from '../../../components/button/button';

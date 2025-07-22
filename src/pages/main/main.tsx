@@ -7,6 +7,7 @@ import {
 } from "@ionic/react";
 import { Tab, TabGroup } from "@headlessui/react";
 import React from "react";
+import Header from "../../components/templates/header/header";
 
 
 function classNames(...classes: string[]) {
@@ -16,6 +17,7 @@ const Home = React.lazy(() => import("./home/page"));
 const Settings = React.lazy(() => import("./settings/page"));
 const Country = React.lazy(() => import("./country/page"));
 const Prediction = React.lazy(() => import("./prediction/page"));
+
 
 function Main() {
 
@@ -30,9 +32,9 @@ function Main() {
   };
 
   const renderTabs = () => (
-    <Tab.Panels className="h-full mx-auto flex flex-1 overflow-y-auto shadow-t-xl bg-gray-50">
+    <Tab.Panels className="h-full mx-auto flex flex-1 overflow-y-auto shadow-t-xl bg-black text-green-400 font-mono p-4">
 
-      <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto">
+      <Tab.Panel className="w-full h-full flex overflow-x-none overflow-y-auto ">
         < Home />
       </Tab.Panel>
 
@@ -171,15 +173,7 @@ function Main() {
           as="div"
           className=" grid grid-cols-1 grid-rows-12 h-full w-full "
         >
-          <IonHeader className="!bg-white border-none  !shadow-none col-span-1 row-span-1">
-            <div className="!bg-white p-2 flex ">
-              <img
-                src="assets/images/bjimage.png"
-                alt="logo"
-                className="h-12 w-fit px-5 mx-auto"
-              />
-            </div>
-          </IonHeader>
+          <Header/>
           <div className="col-span-1 row-span-10">{renderTabs()}</div>
           <div className="col-span-1 row-span-1">{renderTabList()}</div>
         </TabGroup>

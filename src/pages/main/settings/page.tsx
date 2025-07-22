@@ -4,7 +4,6 @@ import Button from "../../../components/button/button";
 const Settings = () => {
   const router = useIonRouter();
 
-  // Navigate to different pages
   const navigateToAnalytics = () => {
     router.push("/analytics", "forward", "push");
   };
@@ -13,63 +12,66 @@ const Settings = () => {
     router.push("/services", "forward", "push");
   };
 
+    const navigateToNotification = () => {
+    router.push("/services", "forward", "push");
+  };
+
+
   const toggleDarkMode = () => {
-    // Logic for dark mode toggle (if needed)
-    console.log("Dark mode toggled");
+    console.log("🌓 Dark mode toggled");
   };
 
   const handleSignOut = () => {
-    // Sign-out logic (e.g., clear auth token)
-    console.log("User signed out");
-    router.push("/login", "root", "replace"); // Redirect to login
+    console.log("👤 Signed out");
+    router.push("/login", "root", "replace");
   };
 
   return (
-    <div className="w-full h-full max-w-screen max-h-screen flex bg-gray-100">
-      <div className="w-full h-fit pt-8 gap-8 flex flex-col overflow-x-none overflow-y-auto text-sm">
-        <div className="flex-col flex gap-4">
-          <div className="w-full flex">
-            <div className="mx-auto my-auto border border-white w-24 h-24"></div>
-          </div>
-          <div className="mx-auto w-fit">
-            <p className="font-medium text-lg"></p>
-          </div>
+    <div className="w-full h-full py-4 flex flex-col gap-4">
+
+      {/* Profile Avatar Placeholder */}
+      <div className="flex justify-center mb-4">
+        <div className="w-32 h-32 border-2 border-green-400 rounded-full" />
+      </div>
+
+      {/* Options */}
+      <div className="space-y-4">
+        <div
+          onClick={navigateToAnalytics}
+          className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
+        >
+          📊 Analytics
         </div>
 
-        <div className="w-full flex flex-col px-4 2xl:px-8">
-          {/* Analytics Button */}
-          <div
-            onClick={navigateToAnalytics}
-            className="flex w-full items-center justify-between border-y rounded-lg p-2 px-3 text-md font-semibold leading-7 text-gray-900 hover:bg-gray-50 cursor-pointer"
-          >
-            <p>Analytics</p>
-          </div>
-
-          {/* Services Button */}
-          <div
-            onClick={navigateToServices}
-            className="flex w-full items-center justify-between border-y rounded-lg p-2 px-3 text-md font-semibold leading-7 text-gray-900 hover:bg-gray-50 cursor-pointer"
-          >
-            <p>Services</p>
-          </div>
-
-          {/* Dark Mode Toggle */}
-          <div
-            onClick={toggleDarkMode}
-            className="flex w-full items-center justify-between border-y rounded-lg py-2 px-3 text-md font-semibold leading-7 text-gray-900 hover:bg-gray-50 cursor-pointer"
-          >
-            <p>DarkMode</p>
-          </div>
+        <div
+          onClick={navigateToServices}
+          className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
+        >
+          🛠 Services
         </div>
 
-        {/* Sign Out Button */}
-        <div className="flex justify-center p-4">
-          <Button 
-            className="w-full" 
-            text="Sign Out" 
-            onClick={handleSignOut} 
-          />
+        <div
+          onClick={navigateToNotification}
+          className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
+        >
+          🛠 Notification
         </div>
+
+        <div
+          onClick={toggleDarkMode}
+          className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
+        >
+          🌙 Toggle Dark Mode
+        </div>
+      </div>
+
+      {/* Sign Out Button */}
+      <div className="mt-12">
+        <Button
+          className="w-full bg-red-600 text-white font-semibold hover:bg-red-800"
+          text="🚪 Sign Out"
+          onClick={handleSignOut}
+        />
       </div>
     </div>
   );
