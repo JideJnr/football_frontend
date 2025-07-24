@@ -2,7 +2,11 @@ import { useIonRouter } from '@ionic/react';
 import { useEffect } from 'react';
 import { useData } from '../../../contexts/useDataContext';
 
-const mockCountries = [
+
+
+const Home = () => {
+
+  const mockCountries = [
   {
     country: 'Spain',
     name: 'International - Copa America, Women',
@@ -60,14 +64,6 @@ const mockCountries = [
   },
 ];
 
-
-const Home = () => {
-  const router = useIonRouter();
-  const {  getAllCountries, loading, error } = useData();
-
-  useEffect(() => {
-    getAllCountries();
-  }, []);
 
   const countries = mockCountries;
   return (
