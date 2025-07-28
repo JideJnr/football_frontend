@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import * as api from '../services/api' // we'll define this
+import * as api from '../../services/basketballApi'
 
 interface BotState {
     botStatus: boolean

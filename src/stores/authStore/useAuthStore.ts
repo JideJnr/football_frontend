@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import * as api from '../services/api';
+import api from '../../services/authApi';
 
 interface AuthState {
   user: {

@@ -1,5 +1,5 @@
 import {  IonContent, useIonRouter } from '@ionic/react';
-import { useData } from '../../../../contexts/useDataContext';
+import { useData } from '../../../../contexts/useFootballContext';
 
 
 const League = () => {

@@ -1,11 +1,10 @@
 import { createContext, useContext, ReactNode, useState } from 'react';
-import { useMatchStore } from '../stores/useMatchStore';
-
+import { useFootballStore } from '../stores/footballStore/useFootballStore';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { fetchMatchesByDate, getMatchById, getAllCountries, getTeamById, getPlayerById, error , loading:apiLoading } = useMatchStore();
+  const { fetchMatchesByDate, getMatchById, getAllCountries, getTeamById, getPlayerById, error , loading:apiLoading } = useFootballStore();
 
   const [loading , setLoading] = useState(false)
 

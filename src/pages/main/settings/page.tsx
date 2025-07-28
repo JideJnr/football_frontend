@@ -8,9 +8,6 @@ const Settings = () => {
     router.push("/analytics", "forward", "push");
   };
 
-  const navigateToServices = () => {
-    router.push("/services", "forward", "push");
-  };
 
     const navigateToNotification = () => {
     router.push("/services", "forward", "push");
@@ -41,13 +38,6 @@ const Settings = () => {
           className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
         >
           📊 Analytics
-        </div>
-
-        <div
-          onClick={navigateToServices}
-          className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
-        >
-          🛠 Services
         </div>
 
         <div

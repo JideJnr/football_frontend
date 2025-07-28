@@ -1,10 +1,10 @@
-import { useIonRouter } from '@ionic/react';
-import { useEffect } from 'react';
-import { useData } from '../../../contexts/useDataContext';
-
+import { useIonRouter } from "@ionic/react";
+import { useState } from "react";
 
 
 const Home = () => {
+
+    const router = useIonRouter();
 
   const mockCountries = [
   {
@@ -62,44 +62,192 @@ const Home = () => {
       },
     ]
   },
-];
-
-
+  ];
   const countries = mockCountries;
+
+  const [activeTab, setActiveTab] = useState('all');
+
+    const tabList = [
+    { id: "all", label: "All" },
+    { id: "live", label: " Live (38)" },
+    
+    { id: "upcoming", label: "Upcoming" },
+    { id: "finished", label: "Finished" }
+  ];
+
+
   return (
-  <div className='w-full h-full flex flex-col gap-4'>
-          {countries?.length > 0 ? (
-            <div className="space-y-4 ">
-              {countries.map((country:any, idx:any) => (
-                <div key={idx} className='border border-y p-2  '  >
-                  {/* Tournament Name */}
-                  <p className="text-green-300 uppercase text-sm mb-1 ">
-                    🏆 {country.name || 'Unknown League'}
-                  </p>
+    <div className="w-full h-full bg-black text-green-400 font-mono flex flex-col gap-6 p-4">
+      {/* — Header with date picker — */}
+      <header className="flex items-center justify-center space-x-4">
+        <button className="p-2 hover:text-green-200">
+        
+        </button>
+        <div className="px-4 py-2 border border-green-600 rounded">
+          <span className="text-sm">25/07</span>
+        </div>
+        <button className="p-2 hover:text-green-200">
+          
+        </button>
+      </header>
 
-                  {/* Matches in that country */}
-                  {country.matches?.map((match:any, matchIdx:any) => (
-                    <div key={matchIdx} className="mb-4">
-                      <p className="text-xs text-green-500">
-                        🕓 {match.date} — {match.time}
-                      </p>
+ 
+                {/* Tabs */}
+          <div className=" mb-4 flex space-x-4">
+            {tabList.map((tab) => (
+              <button
+                key={tab.id}
+                className={`px-3 py-1 text-xs rounded-full border transition duration-200 ${
+                  activeTab === tab.id
+                    ? "border-green-600 bg-green-800"
+                    : ""
+                }`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-                      <div className="flex justify-between items-center mt-1">
-                        <span>
-                          ⚽️ {match.home} vs {match.away}
-                        </span>
-                      
-                      </div>
-                    </div>
-                  ))}
+
+      {activeTab === "all" && (
+      <div className="space-y-4 overflow-y-auto">
+        {countries.map((country, idx) => (
+          <section
+            key={idx}
+            className="border border-green-700 p-3 rounded hover:border-green-500 transition"
+          >
+            <h2 className="uppercase text-xs mb-2 flex items-center">
+              <span className="mr-1">🏆</span>
+              {country.name}
+            </h2>
+
+            {country.matches.map((match, mIdx) => (
+              <div
+                key={mIdx}
+                className="mb-4 last:mb-0 animate-fade-in"
+                style={{ animationDelay: `${mIdx * 100}ms` }}
+                  onClick={() => router.push(`/match/${match.id}`, 'forward', 'push')}
+              >
+                <div className="text-xxs text-green-600 mb-1">
+                  🕓 {match.date} — {match.time}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-green-500">No live data available.</p>
-          )}
-  </div>    
+                <div className="flex justify-between items-center">
+                  <div>
+                    ⚽️ {match.home} <span className="mx-1">vs</span> {match.away}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </section>
+        ))}
+      </div>)}
+
+      
+      {activeTab === "live" && (
+      <div className="space-y-4 overflow-y-auto">
+        {countries.map((country, idx) => (
+          <section
+            key={idx}
+            className="border border-green-700 p-3 rounded hover:border-green-500 transition"
+          >
+            <h2 className="uppercase text-xs mb-2 flex items-center">
+              <span className="mr-1">🏆</span>
+              {country.name}
+            </h2>
+
+            {country.matches.map((match, mIdx) => (
+              <div
+                key={mIdx}
+                className="mb-4 last:mb-0 animate-fade-in"
+                style={{ animationDelay: `${mIdx * 100}ms` }}
+              >
+                <div className="text-xxs text-green-600 mb-1">
+                  🕓 {match.date} — {match.time}
+                </div>
+                <div className="flex justify-between items-center">
+                  <div>
+                    ⚽️ {match.home} <span className="mx-1">vs</span> {match.away}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </section>
+        ))}
+      </div>)}
+
+            {activeTab === "upcoming" && (
+      <div className="space-y-4 overflow-y-auto">
+        {countries.map((country, idx) => (
+          <section
+            key={idx}
+            className="border border-green-700 p-3 rounded hover:border-green-500 transition"
+          >
+            <h2 className="uppercase text-xs mb-2 flex items-center">
+              <span className="mr-1">🏆</span>
+              {country.name}
+            </h2>
+
+            {country.matches.map((match, mIdx) => (
+              <div
+                key={mIdx}
+                className="mb-4 last:mb-0 animate-fade-in"
+                style={{ animationDelay: `${mIdx * 100}ms` }}
+              >
+                <div className="text-xxs text-green-600 mb-1">
+                  🕓 {match.date} — {match.time}
+                </div>
+                <div className="flex justify-between items-center">
+                  <div>
+                    ⚽️ {match.home} <span className="mx-1">vs</span> {match.away}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </section>
+        ))}
+      </div>)}
+
+      
+      {activeTab === "finished" && (
+      <div className="space-y-4 overflow-y-auto">
+        {countries.map((country, idx) => (
+          <section
+            key={idx}
+            className="border border-green-700 p-3 rounded hover:border-green-500 transition"
+          >
+            <h2 className="uppercase text-xs mb-2 flex items-center">
+              <span className="mr-1">🏆</span>
+              {country.name}
+            </h2>
+
+            {country.matches.map((match, mIdx) => (
+              <div
+                key={mIdx}
+                className="mb-4 last:mb-0 animate-fade-in"
+                style={{ animationDelay: `${mIdx * 100}ms` }}
+              >
+                <div className="text-xxs text-green-600 mb-1">
+                  🕓 {match.date} — {match.time}
+                </div>
+                <div className="flex justify-between items-center">
+                  <div>
+                    ⚽️ {match.home} <span className="mx-1">vs</span> {match.away}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </section>
+        ))}
+
+        
+  
+  
+      </div>)}
+    </div>
   );
 };
+
+
 
 export default Home;

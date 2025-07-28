@@ -1,9 +1,7 @@
 import React from 'react';
 import { AuthProvider } from './useAuthContext';
 import { DarkModeProvider } from './useDarkModeContext';
-import { DataProvider } from './useDataContext';
-import { ControlProvider } from './useControlContext';
-import { AnalyticProvider } from './useAnalyticContext';
+import { DataProvider } from './useFootballContext';
 
 
 export const ContextProvider:  React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -11,13 +9,11 @@ export const ContextProvider:  React.FC<{ children: React.ReactNode }> = ({ chil
     
       <AuthProvider>
         <DataProvider>
-          <ControlProvider>
-            <AnalyticProvider>
+          
             <DarkModeProvider>
               {children}
             </DarkModeProvider>
-            </AnalyticProvider>
-          </ControlProvider>
+           
         </DataProvider>
       </AuthProvider>
     

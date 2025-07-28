@@ -34,6 +34,7 @@
     "axios": "^1.9.0",
     "cordova-plugin-firebasex": "^18.0.7",
     "dayjs": "^1.11.13",
+    "heroicon": "^0.0.2",
     "ionicons": "^7.0.0",
     "react": "^18.2.0",
     "react-datepicker": "^7.5.0",

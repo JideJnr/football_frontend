@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import * as api from '../services/api';
+import * as api from '../services/footballApi';
 
 
 export const useMatchStore = create<MatchState>((set, get) => ({
@@ -79,7 +79,4 @@ export const useMatchStore = create<MatchState>((set, get) => ({
       set({ error: err.message, loading: false });
     }
   },
-
-  
-
 }));

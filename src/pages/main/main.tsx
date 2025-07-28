@@ -8,16 +8,15 @@ import {
 import { Tab, TabGroup } from "@headlessui/react";
 import React from "react";
 import Header from "../../components/templates/header/header";
+import Home from "./home/page";
+import Country from "./country/page";
+import Settings from "./settings/page";
+import Prediction from "./prediction/page";
 
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(" ");
 }
-const Home = React.lazy(() => import("./home/page"));
-const Settings = React.lazy(() => import("./settings/page"));
-const Country = React.lazy(() => import("./country/page"));
-const Prediction = React.lazy(() => import("./prediction/page"));
-
 
 function Main() {
 

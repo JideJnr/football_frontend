@@ -10,7 +10,37 @@ interface Match {
   updatedAt?: string;
 }
 
-interface MatchState {
+interface BasketballState {
+  Matches: Match[];
+  availableMatches: Match[];
+  currentMatch: Match | null;
+  loading: boolean;
+  error: string | null;
+  
+  fetchMatchesByDate: (date: string,) => Promise<void>;
+  getMatchById: (id: string) => Promise<void>;
+  getAllCountries: () => Promise<void>;
+  getCountryById: (id: string) => Promise<void>;
+  getTeamById: (id: string) => Promise<void>;
+  getPlayerById: (id: string) => Promise<void>; 
+}
+
+interface TennisState {
+  Matches: Match[];
+  availableMatches: Match[];
+  currentMatch: Match | null;
+  loading: boolean;
+  error: string | null;
+  
+  fetchMatchesByDate: (date: string,) => Promise<void>;
+  getMatchById: (id: string) => Promise<void>;
+  getAllCountries: () => Promise<void>;
+  getCountryById: (id: string) => Promise<void>;
+  getTeamById: (id: string) => Promise<void>;
+  getPlayerById: (id: string) => Promise<void>; 
+}
+
+interface FootballState {
   Matches: Match[];
   availableMatches: Match[];
   currentMatch: Match | null;

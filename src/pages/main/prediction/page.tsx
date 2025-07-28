@@ -1,12 +1,11 @@
-import { IonContent, IonPage, useIonRouter } from '@ionic/react';
-import { useEffect } from 'react';
+import {  useIonRouter } from '@ionic/react';
 
 const navItems = [
   { label: 'Bet Builder', route: '/builder' },
   { label: 'Engines', route: '/engines' },
   { label: 'Upcoming Suggestions', route: '/suggestions' },
   { label: 'User Rating', route: '/rating' },
-];
+];  
 
 const Prediction = () => {
   const router = useIonRouter();
@@ -15,9 +14,7 @@ const Prediction = () => {
     router.push(route, 'forward', 'push');
   };
 
-  useEffect(() => {
-    // Placeholder for future data fetching or side effects
-  }, []);
+
 
   return (
   <div className='w-full h-full flex flex-col gap-4'>

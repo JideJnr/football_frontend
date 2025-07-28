@@ -1,6 +1,6 @@
 import { IonContent,  useIonRouter } from '@ionic/react';
 import { useState } from 'react';
-import { useData } from '../../../../contexts/useDataContext';
+import { useData } from '../../../../contexts/useFootballContext';
 
 const MatchDetails = () => {
   const router = useIonRouter();

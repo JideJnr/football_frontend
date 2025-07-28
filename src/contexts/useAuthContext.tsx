@@ -1,6 +1,6 @@
 import { createContext, useContext, ReactNode } from 'react';
 import { useIonRouter } from '@ionic/react';
-import { useAuthStore } from '../stores/useAuthStore';
+import { useAuthStore } from '../stores/authStore/useAuthStore';
 
 
 
