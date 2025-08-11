@@ -43,19 +43,7 @@ const FormationRow = ({ row }: { row: any[] }) => (
 const LineupCard = () => {
   return (
     <div className="bg-[#0F0F1A] text-white max-w-lg mx-auto rounded-lg p-4 shadow-lg">
-      {/* Tabs */}
-      <div className="flex justify-around text-sm border-b border-gray-600 pb-2 text-gray-400 mb-4">
-        {["Details", "Lineups", "Statistics", "Commentary"].map((tab) => (
-          <span
-            key={tab}
-            className={`cursor-pointer ${
-              tab === "Lineups" ? "text-white border-b-2 border-blue-500 pb-1" : ""
-            }`}
-          >
-            {tab}
-          </span>
-        ))}
-      </div>
+
 
       {/* Top Team */}
       {playersTop.lineup.map((row, idx) => (

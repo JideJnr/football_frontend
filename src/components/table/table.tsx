@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 const teams = [
   {
     rank: 1,
@@ -6,6 +8,8 @@ const teams = [
     played: 3,
     diff: "+6",
     points: 9,
+    home: { played: 2, diff: "+4", points: 6 },
+    away: { played: 1, diff: "+2", points: 3 }
   },
   {
     rank: 2,
@@ -14,6 +18,8 @@ const teams = [
     played: 3,
     diff: "+2",
     points: 7,
+    home: { played: 1, diff: "+1", points: 3 },
+    away: { played: 2, diff: "+1", points: 4 }
   },
   {
     rank: 3,
@@ -22,6 +28,8 @@ const teams = [
     played: 3,
     diff: "+3",
     points: 6,
+    home: { played: 2, diff: "+2", points: 4 },
+    away: { played: 1, diff: "+1", points: 2 }
   },
   {
     rank: 4,
@@ -30,6 +38,8 @@ const teams = [
     played: 3,
     diff: "+1",
     points: 5,
+    home: { played: 1, diff: "+1", points: 3 },
+    away: { played: 2, diff: "0", points: 2 }
   },
   {
     rank: 5,
@@ -38,6 +48,8 @@ const teams = [
     played: 3,
     diff: "+1",
     points: 5,
+    home: { played: 2, diff: "+1", points: 4 },
+    away: { played: 1, diff: "0", points: 1 }
   },
   {
     rank: 6,
@@ -46,6 +58,8 @@ const teams = [
     played: 3,
     diff: "+1",
     points: 4,
+    home: { played: 1, diff: "+1", points: 3 },
+    away: { played: 2, diff: "0", points: 1 }
   },
   {
     rank: 7,
@@ -54,6 +68,8 @@ const teams = [
     played: 3,
     diff: "0",
     points: 4,
+    home: { played: 2, diff: "+1", points: 4 },
+    away: { played: 1, diff: "-1", points: 0 }
   },
   {
     rank: 8,
@@ -62,6 +78,8 @@ const teams = [
     played: 3,
     diff: "0",
     points: 4,
+    home: { played: 1, diff: "0", points: 1 },
+    away: { played: 2, diff: "0", points: 3 }
   },
   {
     rank: 9,
@@ -70,6 +88,8 @@ const teams = [
     played: 3,
     diff: "0",
     points: 4,
+    home: { played: 2, diff: "+1", points: 4 },
+    away: { played: 1, diff: "-1", points: 0 }
   },
   {
     rank: 10,
@@ -78,6 +98,8 @@ const teams = [
     played: 3,
     diff: "-1",
     points: 4,
+    home: { played: 1, diff: "0", points: 1 },
+    away: { played: 2, diff: "-1", points: 3 }
   },
   {
     rank: 11,
@@ -86,19 +108,39 @@ const teams = [
     played: 1,
     diff: "-3",
     points: 0,
+    home: { played: 0, diff: "0", points: 0 },
+    away: { played: 1, diff: "-3", points: 0 }
   },
 ];
 
 const StandingsTable = () => {
+  const [activeTab, setActiveTab] = useState("ALL");
+  
+  // Sort teams based on the active tab
+  const sortedTeams = [...teams].sort((a, b) => {
+    if (activeTab === "ALL") {
+      return a.rank - b.rank;
+    } else if (activeTab === "HOME") {
+      return b.home.points - a.home.points || 
+             (parseInt(b.home.diff) - parseInt(a.home.diff)) || 
+             a.name.localeCompare(b.name);
+    } else { // AWAY
+      return b.away.points - a.away.points || 
+             (parseInt(b.away.diff) - parseInt(a.away.diff)) || 
+             a.name.localeCompare(b.name);
+    }
+  });
+
   return (
     <div className="bg-[#0d0d0d] rounded-xl p-4 w-full max-w-md mx-auto text-white font-mono">
       {/* Tabs */}
       <div className="flex justify-start gap-2 mb-4">
-        {["ALL", "HOME", "AWAY"].map((tab, i) => (
+        {["ALL", "HOME", "AWAY"].map((tab) => (
           <button
-            key={i}
+            key={tab}
+            onClick={() => setActiveTab(tab)}
             className={`px-3 py-1 text-xs rounded-full ${
-              tab === "ALL"
+              tab === activeTab
                 ? "bg-white text-black"
                 : "bg-black border border-white text-white"
             }`}
@@ -118,20 +160,40 @@ const StandingsTable = () => {
 
       {/* Teams */}
       <div className="space-y-2">
-        {teams.map((team) => (
+        {sortedTeams.map((team, index) => (
           <div
-            key={team.rank}
+            key={`${activeTab}-${team.rank}`}
             className="grid grid-cols-5 items-center text-sm px-2 py-1 hover:bg-[#1a1a1a] rounded"
           >
             {/* Team info */}
             <div className="flex items-center gap-2 col-span-2">
-              <span className="text-green-400 text-xs w-4">{team.rank}</span>
+              <span className="text-green-400 text-xs w-4">{index + 1}</span>
               <img src={team.logo} alt={team.name} className="w-5 h-5" />
               <span className="truncate">{team.name}</span>
             </div>
-            <div className="text-center">{team.played}</div>
-            <div className="text-center">{team.diff}</div>
-            <div className="text-center font-bold">{team.points}</div>
+            
+            {/* Dynamically show stats based on active tab */}
+            {activeTab === "ALL" && (
+              <>
+                <div className="text-center">{team.played}</div>
+                <div className="text-center">{team.diff}</div>
+                <div className="text-center font-bold">{team.points}</div>
+              </>
+            )}
+            {activeTab === "HOME" && (
+              <>
+                <div className="text-center">{team.home.played}</div>
+                <div className="text-center">{team.home.diff}</div>
+                <div className="text-center font-bold">{team.home.points}</div>
+              </>
+            )}
+            {activeTab === "AWAY" && (
+              <>
+                <div className="text-center">{team.away.played}</div>
+                <div className="text-center">{team.away.diff}</div>
+                <div className="text-center font-bold">{team.away.points}</div>
+              </>
+            )}
           </div>
         ))}
       </div>

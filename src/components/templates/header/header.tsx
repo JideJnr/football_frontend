@@ -6,7 +6,7 @@ const CustomHeader = () => {
   const router = useIonRouter();
 
   return (
-    <IonHeader className="bg-black text-purple-400 font-mono w-full p-4 flex justify-between items-center">
+    <IonHeader className="bg-black text-purple-400 font-mono w-full p-2 flex justify-between items-center">
         <div className="w-6 ">
             <IonButton 
           onClick={() => router.goBack()} 

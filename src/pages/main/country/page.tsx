@@ -18,24 +18,24 @@ const Country = () => {
   };
 
   return (
-    <IonContent className="p-4">
+    <div className='flex flex-col w-full'>
       <div className="text-xl font-bold mb-4">Leagues</div>
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 gap-4">
    
                     
                   {country.map((country:any) => (
-                    <div key={country.id} className="mb-4">
-                    <p className="text-green-300 uppercase text-sm mb-1 ">
-                    🏆 {country.name || 'Unknown League'}
-                    </p>
 
-                    
-                    </div>
+                            <div
+                              onClick={handleClick}
+                              className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
+                            >
+                                🏆 {country.name || 'Unknown League'}
+                            </div>
                   ))}
                
        
       </div>
-    </IonContent>
+    </div>
   );
 };
 

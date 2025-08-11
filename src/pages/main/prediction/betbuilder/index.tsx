@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 import BackTemplate from '../../../../components/templates/back/back';
+import BetBuilderCard from '../../../../components/BetBuilderCard';
+import { IonContent, IonPage } from '@ionic/react';
+import { BackFormContainer } from '../../../../components/form/BackFormContainer';
 
 
 
@@ -18,15 +21,11 @@ const Builder = () => {
   };
 
   return (
-    
-   <BackTemplate refresh={refresh}>
-
-    <p>
-      Test
-    </p>
-
-  </BackTemplate>
-     
+    <IonPage>
+      <BackFormContainer>
+        <BetBuilderCard/>
+      </BackFormContainer>
+    </IonPage> 
   );
 };
 

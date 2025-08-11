@@ -142,17 +142,6 @@ const Arrow = ({ direction }: { direction?: "up" | "down" }) => {
 const OddsBoard = () => {
   return (
     <div className="bg-[#0F0F1A] text-white w-full max-w-md mx-auto rounded-xl p-4 font-sans space-y-4">
-      <div className="flex justify-between items-center border-b border-gray-700 pb-2 text-sm">
-        <div className="space-x-4 text-gray-400">
-          <span>Commentary</span>
-          <span>Standings</span>
-          <span>Matches</span>
-          <span>Media</span>
-          <span className="text-white border-b-2 border-blue-500 pb-0.5">Odds</span>
-        </div>
-        <span className="text-xs text-gray-500">Featured by <span className="text-blue-400 font-semibold">1XBET</span></span>
-      </div>
-
       {oddsData.map((section, idx) => (
         <div key={idx} className="bg-[#1A1A2E] p-3 rounded-md">
           <h3 className="text-sm font-semibold text-gray-200 mb-2">{section.title}</h3>
