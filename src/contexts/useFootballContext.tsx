@@ -1,160 +1,132 @@
 import { createContext, useContext, ReactNode, useState } from 'react';
 import { useFootballStore } from '../stores/footballStore/useFootballStore';
 
-const FootballContext = createContext<DataContextType | undefined>(undefined);
+interface FootballContextType {
+  fetchLiveMatches: () => Promise<void>;
+  fetchMatchesByDate: (date: string) => Promise<void>;
+  getMatchById: (id: string) => Promise<void>;
+  getAllCountries: () => Promise<void>;
+  getCountryById: (id: string) => Promise<void>;
+  getTeamById: (id: string) => Promise<void>;
+  getPlayerById: (id: string) => Promise<void>;
+  matches: any[] | null;
+  liveMatches: any[] | null;
+  currentMatch: any | null;
+  countries: any[] | null;
+  currentCountry: any | null;
+  team: any | null;
+  player: any | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const FootballContext = createContext<FootballContextType | undefined>(undefined);
 
 export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { fetchMatchesByDate, getMatchById, getAllCountries, getTeamById, getPlayerById, error , loading:apiLoading } = useFootballStore();
+  const {
+    fetchLiveMatches: storeFetchLiveMatches,
+    fetchMatchesByDate: storeFetchMatchesByDate,
+    getMatchById: storeGetMatchById,
+    getAllCountries: storeGetAllCountries,
+    getCountryById: storeGetCountryById,
+    getTeamById: storeGetTeamById,
+    getPlayerById: storeGetPlayerById,
+    error: storeError,
+    loading: storeLoading
+  } = useFootballStore();
 
-  const [loading , setLoading] = useState(false)
+  // Local context state
+  const [matches, setMatches] = useState<any[] | null>(null);
+  const [liveMatches, setLiveMatches] = useState<any[] | null>(null);
+  const [currentMatch, setCurrentMatch] = useState<any | null>(null);
+  const [countries, setCountries] = useState<any[] | null>(null);
+  const [currentCountry, setCurrentCountry] = useState<any | null>(null);
+  const [team, setTeam] = useState<any | null>(null);
+  const [player, setPlayer] = useState<any | null>(null);
 
-  const countries = null;
-  const league = null;
-  const currentCountry = null;
-  const team = null;
-  const currentMatch = null;
-  const matches = null;
-
-  const wrappedFetchMatchesByDate = async (date:string) => {
+  // ---------- Wrapped calls ----------
+  const fetchLiveMatches = async () => {
     try {
-      const response = await fetchMatchesByDate(date); 
-  
-      if (response.success) {
-        
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
+      const res = await storeFetchLiveMatches();
+      if (res.success) setLiveMatches(res.data);
+    } catch {
+      // Do not change state if it fails
     }
   };
 
-  const wrappedFetchUpcomingMatches = async () => {
+  const fetchMatchesByDate = async (date: string) => {
     try {
-      const response = await fetchMatchesByDate(date); 
-  
-      if (response.success) {
-        
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
-    }
+      const res = await storeFetchMatchesByDate(date);
+      if (res.success) setMatches(res.matches);
+    } catch {}
   };
 
-  const wrappedFetchLiveMatches = async () => {
+  const getMatchById = async (id: string) => {
     try {
-      const response = await fetchMatchesByDate(date); 
-  
-      if (response.success) {
-        
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
-    }
-  };
-   
-   
-  const wrappedGetMatchById = async (id:string) => {
-    try {
-      const response = await getMatchById(id); 
-  
-      if (response.success) {
-        
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
-    }
-  };
-   
-  const wrappedGetAllCountries = async () => {
-    try {
-      const response = await getAllCountries(); 
-  
-
-    } catch (error) {
-      console.error('Login error:', error);
-    }
+      const res = await storeGetMatchById(id);
+      console.log("Fetched Match:", res);
+      if (res.success) setCurrentMatch(res.data);
+    } catch {}
   };
 
-  const wrappedGetCountryById = async (date:string) => {
+  const getAllCountries = async () => {
     try {
-      const response = await fetchMatchesByDate(date); 
-  
-      if (response.success) {
-        
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
-    }
+      const res = await storeGetAllCountries();
+      if (res.success) setCountries(res.countries);
+    } catch {}
   };
 
-  const wrappedGetTeamById = async (date:string) => {
+  const getCountryById = async (id: string) => {
     try {
-      const response = await fetchMatchesByDate(date); 
-  
-      if (response.success) {
-        
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
-    }
+      const res = await storeGetCountryById(id);
+      if (res.success) setCurrentCountry(res.country);
+    } catch {}
   };
 
-  const wrappedGetPlayerById = async (date:string) => {
+  const getTeamById = async (id: string) => {
     try {
-      const response = await fetchMatchesByDate(date); 
-  
-      if (response.success) {
-        
-      }
-
-    } catch (error) {
-      console.error('Login error:', error);
-    }
+      const res = await storeGetTeamById(id);
+      if (res.success) setTeam(res.team);
+    } catch {}
   };
-  
-  const wrappedGetLeagueById = async (date:string) => {
-    try {
-      const response = await fetchMatchesByDate(date); 
-  
-      if (response.success) {
-        
-      }
 
-    } catch (error) {
-      console.error('Login error:', error);
-    }
+  const getPlayerById = async (id: string) => {
+    try {
+      const res = await storeGetPlayerById(id);
+      if (res.success) setPlayer(res.player);
+    } catch {}
   };
 
   return (
-    <FootballContext.Provider value={{
-      fetchMatchesByDate: wrappedFetchMatchesByDate,
-      getMatchById: wrappedGetMatchById,
-      getAllCountries: wrappedGetAllCountries,
-      getCountryById: wrappedGetCountryById,
-      getTeamById: wrappedGetTeamById,
-      getPlayerById: wrappedGetPlayerById,
-      getLeagueById: wrappedGetLeagueById,
-      team,
-      league,
-      currentMatch,
-      matches,
-      currentCountry,
-      countries,
-      loading,
-      error
-    }}>
+    <FootballContext.Provider
+      value={{
+        fetchLiveMatches,
+        fetchMatchesByDate,
+        getMatchById,
+        getAllCountries,
+        getCountryById,
+        getTeamById,
+        getPlayerById,
+        matches,
+        liveMatches,
+        currentMatch,
+        countries,
+        currentCountry,
+        team,
+        player,
+        loading: storeLoading,
+        error: storeError
+      }}
+    >
       {children}
     </FootballContext.Provider>
   );
 };
 
 export const useFootballContext = () => {
-  const context = useContext(DataContext);
-  if (!context) throw new Error('useData must be used within an DataProvider');
+  const context = useContext(FootballContext);
+  if (!context) {
+    throw new Error('useFootballContext must be used within a FootballProvider');
+  }
   return context;
 };

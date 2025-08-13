@@ -1,4 +1,10 @@
+import { useFootballContext } from "../../../../../contexts/useFootballContext";
+
 const MatchHeader = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) => {
+
+  const { currentMatch , loading } = useFootballContext();
+  
+  console.log("Current Match:", currentMatch);
   return (
     <div className="bg-[#121212] text-white rounded-md p-4 w-full max-w-md mx-auto border border-gray-700 shadow-lg">
       {/* Date and Time */}
@@ -17,7 +23,7 @@ const MatchHeader = ({ activeTab, setActiveTab }: { activeTab: string, setActive
         {/* Score */}
         <div className="text-center w-1/3">
           <div className="text-2xl font-bold">1 - 1</div>
-          <div className="text-xs text-gray-400">Finished</div>
+          <div className="text-xs text-gray-400">{currentMatch?.matchStatus||'unknown'}</div>
         </div>
 
         {/* Team 2 */}

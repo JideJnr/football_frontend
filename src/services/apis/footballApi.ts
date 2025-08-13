@@ -6,8 +6,13 @@ const api = axios.create({
   baseURL: BASE_URL
 });
 
+export const getLiveMatches = async () => {
+  const response = await api.get<Response>('/matches/live');
+  return response.data;
+};
+
 export const getAllMatchesByDate = async (date: string) => {
-  const response = await api.get<Response>('/matches',{params: { date }});
+  const response = await api.get<Response>('/matches/date', { params: { date } });
   return response.data;
 };
 
@@ -17,7 +22,7 @@ export const getMatchById = async (id: string) => {
 };
 
 export const getAllCountry = async () => {
-  const response = await api.get<Response>('/country/all');
+  const response = await api.get<Response>('/country');
   return response.data;
 };
 

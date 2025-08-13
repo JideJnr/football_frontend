@@ -1,4 +1,5 @@
 import React from "react";
+import { useFootballContext } from "../../contexts/useFootballContext";
 
 const stats = [
   {
@@ -37,6 +38,9 @@ const StatBar = ({ teamA, teamB }: { teamA: number; teamB: number }) => {
 };
 
 const MatchOverview = () => {
+
+    const { currentMatch , loading } = useFootballContext();
+
   return (
     <div className="bg-[#0F0F1A] text-white w-full max-w-sm mx-auto rounded-xl p-4 font-sans">
       <h2 className="text-center text-sm font-bold mb-4">Match overview</h2>

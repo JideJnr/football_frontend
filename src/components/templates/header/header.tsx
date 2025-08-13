@@ -33,7 +33,7 @@ const CustomHeader = () => {
         </div>
 
             <div className="text-xl mx-auto w-fit pb-2 font-bold">
-              GOD'S EYE 👁️‍🗨️ 
+              SIGNAL 👁️‍🗨️ 
             </div>
         <div className="w-6 opacity-0"></div>
     </IonHeader>

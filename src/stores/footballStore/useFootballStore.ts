@@ -1,20 +1,43 @@
 import { create } from 'zustand';
-import api from '../../services/footballApi';
+import * as api from '../../services/apis/footballApi';
 
+interface FootballState {
+  loading: boolean;
+  error: string | null;
+  fetchLiveMatches: () => Promise<any>;
+  fetchMatchesByDate: (date: string) => Promise<any>;
+  getMatchById: (id: string) => Promise<any>;
+  getAllCountries: () => Promise<any>;
+  getCountryById: (id: string) => Promise<any>;
+  getTeamById: (id: string) => Promise<any>;
+  getPlayerById: (id: string) => Promise<any>;
+}
 
-
-export const useFootballStore = create<FootballState>((set, get) => ({
+export const useFootballStore = create<FootballState>((set) => ({
   loading: false,
   error: null,
 
-  fetchMatchesByDate: async (date:string) => {
+  fetchLiveMatches: async () => {
+    set({ loading: true, error: null });
+    try {
+      const response = await api.getLiveMatches();
+      set({ loading: false });
+      return response;
+    } catch (err: any) {
+      set({ loading: false, error: err.message });
+      throw err;
+    }
+  },
+
+  fetchMatchesByDate: async (date: string) => {
     set({ loading: true, error: null });
     try {
       const response = await api.getAllMatchesByDate(date);
-      if (!response.success) throw new Error(response.error || 'Failed to fetch Matches');
-      set({ Matches: response.Matches, loading: false });
+      set({ loading: false });
+      return response;
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ loading: false, error: err.message });
+      throw err;
     }
   },
 
@@ -22,10 +45,11 @@ export const useFootballStore = create<FootballState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await api.getMatchById(id);
-      if (!response.success) throw new Error(response.error || 'Match not found');
-      set({ currentMatch: response.Match, loading: false });
+      set({ loading: false });
+      return response;
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ loading: false, error: err.message });
+      throw err;
     }
   },
 
@@ -33,10 +57,11 @@ export const useFootballStore = create<FootballState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await api.getAllCountry();
-      if (!response.success) throw new Error(response.error || 'Country not found');
-      set({ availableCountry: response.Country, loading: false });
+      set({ loading: false });
+      return response;
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ loading: false, error: err.message });
+      throw err;
     }
   },
 
@@ -44,33 +69,35 @@ export const useFootballStore = create<FootballState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await api.getCountryById(id);
-      if (!response.success) throw new Error(response.error || 'Country not found');
-      set({ currentCountry: response.Country, loading: false });
+      set({ loading: false });
+      return response;
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ loading: false, error: err.message });
+      throw err;
     }
   },
 
   getTeamById: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.getCountryById(id);
-      if (!response.success) throw new Error(response.error || 'Country not found');
-      set({ currentCountry: response.Country, loading: false });
+      const response = await api.getTeamById(id); // ✅ fixed wrong call
+      set({ loading: false });
+      return response;
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ loading: false, error: err.message });
+      throw err;
     }
   },
 
   getPlayerById: async (id: string) => {
     set({ loading: true, error: null });
     try {
-      const response = await api.getCountryById(id);
-      if (!response.success) throw new Error(response.error || 'Country not found');
-      set({ currentCountry: response.Country, loading: false });
+      const response = await api.getPlayerById(id); // ✅ fixed wrong call
+      set({ loading: false });
+      return response;
     } catch (err: any) {
-      set({ error: err.message, loading: false });
+      set({ loading: false, error: err.message });
+      throw err;
     }
   },
-
 }));
