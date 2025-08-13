@@ -40,12 +40,7 @@ const Settings = () => {
           📊 Analytics
         </div>
 
-        <div
-          onClick={navigateToNotification}
-          className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
-        >
-          🛠 Notification
-        </div>
+     
 
         <div
           onClick={toggleDarkMode}

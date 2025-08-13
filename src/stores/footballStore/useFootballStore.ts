@@ -4,11 +4,6 @@ import api from '../../services/footballApi';
 
 
 export const useFootballStore = create<FootballState>((set, get) => ({
-  Matches: [],
-  availableMatches: [],
-  availableCountry: [],
-  currentMatch: null,
-  currentCountry: null,
   loading: false,
   error: null,
 
@@ -22,7 +17,6 @@ export const useFootballStore = create<FootballState>((set, get) => ({
       set({ error: err.message, loading: false });
     }
   },
-
 
   getMatchById: async (id: string) => {
     set({ loading: true, error: null });
@@ -46,7 +40,6 @@ export const useFootballStore = create<FootballState>((set, get) => ({
     }
   },
 
-
   getCountryById: async (id: string) => {
     set({ loading: true, error: null });
     try {
@@ -58,7 +51,7 @@ export const useFootballStore = create<FootballState>((set, get) => ({
     }
   },
 
-    getTeamById: async (id: string) => {
+  getTeamById: async (id: string) => {
     set({ loading: true, error: null });
     try {
       const response = await api.getCountryById(id);
@@ -69,8 +62,7 @@ export const useFootballStore = create<FootballState>((set, get) => ({
     }
   },
 
-  
-    getPlayerById: async (id: string) => {
+  getPlayerById: async (id: string) => {
     set({ loading: true, error: null });
     try {
       const response = await api.getCountryById(id);
@@ -80,7 +72,5 @@ export const useFootballStore = create<FootballState>((set, get) => ({
       set({ error: err.message, loading: false });
     }
   },
-
-  
 
 }));

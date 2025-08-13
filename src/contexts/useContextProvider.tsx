@@ -1,20 +1,20 @@
 import React from 'react';
 import { AuthProvider } from './useAuthContext';
 import { DarkModeProvider } from './useDarkModeContext';
-import { DataProvider } from './useFootballContext';
+import { FootballProvider } from './useFootballContext';
 
 
 export const ContextProvider:  React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     
       <AuthProvider>
-        <DataProvider>
+        <FootballProvider>
           
             <DarkModeProvider>
               {children}
             </DarkModeProvider>
            
-        </DataProvider>
+        </FootballProvider>
       </AuthProvider>
     
   );

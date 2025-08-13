@@ -14,7 +14,6 @@ const Rating = React.lazy(() => import( "../pages/main/prediction/rating/index")
 const Splash = React.lazy(() => import( "../pages/splash/splash"));
 const Home = React.lazy(() => import( "../pages/main/main"));
 const Loading= React.lazy(() => import( "../components/loading/Loading"));
-const Services = React.lazy(() => import("../pages/services/services"));
 const  MatchDetails = React.lazy(() => import( "../pages/main/details/match/page"));
 const  CountryDetails = React.lazy(() => import( "../pages/main/details/country/page"));
 const  TeamDetails = React.lazy(() => import( "../pages/main/details/team/page"));
@@ -52,8 +51,7 @@ const Routes: React.FC = () => {
   return (
     <IonRouterOutlet>
       <Route path="/analytics" exact component={Analytics} />
-      <Route path="/services" exact component={Services} />
-
+      
       <Route path="/builder" exact component={Builder} />
       <Route path="/engines" exact component={Engine} />
       <Route path="/suggestions" exact component={Suggestions} />

@@ -1,9 +1,9 @@
 import { createContext, useContext, ReactNode, useState } from 'react';
 import { useFootballStore } from '../stores/footballStore/useFootballStore';
 
-const DataContext = createContext<DataContextType | undefined>(undefined);
+const FootballContext = createContext<DataContextType | undefined>(undefined);
 
-export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { fetchMatchesByDate, getMatchById, getAllCountries, getTeamById, getPlayerById, error , loading:apiLoading } = useFootballStore();
 
   const [loading , setLoading] = useState(false)
@@ -27,6 +27,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('Login error:', error);
     }
   };
+
+  const wrappedFetchUpcomingMatches = async () => {
+    try {
+      const response = await fetchMatchesByDate(date); 
+  
+      if (response.success) {
+        
+      }
+
+    } catch (error) {
+      console.error('Login error:', error);
+    }
+  };
+
+  const wrappedFetchLiveMatches = async () => {
+    try {
+      const response = await fetchMatchesByDate(date); 
+  
+      if (response.success) {
+        
+      }
+
+    } catch (error) {
+      console.error('Login error:', error);
+    }
+  };
+   
    
   const wrappedGetMatchById = async (id:string) => {
     try {
@@ -104,7 +131,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <DataContext.Provider value={{
+    <FootballContext.Provider value={{
       fetchMatchesByDate: wrappedFetchMatchesByDate,
       getMatchById: wrappedGetMatchById,
       getAllCountries: wrappedGetAllCountries,
@@ -122,11 +149,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       error
     }}>
       {children}
-    </DataContext.Provider>
+    </FootballContext.Provider>
   );
 };
 
-export const useData = () => {
+export const useFootballContext = () => {
   const context = useContext(DataContext);
   if (!context) throw new Error('useData must be used within an DataProvider');
   return context;

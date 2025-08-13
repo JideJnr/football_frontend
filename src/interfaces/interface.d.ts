@@ -41,9 +41,6 @@ interface TennisState {
 }
 
 interface FootballState {
-  Matches: Match[];
-  availableMatches: Match[];
-  currentMatch: Match | null;
   loading: boolean;
   error: string | null;
   

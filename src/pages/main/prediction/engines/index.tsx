@@ -3,10 +3,10 @@ import { useEffect } from 'react';
 import BackTemplate from '../../../../components/templates/back/back';
 
 const navItems = [
-  { label: 'Bet Builder', route: '/builder' },
-  { label: 'Engines', route: '/engines' },
-  { label: 'Upcoming Suggestions', route: '/suggestions' },
-  { label: 'User Rating', route: '/rating' },
+  { label: 'Phillip', route: '/philip' },
+  { label: 'joshua', route: '/joshua' },
+  { label: 'raymond', route: '/raymond' },
+  { label: 'tiffany', route: '/tiffany' },
 ];
 
 const Engines = () => {
@@ -38,7 +38,7 @@ const Engines = () => {
                 onClick={() => handleNavigation(item.route)}
                 className="cursor-pointer border border-green-700 hover:bg-green-900 hover:text-black p-3 rounded transition-all"
               >
-                🚀 {item.label}
+                🚀 {item.label} - 56%
               </div>
             ))}
   </BackTemplate>
