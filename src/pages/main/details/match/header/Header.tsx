@@ -12,24 +12,28 @@ const MatchHeader = ({ activeTab, setActiveTab }: { activeTab: string, setActive
         25/07/2025 • 19:45
       </div>
 
+      <div className="text-sm text-gray-400 text-center mb-2">
+        {currentMatch?.matchInfo.venue}
+      </div>
+
       {/* Match Info */}
       <div className="flex items-center justify-between mb-3">
         {/* Team 1 */}
         <div className="flex flex-col items-center w-1/3">
-          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/f/f5/Royal_Antwerp_FC_logo.svg/1200px-Royal_Antwerp_FC_logo.svg.png" alt="Royal Antwerp" className="h-10 mb-1" />
-          <span className="text-sm">Royal Antwerp</span>
+          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/f/f5/Royal_Antwerp_FC_logo.svg/1200px-Royal_Antwerp_FC_logo.svg.png" alt={currentMatch?.matchInfo.homeTeam} className="h-10 mb-1" />
+          <span className="text-sm">{currentMatch?.matchInfo.homeTeam}</span>
         </div>
 
         {/* Score */}
         <div className="text-center w-1/3">
-          <div className="text-2xl font-bold">1 - 1</div>
-          <div className="text-xs text-gray-400">{currentMatch?.matchStatus||'unknown'}</div>
+          <div className="text-2xl font-bold">{currentMatch?.matchInfo.score||'unknown'}</div>
+          <div className="text-xs text-gray-400">{currentMatch?.matchInfo.status||'unknown'}</div>
         </div>
 
         {/* Team 2 */}
         <div className="flex flex-col items-center w-1/3">
-          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/3/37/Union_Saint-Gilloise_logo_2020.svg/1200px-Union_Saint-Gilloise_logo_2020.svg.png" alt="USG" className="h-10 mb-1" />
-          <span className="text-sm">USG</span>
+          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/3/37/Union_Saint-Gilloise_logo_2020.svg/1200px-Union_Saint-Gilloise_logo_2020.svg.png" alt={currentMatch?.matchInfo.awayTeam} className="h-10 mb-1" />
+          <span className="text-sm">{currentMatch?.matchInfo.awayTeam}</span>
         </div>
       </div>
 

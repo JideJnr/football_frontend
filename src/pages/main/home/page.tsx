@@ -42,7 +42,7 @@ const Home = () => {
           <div className="flex justify-between items-center">
             <div>
               ⚽️ {match.homeTeam} {"-"}{" "}
-              {match.score ?? "--"}{" "}{"-"}
+              {match.score ?? "--"}{" "}{"-"}{" "}
               {match.awayTeam ?? "-"}
             </div>
           </div>
