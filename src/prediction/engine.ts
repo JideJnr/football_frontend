@@ -198,9 +198,9 @@ export const runEngines = (
 
   for (const match of matches) {
     // skip live/finished matches
-    if (match.period && match.period !== 'Not start') continue;
+    if (match.period && match.period !== 'Not start' && match.period !== 'Not started') continue;
 
-    const markets: any[] = match.markets || [];
+    const markets: any[] = match.all_markets || match.sportybet_markets || match.markets || [];
 
     for (const engine of activeEngines) {
       for (const rule of engine.rules) {

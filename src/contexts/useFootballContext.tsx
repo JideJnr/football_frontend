@@ -1,10 +1,11 @@
-import { createContext, useContext, ReactNode, useState } from 'react';
+import { createContext, useContext, ReactNode, useCallback, useState } from 'react';
 import { useFootballStore } from '../stores/footballStore/useFootballStore';
 
 interface FootballContextType {
   getTodayMatches: () => Promise<void>;
   getMatchesByDate: (date: string) => Promise<void>;
   getMatchDetail: (id: string) => Promise<void>;
+  mergeLiveMatches: (liveMatches: any[]) => void;
   matches: any[] | null;
   matchDetail: any | null;
   loading: boolean;
@@ -42,9 +43,20 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
+  const mergeLiveMatches = useCallback((liveMatches: any[]) => {
+    setMatches(prev => {
+      const current = prev || [];
+      const byId = new Map(current.map(match => [String(match.sportybet_id), match]));
+      for (const live of liveMatches || []) {
+        byId.set(String(live.sportybet_id), { ...(byId.get(String(live.sportybet_id)) || {}), ...live });
+      }
+      return Array.from(byId.values());
+    });
+  }, []);
+
   return (
     <FootballContext.Provider value={{
-      getTodayMatches, getMatchesByDate, getMatchDetail,
+      getTodayMatches, getMatchesByDate, getMatchDetail, mergeLiveMatches,
       matches, matchDetail,
       loading: store.loading,
       error: store.error,

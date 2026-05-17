@@ -1,6 +1,7 @@
 import { IonContent, IonRefresher, IonRefresherContent, useIonRouter } from "@ionic/react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useFootballContext } from "../../../contexts/useFootballContext";
+import { LIVE_WS_URL } from "../../../services/apis/footballApi";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -451,7 +452,7 @@ type SortMode = "country" | "time";
 
 const Home = () => {
   const router = useIonRouter();
-  const { getTodayMatches, getMatchesByDate, matches, loading } = useFootballContext();
+  const { getTodayMatches, getMatchesByDate, mergeLiveMatches, matches, loading } = useFootballContext();
 
   const [activeTab, setActiveTab] = useState<"all" | "live" | "upcoming">("all");
   const [selectedDate, setSelectedDate] = useState(todayISO());
@@ -472,6 +473,23 @@ const Home = () => {
   useEffect(() => {
     fetchForDate(selectedDate);
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (selectedDate !== todayISO()) return;
+    const socket = new WebSocket(LIVE_WS_URL);
+    socket.onmessage = event => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload?.type === "live_update") {
+          mergeLiveMatches(payload.matches || []);
+        }
+      } catch (err) {
+        console.error("Live update parse error:", err);
+      }
+    };
+    socket.onerror = err => console.error("Live socket error:", err);
+    return () => socket.close();
+  }, [selectedDate, mergeLiveMatches]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);

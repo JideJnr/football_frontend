@@ -6,12 +6,14 @@ import { useAuth } from "../contexts/useAuthContext";
 const Analytics = React.lazy(() => import("../pages/analytics/analytics"));
 const Builder = React.lazy(() => import("../pages/main/prediction/betbuilder/index"));
 const Engine = React.lazy(() => import("../pages/main/prediction/engines/index"));
+const ValueBets = React.lazy(() => import("../pages/main/prediction/value-bets/index"));
 const Suggestions = React.lazy(() => import("../pages/main/prediction/suggestion/index"));
 const Rating = React.lazy(() => import("../pages/main/prediction/rating/index"));
 const Splash = React.lazy(() => import("../pages/splash/splash"));
 const Home = React.lazy(() => import("../pages/main/main"));
 const Loading = React.lazy(() => import("../components/loading/Loading"));
 const MatchDetails = React.lazy(() => import("../pages/main/details/match/page"));
+const OddsMovementDetail = React.lazy(() => import("../pages/main/details/match/OddsMovementDetail"));
 const CountryDetails = React.lazy(() => import("../pages/main/details/country/page"));
 const TeamDetails = React.lazy(() => import("../pages/main/details/team/page"));
 const LeagueDetails = React.lazy(() => import("../pages/main/details/league/page"));
@@ -33,12 +35,14 @@ const Routes: React.FC = () => {
       <Route path="/analytics" exact component={Analytics} />
       <Route path="/builder" exact component={Builder} />
       <Route path="/engines" exact component={Engine} />
+      <Route path="/prediction/value-bets" exact component={ValueBets} />
       <Route path="/suggestions" exact component={Suggestions} />
       <Route path="/rating" exact component={Rating} />
       <Route path="/country/:id" exact component={CountryDetails} />
       <Route path="/team/:id" exact component={TeamDetails} />
       <Route path="/league/:id" exact component={LeagueDetails} />
-      <Route path="/match/:id" exact component={MatchDetails} />
+      <Route path="/match/:id/odds/:index" exact component={OddsMovementDetail} />
+      <Route path="/match/:id" component={MatchDetails} />
       <Route path="/home" exact component={Home} />
       <Route path="/" exact component={Splash} />
       <Route render={() => <Redirect to="/home" />} />
