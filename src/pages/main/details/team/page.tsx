@@ -1,12 +1,12 @@
 import { IonContent,  useIonRouter } from '@ionic/react';
 import { useState } from 'react';
-import { useData } from '../../../../contexts/useFootballContext';
+import { useFootballContext } from '../../../../contexts/useFootballContext';
 
 const MatchDetails = () => {
   const router = useIonRouter();
   const [view, setView] = useState('main');
 
-    const { team, getTeamById , loading, error } = useData()
+  const { team, getTeamById, loading, error } = useFootballContext()
   
 
   return (

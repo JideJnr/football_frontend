@@ -2,7 +2,15 @@ import { createContext, useContext, ReactNode } from 'react';
 import { useIonRouter } from '@ionic/react';
 import { useAuthStore } from '../stores/authStore/useAuthStore';
 
-
+interface AuthContextType {
+  user: { uid: string; email: string; firstName: string; role: string } | null;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (payload: any) => Promise<void>;
+  logout: () => Promise<void>;
+  isAuthenticated: boolean;
+  loading: boolean;
+  error: string | null;
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 

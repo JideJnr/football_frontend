@@ -2,9 +2,8 @@ import { useFootballContext } from "../../../../../contexts/useFootballContext";
 
 const MatchHeader = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) => {
 
-  const { currentMatch , loading } = useFootballContext();
-  
-  console.log("Current Match:", currentMatch);
+  const { matchDetail, loading } = useFootballContext();
+  const currentMatch = matchDetail;
   return (
     <div className="bg-[#121212] text-white rounded-md p-4 w-full max-w-md mx-auto border border-gray-700 shadow-lg">
       {/* Date and Time */}
@@ -13,27 +12,29 @@ const MatchHeader = ({ activeTab, setActiveTab }: { activeTab: string, setActive
       </div>
 
       <div className="text-sm text-gray-400 text-center mb-2">
-        {currentMatch?.matchInfo.venue}
+        {currentMatch?.venue}
       </div>
 
       {/* Match Info */}
       <div className="flex items-center justify-between mb-3">
         {/* Team 1 */}
         <div className="flex flex-col items-center w-1/3">
-          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/f/f5/Royal_Antwerp_FC_logo.svg/1200px-Royal_Antwerp_FC_logo.svg.png" alt={currentMatch?.matchInfo.homeTeam} className="h-10 mb-1" />
-          <span className="text-sm">{currentMatch?.matchInfo.homeTeam}</span>
+          <img src="" alt={currentMatch?.home_team} className="h-10 mb-1" />
+          <span className="text-sm">{currentMatch?.home_team}</span>
         </div>
 
         {/* Score */}
         <div className="text-center w-1/3">
-          <div className="text-2xl font-bold">{currentMatch?.matchInfo.score||'unknown'}</div>
-          <div className="text-xs text-gray-400">{currentMatch?.matchInfo.status||'unknown'}</div>
+          <div className="text-2xl font-bold">
+            {currentMatch?.score ? `${currentMatch.score.home ?? '-'} - ${currentMatch.score.away ?? '-'}` : 'vs'}
+          </div>
+          <div className="text-xs text-gray-400">{currentMatch?.period || '-'}</div>
         </div>
 
         {/* Team 2 */}
         <div className="flex flex-col items-center w-1/3">
-          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/3/37/Union_Saint-Gilloise_logo_2020.svg/1200px-Union_Saint-Gilloise_logo_2020.svg.png" alt={currentMatch?.matchInfo.awayTeam} className="h-10 mb-1" />
-          <span className="text-sm">{currentMatch?.matchInfo.awayTeam}</span>
+          <img src="" alt={currentMatch?.away_team} className="h-10 mb-1" />
+          <span className="text-sm">{currentMatch?.away_team}</span>
         </div>
       </div>
 
