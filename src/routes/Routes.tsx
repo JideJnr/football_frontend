@@ -41,8 +41,26 @@ const Routes: React.FC = () => {
       <Route path="/country/:id" exact component={CountryDetails} />
       <Route path="/team/:id" exact component={TeamDetails} />
       <Route path="/league/:id" exact component={LeagueDetails} />
-      <Route path="/match/:id/odds/:index" exact component={OddsMovementDetail} />
-      <Route path="/match/:id" component={MatchDetails} />
+      <Route path="/engine/:id" exact component={React.lazy(() => import('../pages/main/prediction/engines/signals'))} />
+
+      {/*
+        Match routes — odds detail MUST come before the base match route.
+        Both use path prefix matching on location.pathname internally
+        because match IDs can contain encoded colons (sr%3Amatch%3A...).
+        The regex path ensures React Router doesn't confuse the encoded
+        colon segments with nested route params.
+      */}
+      <Route
+        path="/match/:matchId/odds/:index"
+        exact
+        component={OddsMovementDetail}
+      />
+      <Route
+        path="/match/:matchId"
+        exact
+        component={MatchDetails}
+      />
+
       <Route path="/home" exact component={Home} />
       <Route path="/" exact component={Splash} />
       <Route render={() => <Redirect to="/home" />} />

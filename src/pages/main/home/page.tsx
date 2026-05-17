@@ -49,7 +49,28 @@ const formatKickoff = (startTime: any): string => {
 
 const isLive = (m: any) => {
   const p = m.period;
-  return p && p !== "Not started" && p !== "Not start" && p !== "FT" && p !== "AET" && p !== "Finished";
+  return p && p !== "Not started" && p !== "Not start" && p !== "FT" && p !== "AET" && p !== "Finished" && p !== "Ended" && p !== "After Penalties" && p !== "After Extra Time";
+};
+
+const isFinished = (m: any) => {
+  const p = (m.period || "").toLowerCase();
+  if (p === "ft" || p === "aet" || p === "finished" || p === "ended" || p === "after penalties" || p === "after extra time" || p === "ap") return true;
+  // Hide H2 matches at 90+ minutes — they are effectively over
+  if (p === "h2" || p === "2h") {
+    const val = m.played_seconds;
+    let ps: number | null = null;
+    if (typeof val === "number" && val > 0) ps = val;
+    else if (typeof val === "string" && val.includes(":")) {
+      const [mm, ss] = val.split(":").map(Number);
+      if (!isNaN(mm) && !isNaN(ss)) ps = mm * 60 + ss;
+    } else if (val != null) { const n = Number(val); if (!isNaN(n) && n > 0) ps = n; }
+    if (ps !== null && Math.floor(ps / 60) >= 90) return true;
+    // Fallback via start_time: 105+ mins since kickoff
+    const t = m.start_time;
+    const startMs = !t ? 0 : typeof t === "string" ? new Date(t).getTime() : t < 1e10 ? t * 1000 : t;
+    if (startMs && Math.floor((Date.now() - startMs) / 60000) >= 105) return true;
+  }
+  return false;
 };
 
 const scoreStr = (score: { home: string | null; away: string | null } | null | undefined) => {
@@ -57,26 +78,31 @@ const scoreStr = (score: { home: string | null; away: string | null } | null | u
   return score.home !== null && score.away !== null ? `${score.home} - ${score.away}` : null;
 };
 
-// Derive a country from tournament name (heuristic: "Country - League" pattern)
+// Derive a country from tournament name.
+// SportyBet sends names like "England - Premier League", "Ukraine - Premier League",
+// or bare names like "Champions League". Always prefer the explicit "Country - League"
+// split — never guess country from league name alone.
 const parseLeagueCountry = (tournament: string): { country: string; league: string } => {
   const sep = tournament.indexOf(" - ");
   if (sep !== -1) {
     return { country: tournament.slice(0, sep).trim(), league: tournament.slice(sep + 3).trim() };
   }
-  // Common known leagues
-  const knownMap: Record<string, string> = {
-    "Premier League": "England",
-    "La Liga": "Spain",
-    "Bundesliga": "Germany",
-    "Serie A": "Italy",
-    "Ligue 1": "France",
+  // Only use known map for tournaments that never carry a country prefix
+  const internationalLeagues: Record<string, string> = {
     "Champions League": "Europe",
+    "UEFA Champions League": "Europe",
     "Europa League": "Europe",
+    "UEFA Europa League": "Europe",
     "Conference League": "Europe",
+    "UEFA Conference League": "Europe",
     "World Cup": "International",
+    "FIFA World Cup": "International",
     "AFCON": "Africa",
+    "Africa Cup of Nations": "Africa",
+    "Copa America": "International",
+    "Nations League": "International",
   };
-  for (const [key, country] of Object.entries(knownMap)) {
+  for (const [key, country] of Object.entries(internationalLeagues)) {
     if (tournament.includes(key)) return { country, league: tournament };
   }
   return { country: "Other", league: tournament };
@@ -457,6 +483,7 @@ const Home = () => {
   const [activeTab, setActiveTab] = useState<"all" | "live" | "upcoming">("all");
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [sortMode, setSortMode] = useState<SortMode>("country");
+  const [wsConnected, setWsConnected] = useState(false);
   const dateStrip = useMemo(() => buildDateStrip(), []);
 
   const fetchForDate = useCallback(
@@ -476,34 +503,67 @@ const Home = () => {
 
   useEffect(() => {
     if (selectedDate !== todayISO()) return;
-    const socket = new WebSocket(LIVE_WS_URL);
-    socket.onmessage = event => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload?.type === "live_update") {
-          mergeLiveMatches(payload.matches || []);
+
+    let socket: WebSocket;
+    let dead = false;
+    let retryDelay = 1_000;
+
+    const connect = () => {
+      if (dead) return;
+      socket = new WebSocket(LIVE_WS_URL);
+
+      socket.onopen = () => {
+        setWsConnected(true);
+        retryDelay = 1_000; // reset backoff on successful connect
+      };
+
+      socket.onmessage = event => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload?.type === "live_update") {
+            mergeLiveMatches(payload.matches || []);
+          }
+        } catch {
+          // malformed frame — ignore
         }
-      } catch (err) {
-        console.error("Live update parse error:", err);
-      }
+      };
+
+      socket.onerror = () => {
+        // onclose fires right after, reconnect happens there
+      };
+
+      socket.onclose = () => {
+        setWsConnected(false);
+        if (!dead) {
+          setTimeout(connect, retryDelay);
+          retryDelay = Math.min(retryDelay * 2, 30_000); // cap at 30 s
+        }
+      };
     };
-    socket.onerror = err => console.error("Live socket error:", err);
-    return () => socket.close();
+
+    connect();
+
+    return () => {
+      dead = true;
+      setWsConnected(false);
+      socket?.close();
+    };
   }, [selectedDate, mergeLiveMatches]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
   };
 
-  // Filter by tab
+  // Filter by tab — finished matches are always excluded from all/upcoming
   const filtered = useMemo(() => {
-    const all = matches || [];
+    const all = (matches || []).filter(m => !isFinished(m));
     if (activeTab === "live") return all.filter(isLive);
     if (activeTab === "upcoming") return all.filter(m => !isLive(m));
     return all;
   }, [matches, activeTab]);
 
   const liveCount = (matches || []).filter(isLive).length;
+  const finishedCount = (matches || []).filter(isFinished).length;
 
   // Group by country → league
   const groupedByCountry = useMemo(() => {
@@ -632,6 +692,19 @@ const Home = () => {
             </svg>
             Time
           </button>
+        </div>
+
+        {/* WS status dot */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {finishedCount > 0 && (
+            <span className="text-[10px] text-gray-600 border border-white/10 rounded-full px-1.5 py-0.5">
+              {finishedCount} FT
+            </span>
+          )}
+          <span
+            className={`w-1.5 h-1.5 rounded-full shrink-0 ${wsConnected ? 'bg-emerald-400' : 'bg-gray-600'}`}
+            title={wsConnected ? 'Live feed connected' : 'Reconnecting…'}
+          />
         </div>
       </div>
 

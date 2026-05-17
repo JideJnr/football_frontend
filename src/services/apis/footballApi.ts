@@ -44,10 +44,19 @@ export const matchSofascoreCandidate = (
 ) => api.post(`/matches/${id}/sofascore-match`, payload).then(r => r.data);
 
 // ── Buffer status ────────────────────────────────────────────
+export const cleanupFinishedMatches = () =>
+  api.post('/matches/cleanup').then(r => r.data);
+
 export const getBufferStatus = () =>
   api.get('/buffer/status').then(r => r.data);
 
 // ── Prediction history ───────────────────────────────────────
+export const refreshPredictions = () =>
+  api.post('/predictions/refresh').then(r => r.data);
+
+export const getPredictionsToday = () =>
+  api.get('/predictions/today').then(r => r.data);
+
 export const getPredictionHistory = (limit = 200) =>
   api.get(`/predictions/history?limit=${limit}`).then(r => r.data);
 
@@ -67,6 +76,9 @@ export const triggerIngestLive = () =>
 
 export const triggerEnrichWorker = () =>
   api.post('/mongo/scan/enrich').then(r => r.data);
+
+export const triggerGradeResults = (hoursBack = 24) =>
+  api.post(`/results/grade?hours_back=${hoursBack}`).then(r => r.data);
 
 export const triggerFlushToMongo = (date?: string) =>
   api.post('/mongo/flush', null, { params: date ? { match_date: date } : {} }).then(r => r.data);

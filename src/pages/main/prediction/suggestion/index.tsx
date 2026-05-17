@@ -183,6 +183,61 @@ function Suggestions() {
               )}
             </div>
 
+            {/* Context adjustment breakdown */}
+            {signal.contextAdjustment && signal.contextAdjustment.factors.length > 0 && (
+              <div className="bg-[#0e0e0e] border border-white/[0.06] rounded p-2 space-y-1.5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Context Adjustments</span>
+                  <span className={`text-[10px] font-mono font-bold ${signal.contextAdjustment.delta > 0 ? 'text-emerald-400' : signal.contextAdjustment.delta < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                    {signal.contextAdjustment.delta > 0 ? '+' : ''}{(signal.contextAdjustment.delta * 100).toFixed(1)}% adj
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                  <span>Raw: <span className="text-gray-300">{(signal.contextAdjustment.rawProbability * 100).toFixed(1)}%</span></span>
+                  <span>→</span>
+                  <span>Adjusted: <span className="text-white font-semibold">{(signal.modelProbability * 100).toFixed(1)}%</span></span>
+                </div>
+                {signal.contextAdjustment.factors.map((f, i) => (
+                  <div key={i} className="text-[10px] text-gray-500 leading-relaxed">
+                    • {f}
+                  </div>
+                ))}
+                {/* H2H summary pill */}
+                {signal.contextAdjustment.h2hBias && signal.contextAdjustment.h2hBias.meetings > 0 && (
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <span className="text-[9px] text-gray-600 uppercase tracking-wide">H2H</span>
+                    <span className="text-[10px] text-emerald-400 font-bold">{signal.contextAdjustment.h2hBias.homeWins}W</span>
+                    <span className="text-[10px] text-gray-500">{signal.contextAdjustment.h2hBias.draws}D</span>
+                    <span className="text-[10px] text-red-400 font-bold">{signal.contextAdjustment.h2hBias.awayWins}L</span>
+                    <span className="text-[10px] text-gray-600">({signal.contextAdjustment.h2hBias.meetings} meetings)</span>
+                  </div>
+                )}
+                {/* Table pressure pills */}
+                {signal.contextAdjustment.tablePressure && (
+                  <div className="flex gap-1.5 mt-1 flex-wrap">
+                    {signal.contextAdjustment.tablePressure.homeZone !== 'none' && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-semibold ${
+                        signal.contextAdjustment.tablePressure.homeZone === 'title_race' ? 'text-yellow-400 border-yellow-800' :
+                        signal.contextAdjustment.tablePressure.homeZone === 'top4' ? 'text-emerald-400 border-emerald-800' :
+                        'text-red-400 border-red-800'
+                      }`}>
+                        🏠 {signal.contextAdjustment.tablePressure.homeZone.replace('_', ' ')}
+                      </span>
+                    )}
+                    {signal.contextAdjustment.tablePressure.awayZone !== 'none' && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded border font-semibold ${
+                        signal.contextAdjustment.tablePressure.awayZone === 'title_race' ? 'text-yellow-400 border-yellow-800' :
+                        signal.contextAdjustment.tablePressure.awayZone === 'top4' ? 'text-emerald-400 border-emerald-800' :
+                        'text-red-400 border-red-800'
+                      }`}>
+                        ✈️ {signal.contextAdjustment.tablePressure.awayZone.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Action buttons */}
             {signal.status === 'pending' && (
               <div className="flex gap-2">

@@ -34,7 +34,8 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const getMatchDetail = async (id: string) => {
-    setMatchDetail(null);
+    // Only clear if switching to a different match
+    setMatchDetail(prev => (prev && String(prev.sportybet_id) === String(id) ? prev : null));
     try {
       const res = await store.getMatchDetail(id);
       if (res?.sportybet_id) setMatchDetail(res);
@@ -46,7 +47,7 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
   const mergeLiveMatches = useCallback((liveMatches: any[]) => {
     setMatches(prev => {
       const current = prev || [];
-      const byId = new Map(current.map(match => [String(match.sportybet_id), match]));
+      const byId = new Map(current.map(m => [String(m.sportybet_id), m]));
       for (const live of liveMatches || []) {
         byId.set(String(live.sportybet_id), { ...(byId.get(String(live.sportybet_id)) || {}), ...live });
       }
