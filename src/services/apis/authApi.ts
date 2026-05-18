@@ -6,8 +6,16 @@ const api = axios.create({
   baseURL: BASE_URL
 });
 
+type AuthResponse = {
+  success?: boolean;
+  error?: string;
+  token?: string;
+  user?: any;
+  overview?: any;
+};
+
 export const login = async (credentials: { email: string; password: string }) => {
-  const response = await api.post<Response>(
+  const response = await api.post<AuthResponse>(
     '/api/v1/auth/signin', 
     credentials
   );
@@ -15,7 +23,7 @@ export const login = async (credentials: { email: string; password: string }) =>
 };
 
 export const signup = async (credentials: { email: string; password: string }) => {
-  const response = await api.post<Response>(
+  const response = await api.post<AuthResponse>(
     '/api/v1/auth/signup', 
     credentials
   );

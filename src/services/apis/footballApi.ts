@@ -19,6 +19,9 @@ export const getMatchesByDate = (date: string) =>
 export const getLiveMatches = () =>
   api.get('/matches/live').then(r => r.data);
 
+export const getUpcomingEnrichedPredicted = () =>
+  api.get('/matches/upcoming-enriched-predicted').then(r => r.data);
+
 export const getValueBets = (date?: string, minEdge = 3) =>
   api.get('/agent/value-bets', { params: { date, min_edge: minEdge } }).then(r => r.data);
 
@@ -46,6 +49,9 @@ export const matchSofascoreCandidate = (
 // ── Buffer status ────────────────────────────────────────────
 export const cleanupFinishedMatches = () =>
   api.post('/matches/cleanup').then(r => r.data);
+
+export const purgeGhostMatches = () =>
+  api.post('/matches/purge-ghosts').then(r => r.data);
 
 export const getBufferStatus = () =>
   api.get('/buffer/status').then(r => r.data);
@@ -79,6 +85,12 @@ export const triggerEnrichWorker = () =>
 
 export const triggerGradeResults = (hoursBack = 24) =>
   api.post(`/results/grade?hours_back=${hoursBack}`).then(r => r.data);
+
+export const getOddsOnlyPredictions = () =>
+  api.get('/predictions/odds-only').then(r => r.data);
+
+export const getSignalStats = (country = '', tournament = '', minSamples = 5) =>
+  api.get('/analytics/signals', { params: { country, tournament, min_samples: minSamples } }).then(r => r.data);
 
 export const triggerFlushToMongo = (date?: string) =>
   api.post('/mongo/flush', null, { params: date ? { match_date: date } : {} }).then(r => r.data);

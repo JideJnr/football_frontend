@@ -583,27 +583,65 @@ const Home = () => {
     );
   }, [filtered]);
 
-  // Group by time slot
+  // Group by time slot — key includes date prefix when match date differs from selected date
   const groupedByTime = useMemo(() => {
     const timeMap: Record<string, any[]> = {};
-    const toMs = (t: any) => {
+    const toMs = (t: any): number => {
       if (!t) return 0;
       if (typeof t === "string") return new Date(t).getTime();
       return t < 1e10 ? t * 1000 : t;
     };
-    const sorted = [...filtered].sort((a, b) => toMs(a.start_time) - toMs(b.start_time));
+    // Sort: live first, then by start_time asc, unknowns (0) pushed to bottom
+    const sorted = [...filtered].sort((a, b) => {
+      const aLive = isLive(a) ? 0 : 1;
+      const bLive = isLive(b) ? 0 : 1;
+      if (aLive !== bLive) return aLive - bLive;
+      const aMs = toMs(a.start_time);
+      const bMs = toMs(b.start_time);
+      if (!aMs && !bMs) return 0;
+      if (!aMs) return 1;  // no start_time → bottom
+      if (!bMs) return -1;
+      return aMs - bMs;
+    });
     for (const m of sorted) {
       const live = isLive(m);
-      const key = live ? "🔴 Live Now" : formatKickoff(m.start_time);
+      if (live) {
+        if (!timeMap["🔴 Live Now"]) timeMap["🔴 Live Now"] = [];
+        timeMap["🔴 Live Now"].push(m);
+        continue;
+      }
+      const ms = toMs(m.start_time);
+      const kickoffTime = formatKickoff(m.start_time);
+      let key: string;
+      if (ms) {
+        const matchDateISO = new Date(ms).toISOString().slice(0, 10);
+        if (matchDateISO !== selectedDate) {
+          const dateLabel = new Date(ms).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+          key = `${dateLabel} · ${kickoffTime}`;
+        } else {
+          key = kickoffTime;
+        }
+      } else {
+        key = "--:--";  // unknown time — will sort to bottom
+      }
       if (!timeMap[key]) timeMap[key] = [];
       timeMap[key].push(m);
     }
-    // Put live first
+    // Put live first, then sort remaining slots chronologically, unknowns last
     const entries = Object.entries(timeMap);
     const liveEntry = entries.find(([k]) => k === "🔴 Live Now");
-    const rest = entries.filter(([k]) => k !== "🔴 Live Now");
+    const rest = entries
+      .filter(([k]) => k !== "🔴 Live Now")
+      .sort(([, a], [, b]) => {
+        const aMs = toMs(a[0].start_time);
+        const bMs = toMs(b[0].start_time);
+        if (!aMs && !bMs) return 0;
+        if (!aMs) return 1;
+        if (!bMs) return -1;
+        return aMs - bMs;
+      });
     return Object.fromEntries(liveEntry ? [liveEntry, ...rest] : rest);
-  }, [filtered]);
+  }, [filtered, selectedDate]);
 
   const handleMatchClick = (id: string) => {
     router.push(`/match/${id}`, "forward", "push");

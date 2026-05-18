@@ -1,6 +1,6 @@
 import { useIonRouter } from '@ionic/react';
 import { useEffect, useState } from 'react';
-import { triggerIngestUpcoming, triggerIngestLive, triggerEnrichWorker, triggerGradeResults, getBufferStatus } from '../../../services/apis/footballApi';
+import { triggerIngestUpcoming, triggerIngestLive, triggerEnrichWorker, triggerGradeResults, getBufferStatus, purgeGhostMatches } from '../../../services/apis/footballApi';
 
 type Status = 'idle' | 'loading' | 'ok' | 'error';
 interface ActionResult { label: string; status: Status; msg: string; }
@@ -28,19 +28,21 @@ const Settings = () => {
         key === 'live'     ? `${res.live_count ?? 0} live · ${res.new ?? 0} new · ${res.patched ?? 0} patched` :
         key === 'enrich'   ? `${res.stored ?? 0} enriched · ${res.matched ?? 0} matched` :
         key === 'grade'    ? `${res.predictions_graded ?? 0} graded · ${res.matches_archived ?? 0} archived · ${res.results_fetched ?? 0} fetched` :
+        key === 'purge'    ? `${res.purged_ghosts ?? 0} ghosts · ${res.deleted_finished ?? 0} finished · ${res.deleted_90_plus ?? 0} 90+ removed` :
         JSON.stringify(res).slice(0, 80);
       setResults(r => ({ ...r, [key]: { label, status: 'ok', msg } }));
-      if (key === 'live' || key === 'upcoming') loadBufferStats();
+      if (key === 'live' || key === 'upcoming' || key === 'purge') loadBufferStats();
     } catch (e: any) {
       setResults(r => ({ ...r, [key]: { label, status: 'error', msg: e?.response?.data?.detail || e?.message || 'Failed' } }));
     }
   };
 
   const actions = [
-    { key: 'upcoming', label: 'Ingest Upcoming', desc: 'Fetch upcoming matches from SportyBet', icon: '📥', fn: triggerIngestUpcoming },
-    { key: 'live',     label: 'Ingest Live',     desc: 'Fetch live matches + patch scores',    icon: '🔴', fn: triggerIngestLive },
-    { key: 'enrich',   label: 'Run Enrichment',  desc: 'Match buffer entries to SofaScore',    icon: '⚡', fn: triggerEnrichWorker },
-    { key: 'grade',    label: 'Grade Results',   desc: 'Grade predictions + archive to MongoDB', icon: '✅', fn: () => triggerGradeResults(48) },
+    { key: 'upcoming', label: 'Ingest Upcoming',    desc: 'Fetch upcoming matches from SportyBet',          icon: '📥', fn: triggerIngestUpcoming },
+    { key: 'live',     label: 'Ingest Live',         desc: 'Fetch live matches + patch scores',              icon: '🔴', fn: triggerIngestLive },
+    { key: 'enrich',   label: 'Run Enrichment',      desc: 'Match buffer entries to SofaScore',              icon: '⚡', fn: triggerEnrichWorker },
+    { key: 'purge',    label: 'Purge Ghost Matches', desc: 'Remove stale/old matches that never kicked off', icon: '🧹', fn: purgeGhostMatches },
+    { key: 'grade',    label: 'Grade Results',       desc: 'Grade predictions + archive to MongoDB',         icon: '✅', fn: () => triggerGradeResults(48) },
   ];
 
   const bufferItems = [
@@ -110,12 +112,38 @@ const Settings = () => {
         <div>
           <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">More</div>
           <button
-            onClick={() => router.push('/analytics', 'forward', 'push')}
+            onClick={() => router.push('/prediction/dashboard', 'forward', 'push')}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#161616] border border-white/[0.07] hover:border-emerald-500/30 transition-all text-left"
+          >
+            <span className="text-lg">AI</span>
+            <div className="min-w-0">
+              <span className="block text-sm font-semibold text-gray-200">Prediction Dashboard</span>
+              <span className="block text-[11px] text-gray-600">Picks, explanations, model health and learning loop</span>
+            </div>
+            <svg className="w-4 h-4 text-gray-600 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <button
+            onClick={() => router.push('/analytics', 'forward', 'push')}
+            className="mt-2 w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#161616] border border-white/[0.07] hover:border-emerald-500/30 transition-all text-left"
           >
             <span className="text-lg">📊</span>
             <span className="text-sm font-semibold text-gray-200">Analytics</span>
             <svg className="w-4 h-4 text-gray-600 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <button
+            onClick={() => router.push('/analytics/upcoming', 'forward', 'push')}
+            className="mt-2 w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#161616] border border-white/[0.07] hover:border-emerald-500/30 transition-all text-left"
+          >
+            <span className="text-lg">AI</span>
+            <div className="min-w-0">
+              <span className="block text-sm font-semibold text-gray-200">Upcoming Ratings</span>
+              <span className="block text-[11px] text-gray-600">Enriched and predicted matches ranked by assurance</span>
+            </div>
+            <svg className="w-4 h-4 text-gray-600 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>

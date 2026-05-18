@@ -149,6 +149,29 @@ const signalHuman = (name: string, value: any, impact: number, m: any): string =
       return `No web context found — prediction based on statistical models only.`;
     }
 
+    case 'prediction_memory': {
+      const rate = value?.blended_win_rate;
+      const t = value?.scopes?.tournament?.samples ?? 0;
+      const c = value?.scopes?.country?.samples ?? 0;
+      const g = value?.scopes?.global?.samples ?? 0;
+      return `Graded-pick memory blends tournament (${t}), country (${c}), and whole database (${g}) samples${rate != null ? ` at ${rate}% historical win rate` : ''}.`;
+    }
+
+    case 'finished_database_memory': {
+      const b = value?.blended || {};
+      const samples = value?.samples ?? 0;
+      const hw = Math.round((b.home_win_rate ?? 0) * 100);
+      const dr = Math.round((b.draw_rate ?? 0) * 100);
+      const aw = Math.round((b.away_win_rate ?? 0) * 100);
+      return `Finished-match memory uses ${samples} weighted database samples: home ${hw}%, draw ${dr}%, away ${aw}%.`;
+    }
+
+    case 'odds_progression': {
+      const pull = value?.strongest_pull;
+      if (!pull) return `No meaningful market movement yet.`;
+      return `Market movement: ${pull.selection} is ${pull.direction} (${pull.odds_change_percent}% odds move, ${pull.implied_change_percent}% implied shift).`;
+    }
+
     default:
       return name.replace(/_/g, ' ');
   }
@@ -272,6 +295,78 @@ const ModelConsensus = ({ models, home, away }: { models: any; home: string; awa
 
 // ─── Signal row ────────────────────────────────────────────────────────────────
 
+const MemoryWeights = ({ prediction, models }: { prediction: any; models: any }) => {
+  const firstPick = (prediction?.picks || [])[0] || {};
+  const pickMemory = firstPick?.calibration?.memory_weighting;
+  const finishedMemory = models?.finished_database_memory;
+  if (!pickMemory && !finishedMemory) return null;
+
+  const rows = [
+    { key: 'tournament', label: 'Tournament' },
+    { key: 'country', label: 'Country' },
+    { key: 'global', label: 'Whole DB' },
+  ];
+
+  return (
+    <Sec title="Database Weighting">
+      <div className="space-y-3">
+        {pickMemory && (
+          <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Graded Picks</div>
+              <div className="text-xs font-bold text-emerald-400">
+                {pickMemory.blended_win_rate != null ? `${pickMemory.blended_win_rate}%` : 'Learning'}
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {rows.map(row => {
+                const scope = pickMemory.scopes?.[row.key] || {};
+                const weight = pickMemory.weights?.[row.key] ?? 0;
+                return (
+                  <div key={row.key} className="rounded bg-black/20 px-2 py-2">
+                    <div className="text-[9px] text-gray-500">{row.label}</div>
+                    <div className="text-sm font-bold text-white">{Math.round(weight * 100)}%</div>
+                    <div className="text-[9px] text-gray-600">{scope.samples ?? 0} graded</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {finishedMemory && (
+          <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Finished Matches</div>
+              <div className="text-xs text-gray-500">{finishedMemory.samples ?? 0} samples</div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {rows.map(row => {
+                const scope = finishedMemory.scopes?.[row.key] || {};
+                const weight = finishedMemory.weights?.[row.key] ?? 0;
+                const effective = finishedMemory.effective_weights?.[row.key] ?? 0;
+                return (
+                  <div key={row.key} className="rounded bg-black/20 px-2 py-2">
+                    <div className="text-[9px] text-gray-500">{row.label}</div>
+                    <div className="text-sm font-bold text-white">{Math.round(weight * 100)}%</div>
+                    <div className="text-[9px] text-gray-600">{scope.samples ?? 0} games - active {Math.round(effective * 100)}%</div>
+                  </div>
+                );
+              })}
+            </div>
+            {finishedMemory.blended && (
+              <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
+                <div className="rounded bg-emerald-500/10 py-1 text-emerald-300">Home {Math.round((finishedMemory.blended.home_win_rate || 0) * 100)}%</div>
+                <div className="rounded bg-white/[0.04] py-1 text-gray-300">Draw {Math.round((finishedMemory.blended.draw_rate || 0) * 100)}%</div>
+                <div className="rounded bg-blue-500/10 py-1 text-blue-300">Away {Math.round((finishedMemory.blended.away_win_rate || 0) * 100)}%</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Sec>
+  );
+};
+
 const SignalRow = ({ signal, m }: { signal: any; m: any }) => {
   const [open, setOpen] = useState(false);
   const impact = signal.impact ?? 0;
@@ -382,6 +477,7 @@ const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsP
 
           {/* Model consensus bars */}
           {models && <ModelConsensus models={models} home={home} away={away} />}
+          <MemoryWeights prediction={prediction} models={models} />
 
           {/* Signals — human readable */}
           {signals.length > 0 && (

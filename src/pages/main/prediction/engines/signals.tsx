@@ -93,24 +93,19 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
   const { acceptSignal, rejectSignal, undoReject } = usePredictionStore();
   const [expanded, setExpanded] = useState(false);
   const badge = signalTypeBadge(signal.signalType);
+  const cardStyle = signal.correlated ? 'opacity-60 border-orange-500/20' : statusStyle(signal.status);
 
   return (
-    <div className={`border rounded-xl overflow-hidden mb-2.5 bg-[#161616] transition-all ${
-      signal.correlated ? 'opacity-40 border-white/[0.04]' : statusStyle(signal.status)
-    }`}>
-      {/* Correlated banner */}
+    <div className={`border rounded-xl overflow-hidden mb-2.5 bg-[#161616] transition-all ${cardStyle}`}>
       {signal.correlated && (
         <div className="px-3 py-1 bg-orange-900/30 border-b border-orange-500/20 flex items-center gap-1.5">
-          <span className="text-[9px] font-bold text-orange-400 uppercase tracking-wide">⚠ Correlated</span>
+          <span className="text-[9px] font-bold text-orange-400 uppercase tracking-wide">Correlated</span>
           {signal.correlationReason && (
             <span className="text-[9px] text-orange-500/70 truncate">{signal.correlationReason}</span>
           )}
         </div>
       )}
 
-  return (
-    <div className={`border rounded-xl overflow-hidden mb-2.5 bg-[#161616] transition-all ${statusStyle(signal.status)}`}>
-      {/* Main row */}
       <div className="p-3 cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -121,7 +116,7 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
             <div className="text-sm font-semibold text-white truncate">{signal.homeTeam} vs {signal.awayTeam}</div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[11px] text-gray-500">{signal.market}</span>
-              <span className="text-[11px] text-white font-bold">→ {signal.pick}</span>
+              <span className="text-[11px] text-white font-bold">Pick: {signal.pick}</span>
             </div>
             {signal.note && (
               <div className="text-[10px] text-purple-400 mt-0.5">{signal.note}</div>
@@ -142,14 +137,12 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
 
         <div className="flex items-center justify-between mt-2">
           <span className="text-[10px] text-gray-600">{fmtTime(signal.startTime)}</span>
-          <span className="text-[10px] text-gray-600">{expanded ? '▲' : '▼'}</span>
+          <span className="text-[10px] text-gray-600">{expanded ? 'Less' : 'More'}</span>
         </div>
       </div>
 
-      {/* Expanded */}
       {expanded && (
         <div className="border-t border-white/[0.06] px-3 py-3 space-y-3">
-          {/* Probability breakdown */}
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
               { label: 'Model', value: `${(signal.modelProbability * 100).toFixed(1)}%`, color: 'text-white' },
@@ -163,45 +156,43 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
             ))}
           </div>
 
-          {/* Explanation */}
           <div className="bg-black/20 rounded-lg p-2 text-xs text-gray-400">
             {signal.signalType === 'value_bet' && (
-              <span>Model gives <span className="text-white">{(signal.modelProbability * 100).toFixed(0)}%</span> but bookmaker prices it at <span className="text-white">{(signal.impliedProbability * 100).toFixed(0)}%</span> — <span className="text-yellow-400">{((signal.modelProbability - signal.impliedProbability) * 100).toFixed(1)}% edge</span>.</span>
+              <span>Model gives <span className="text-white">{(signal.modelProbability * 100).toFixed(0)}%</span> while the market implies <span className="text-white">{(signal.impliedProbability * 100).toFixed(0)}%</span>, creating <span className="text-yellow-400">{((signal.modelProbability - signal.impliedProbability) * 100).toFixed(1)}% edge</span>.</span>
             )}
             {signal.signalType === 'high_confidence' && (
               <span>Model is <span className="text-emerald-400">{(signal.modelProbability * 100).toFixed(0)}% confident</span> in this outcome.</span>
             )}
             {signal.signalType === 'form_signal' && (
-              <span>Team is on a strong winning run — <span className="text-purple-400">momentum pick</span>.</span>
+              <span>Recent form supports this side, marked as a <span className="text-purple-400">momentum pick</span>.</span>
             )}
             {signal.signalType === 'rule_match' && (
               <span>Matches the <span className="text-blue-400">{signal.engineName}</span> rule criteria.</span>
             )}
           </div>
 
-          {/* Actions */}
           {signal.status === 'pending' && (
             <div className="flex gap-2">
               <button onClick={() => rejectSignal(signal.matchId, signal.engineId, signal.market)}
                 className="flex-1 py-2 rounded-lg border border-red-800 text-red-400 text-xs font-semibold hover:bg-red-900/30 transition">
-                ✕ Skip
+                Skip
               </button>
               <button onClick={() => router.push(`/match/${signal.matchId}`, 'forward', 'push')}
                 className="flex-1 py-2 rounded-lg border border-white/[0.1] text-gray-400 text-xs hover:bg-white/5 transition">
-                👁 Details
+                Details
               </button>
               <button onClick={() => acceptSignal(signal.matchId, signal.engineId, signal.market)}
                 className="flex-1 py-2 rounded-lg border border-emerald-700 text-emerald-400 text-xs font-semibold hover:bg-emerald-900/30 transition">
-                ✓ Add Pick
+                Add Pick
               </button>
             </div>
           )}
           {signal.status === 'accepted' && (
             <div className="flex gap-2">
-              <div className="flex-1 py-2 rounded-lg bg-emerald-900/30 border border-emerald-700 text-emerald-400 text-xs text-center font-semibold">✓ In Your Picks</div>
+              <div className="flex-1 py-2 rounded-lg bg-emerald-900/30 border border-emerald-700 text-emerald-400 text-xs text-center font-semibold">In Your Picks</div>
               <button onClick={() => router.push(`/match/${signal.matchId}`, 'forward', 'push')}
                 className="flex-1 py-2 rounded-lg border border-white/[0.1] text-gray-400 text-xs hover:bg-white/5 transition">
-                👁 Details
+                Details
               </button>
             </div>
           )}
@@ -210,7 +201,7 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
               <div className="flex-1 py-2 rounded-lg border border-white/[0.06] text-gray-600 text-xs text-center">Skipped</div>
               <button onClick={() => undoReject(signal.matchId, signal.engineId, signal.market)}
                 className="flex-1 py-2 rounded-lg border border-yellow-700 text-yellow-400 text-xs font-semibold hover:bg-yellow-900/30 transition">
-                ↩ Restore
+                Restore
               </button>
             </div>
           )}
@@ -219,7 +210,6 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
     </div>
   );
 }
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type SortMode = 'edge' | 'odds' | 'time' | 'confidence';
@@ -463,3 +453,4 @@ function EngineSignals() {
 }
 
 export default EngineSignals;
+

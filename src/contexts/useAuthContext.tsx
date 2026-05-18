@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore/useAuthStore';
 
 interface AuthContextType {
   user: { uid: string; email: string; firstName: string; role: string } | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;
   signup: (payload: any) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -20,9 +20,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const wrappedLogin = async (email: string, password: string) => {
     try {
-      const response = await login(email, password); 
+      const response = await login(email, password);
   
-      if (response.success) {
+      if (response?.success) {
         router.push('/main', 'forward', 'replace');}
 
     } catch (error) {

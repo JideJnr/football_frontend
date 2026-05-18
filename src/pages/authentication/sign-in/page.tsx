@@ -1,5 +1,5 @@
 import OnboardingTemplate from '../../../components/templates/back/back';
-import { IonLabel, useIonRouter } from '@ionic/react';
+import { useIonRouter } from '@ionic/react';
 import { useState, useEffect } from 'react';
 import Button from '../../../components/button/button';
 import { useAuth } from '../../../contexts/useAuthContext';
@@ -40,7 +40,7 @@ const Signin = () => {
           )}
 
           <div className="flex flex-col gap-2">
-            <IonLabel htmlFor="email">Email</IonLabel>
+            <label htmlFor="email" className="text-sm font-medium text-gray-700">Email</label>
             <input
               id="email"
               value={email}
@@ -56,7 +56,7 @@ const Signin = () => {
 
           <div className="flex flex-col gap-2">
             <div className="flex justify-between">
-              <IonLabel htmlFor="password">Password</IonLabel>
+              <label htmlFor="password" className="text-sm font-medium text-gray-700">Password</label>
               <button
                 type="button"
                 onClick={() => router.push('/forgot-password')}

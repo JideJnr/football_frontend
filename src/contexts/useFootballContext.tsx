@@ -7,7 +7,10 @@ interface FootballContextType {
   getMatchDetail: (id: string) => Promise<void>;
   mergeLiveMatches: (liveMatches: any[]) => void;
   matches: any[] | null;
+  currentMatch: any | null;
   matchDetail: any | null;
+  team: any | null;
+  getTeamById: (id: string) => Promise<void>;
   loading: boolean;
   error: string | null;
 }
@@ -35,7 +38,7 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const getMatchDetail = async (id: string) => {
     // Only clear if switching to a different match
-    setMatchDetail(prev => (prev && String(prev.sportybet_id) === String(id) ? prev : null));
+    setMatchDetail((prev: any | null) => (prev && String(prev.sportybet_id) === String(id) ? prev : null));
     try {
       const res = await store.getMatchDetail(id);
       if (res?.sportybet_id) setMatchDetail(res);
@@ -43,6 +46,8 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
       setMatchDetail(null);
     }
   };
+
+  const getTeamById = async (_id: string) => undefined;
 
   const mergeLiveMatches = useCallback((liveMatches: any[]) => {
     setMatches(prev => {
@@ -58,7 +63,7 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
   return (
     <FootballContext.Provider value={{
       getTodayMatches, getMatchesByDate, getMatchDetail, mergeLiveMatches,
-      matches, matchDetail,
+      matches, matchDetail, currentMatch: matchDetail, team: matchDetail?.home_team || null, getTeamById,
       loading: store.loading,
       error: store.error,
     }}>

@@ -1,6 +1,7 @@
 import {  useIonRouter } from '@ionic/react';
 
 const navItems = [
+  { label: 'Prediction Dashboard', route: '/prediction/dashboard' },
   { label: 'Value Bets', route: '/prediction/value-bets' },
   { label: 'Bet Builder', route: '/builder' },
   { label: 'Engines', route: '/engines' },

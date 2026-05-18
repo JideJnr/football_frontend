@@ -1,8 +1,9 @@
 import { IonContent, IonPage, useIonRouter } from '@ionic/react'
 import Button from '../../../components/button/button'
+import { useAuth } from '../../../contexts/useAuthContext'
 
 const Welcome = () => {
-    const { user } = []
+    const { user } = useAuth()
     const router = useIonRouter();
 
   return (
