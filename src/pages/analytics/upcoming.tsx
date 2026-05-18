@@ -5,6 +5,7 @@ import {
   refreshPredictions,
   triggerEnrichWorker,
   triggerIngestUpcoming,
+  triggerMatchAndEnrich,
 } from "../../services/apis/footballApi";
 
 const fmtTime = (value: any) => {
@@ -42,6 +43,7 @@ const UpcomingAnalytics = () => {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState("");
   const [error, setError] = useState("");
+  const [lastRun, setLastRun] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,7 +67,8 @@ const UpcomingAnalytics = () => {
     setRunning(key);
     setError("");
     try {
-      await fn();
+      const result = await fn();
+      setLastRun(result);
       await load();
     } catch (err: any) {
       setError(err?.response?.data?.detail || err?.message || "Action failed");
@@ -116,7 +119,14 @@ const UpcomingAnalytics = () => {
               ))}
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => runAction("match-enrich", () => triggerMatchAndEnrich(12))}
+                disabled={!!running}
+                className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-400 disabled:opacity-40"
+              >
+                {running === "match-enrich" ? "Matching..." : "Sporty + Sofa Match"}
+              </button>
               <button
                 onClick={() => runAction("ingest", triggerIngestUpcoming)}
                 disabled={!!running}
@@ -124,6 +134,9 @@ const UpcomingAnalytics = () => {
               >
                 {running === "ingest" ? "Running..." : "Ingest"}
               </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => runAction("enrich", triggerEnrichWorker)}
                 disabled={!!running}
@@ -141,6 +154,12 @@ const UpcomingAnalytics = () => {
             </div>
 
             {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</div>}
+            {lastRun?.enrich && (
+              <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-[11px] text-gray-400">
+                <div className="font-semibold text-gray-300">Last run: {lastRun.enrich.processed_count ?? 0} checked, {lastRun.enrich.matched ?? 0} matched, {lastRun.enrich.predicted ?? 0} predicted.</div>
+                <div className="mt-1 truncate">SofaScore dates: {(lastRun.enrich.dates_scanned || []).join(", ") || "none"}</div>
+              </div>
+            )}
 
             {loading ? (
               <div className="py-14 text-center text-sm text-gray-500">Loading upcoming ratings...</div>

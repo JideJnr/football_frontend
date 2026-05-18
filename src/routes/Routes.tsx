@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/useAuthContext";
 const Analytics = React.lazy(() => import("../pages/analytics/analytics"));
 const UpcomingAnalytics = React.lazy(() => import("../pages/analytics/upcoming"));
 const PredictionDashboard = React.lazy(() => import("../pages/main/prediction/dashboard"));
+const ModelExplorer = React.lazy(() => import("../pages/main/prediction/model-explorer"));
 const Builder = React.lazy(() => import("../pages/main/prediction/betbuilder/index"));
 const Engine = React.lazy(() => import("../pages/main/prediction/engines/index"));
 const ValueBets = React.lazy(() => import("../pages/main/prediction/value-bets/index"));
@@ -37,6 +38,7 @@ const Routes: React.FC = () => {
       <Route path="/analytics" exact component={Analytics} />
       <Route path="/analytics/upcoming" exact component={UpcomingAnalytics} />
       <Route path="/prediction/dashboard" exact component={PredictionDashboard} />
+      <Route path="/prediction/model-explorer" exact component={ModelExplorer} />
       <Route path="/builder" exact component={Builder} />
       <Route path="/engines" exact component={Engine} />
       <Route path="/prediction/value-bets" exact component={ValueBets} />

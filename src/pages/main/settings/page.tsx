@@ -125,6 +125,19 @@ const Settings = () => {
             </svg>
           </button>
           <button
+            onClick={() => router.push('/prediction/model-explorer', 'forward', 'push')}
+            className="mt-2 w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#161616] border border-white/[0.07] hover:border-emerald-500/30 transition-all text-left"
+          >
+            <span className="text-lg">M</span>
+            <div className="min-w-0">
+              <span className="block text-sm font-semibold text-gray-200">Model Explorer</span>
+              <span className="block text-[11px] text-gray-600">Filter low scoring, home, away, draw and value picks by proven accuracy</span>
+            </div>
+            <svg className="w-4 h-4 text-gray-600 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <button
             onClick={() => router.push('/analytics', 'forward', 'push')}
             className="mt-2 w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#161616] border border-white/[0.07] hover:border-emerald-500/30 transition-all text-left"
           >

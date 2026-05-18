@@ -82,7 +82,10 @@ const scoreStr = (score: { home: string | null; away: string | null } | null | u
 // SportyBet sends names like "England - Premier League", "Ukraine - Premier League",
 // or bare names like "Champions League". Always prefer the explicit "Country - League"
 // split — never guess country from league name alone.
-const parseLeagueCountry = (tournament: string): { country: string; league: string } => {
+const parseLeagueCountry = (tournament: string, category?: string): { country: string; league: string } => {
+  if (category && category.trim()) {
+    return { country: category.trim(), league: tournament || "Unknown" };
+  }
   const sep = tournament.indexOf(" - ");
   if (sep !== -1) {
     return { country: tournament.slice(0, sep).trim(), league: tournament.slice(sep + 3).trim() };
@@ -569,7 +572,7 @@ const Home = () => {
   const groupedByCountry = useMemo(() => {
     const countryMap: Record<string, Record<string, any[]>> = {};
     for (const m of filtered) {
-      const { country, league } = parseLeagueCountry(m.tournament || "Unknown");
+      const { country, league } = parseLeagueCountry(m.tournament || "Unknown", m.category || m.country);
       if (!countryMap[country]) countryMap[country] = {};
       if (!countryMap[country][league]) countryMap[country][league] = [];
       countryMap[country][league].push(m);

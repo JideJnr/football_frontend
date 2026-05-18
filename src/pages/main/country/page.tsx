@@ -4,7 +4,10 @@ import { useFootballContext } from '../../../contexts/useFootballContext';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-const parseCountryLeague = (tournament: string): { country: string; league: string } => {
+const parseCountryLeague = (tournament: string, category?: string): { country: string; league: string } => {
+  if (category && category.trim()) {
+    return { country: category.trim(), league: tournament || 'Unknown' };
+  }
   const sep = tournament.indexOf(' - ');
   if (sep !== -1) {
     return { country: tournament.slice(0, sep).trim(), league: tournament.slice(sep + 3).trim() };
@@ -55,7 +58,7 @@ const Country = () => {
   const tree = useMemo(() => {
     const map: Record<string, Record<string, any[]>> = {};
     for (const m of matches || []) {
-      const { country, league } = parseCountryLeague(m.tournament || 'Unknown');
+      const { country, league } = parseCountryLeague(m.tournament || 'Unknown', m.category || m.country);
       if (!map[country]) map[country] = {};
       if (!map[country][league]) map[country][league] = [];
       map[country][league].push(m);

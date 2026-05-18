@@ -83,6 +83,9 @@ export const triggerIngestLive = () =>
 export const triggerEnrichWorker = () =>
   api.post('/mongo/scan/enrich').then(r => r.data);
 
+export const triggerMatchAndEnrich = (count = 12) =>
+  api.post('/mongo/scan/match-and-enrich', null, { params: { count } }).then(r => r.data);
+
 export const triggerGradeResults = (hoursBack = 24) =>
   api.post(`/results/grade?hours_back=${hoursBack}`).then(r => r.data);
 
@@ -91,6 +94,16 @@ export const getOddsOnlyPredictions = () =>
 
 export const getSignalStats = (country = '', tournament = '', minSamples = 5) =>
   api.get('/analytics/signals', { params: { country, tournament, min_samples: minSamples } }).then(r => r.data);
+
+export const getModelExplorer = (params: { preset?: string; model?: string; minSamples?: number; limit?: number }) =>
+  api.get('/analytics/model-explorer', {
+    params: {
+      preset: params.preset || 'all',
+      model: params.model || 'all',
+      min_samples: params.minSamples ?? 1,
+      limit: params.limit ?? 500,
+    },
+  }).then(r => r.data);
 
 export const triggerFlushToMongo = (date?: string) =>
   api.post('/mongo/flush', null, { params: date ? { match_date: date } : {} }).then(r => r.data);
