@@ -184,7 +184,7 @@ const Match = () => {
             <div className="px-4 py-12">
               <Sec title="Match Not Found">
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  This match is not in the SQL buffer yet. Run the upcoming/live scan, then open it again.
+                  This match is not in the live buffer or finished archive yet. Run the upcoming/live scan, then open it again.
                 </p>
                 {error && <p className="text-xs text-red-400">{error}</p>}
               </Sec>

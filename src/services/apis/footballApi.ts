@@ -1,10 +1,15 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://127.0.0.1:8000';
+// Reads from .env (VITE_API_BASE_URL).
+// To switch between Render and local dev, just change that one value.
+// Render:  VITE_API_BASE_URL=https://endpoints-dtfx.onrender.com
+// Local:   VITE_API_BASE_URL=http://127.0.0.1:8000
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 const api = axios.create({ baseURL: BASE_URL });
 
-export const LIVE_WS_URL = BASE_URL.replace(/^http/, 'ws') + '/ws/live';
+// WebSocket — wss:// on Render (https), ws:// locally (http)
+export const LIVE_WS_URL = BASE_URL.replace(/^https/, 'wss').replace(/^http/, 'ws') + '/ws/live';
 
 // ── Matches ──────────────────────────────────────────────────
 export const getTodayMatches = () =>
