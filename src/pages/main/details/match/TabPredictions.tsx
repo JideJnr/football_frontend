@@ -163,7 +163,7 @@ const signalText = (signal: any, m: any) => {
     case 'league_position_edge':
       return `${stronger} has the better table-position signal.`;
     case 'common_opponent_edge':
-      return `${stronger} has the better common-opponent record.`;
+      return `${stronger} has the better common-opponent record: ${value.shared_opponents || 0} shared opponents, points ${value.home_points ?? 0}-${value.away_points ?? 0}, goal diff ${value.home_goal_diff ?? 0}-${value.away_goal_diff ?? 0}.`;
     case 'h2h_edge':
       return `Head-to-head: ${home} ${value.home_wins ?? 0} wins, draw ${value.draws ?? 0}, ${away} ${value.away_wins ?? 0}.`;
     case 'league_strength_edge':
@@ -192,7 +192,9 @@ const signalText = (signal: any, m: any) => {
       return `Market movement: ${pull.selection} ${pull.direction}; odds ${move > 0 ? 'drifted' : move < 0 ? 'shortened' : 'stable'} ${Math.abs(move).toFixed(1)}%, implied probability ${implied > 0 ? 'up' : implied < 0 ? 'down' : 'flat'} ${Math.abs(implied).toFixed(1)}%.`;
     }
     case 'web_context':
-      return value.error ? 'Web context unavailable; statistical data only.' : `${value.snippets || 0} web snippets available.`;
+      return value.error
+        ? 'DuckDuckGo/web context unavailable; statistical data only.'
+        : `DuckDuckGo context: ${value.snippets || 0} snippets, ${value.scraped || 0} pages scraped${value.source_titles?.length ? `; ${value.source_titles.slice(0, 2).join(', ')}` : ''}.`;
     default:
       return String(signal?.name || '').replace(/_/g, ' ');
   }

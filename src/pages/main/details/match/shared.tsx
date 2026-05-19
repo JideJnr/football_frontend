@@ -97,13 +97,31 @@ export const flattenStats = (stats: any[]) => {
   return rows;
 };
 
+export const teamNameOf = (value: any): string => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return String(value.name || value.short_name || value.shortName || value.slug || '');
+};
+
+export const sameTeam = (a: string, b: string): boolean => {
+  const clean = (s: string) => String(s || '')
+    .toLowerCase()
+    .replace(/\b(fc|sc|cf|afc|club|de|the)\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  const aa = clean(a);
+  const bb = clean(b);
+  if (!aa || !bb) return false;
+  return aa === bb || aa.includes(bb) || bb.includes(aa);
+};
+
 export const resultForTeam = (event: any, teamName: string) => {
-  const home = event?.home_team?.name || event?.homeTeam?.name || '';
+  const home = teamNameOf(event?.home_team || event?.homeTeam);
   const score = event?.score || {};
   const hs = Number(score.home ?? event?.homeScore?.current);
   const as_ = Number(score.away ?? event?.awayScore?.current);
   if (!Number.isFinite(hs) || !Number.isFinite(as_)) return '';
-  const isHome = home.toLowerCase() === teamName.toLowerCase();
+  const isHome = sameTeam(home, teamName);
   const own = isHome ? hs : as_;
   const opp = isHome ? as_ : hs;
   if (own > opp) return 'W';
@@ -120,19 +138,19 @@ export const scoreline = (event: any) => {
 };
 
 export const matchLabel = (event: any) => {
-  const home = event?.home_team?.name || event?.homeTeam?.name || '?';
-  const away = event?.away_team?.name || event?.awayTeam?.name || '?';
+  const home = teamNameOf(event?.home_team || event?.homeTeam) || '?';
+  const away = teamNameOf(event?.away_team || event?.awayTeam) || '?';
   return `${home} vs ${away}`;
 };
 
 export const teamGoalsInMatch = (event: any, teamName: string) => {
-  const homeName = event?.home_team?.name || event?.homeTeam?.name || '';
-  const isHome = homeName.toLowerCase() === teamName.toLowerCase();
+  const homeName = teamNameOf(event?.home_team || event?.homeTeam);
+  const isHome = sameTeam(homeName, teamName);
   const score = event?.score || {};
   const h = Number(score.home ?? event?.homeScore?.current);
   const a = Number(score.away ?? event?.awayScore?.current);
   if (!Number.isFinite(h) || !Number.isFinite(a)) return null;
-  return { scored: isHome ? h : a, conceded: isHome ? a : h, total: h + a };
+  return { scored: isHome ? h : a, conceded: isHome ? a : h, total: h + a, diff: (isHome ? h : a) - (isHome ? a : h) };
 };
 
 export const buildTeamStats = (matches: any[], teamName: string) => {
@@ -145,8 +163,8 @@ export const buildTeamStats = (matches: any[], teamName: string) => {
   let cleanSheets = 0, failedToScore = 0;
 
   for (const event of matches) {
-    const homeName = event?.home_team?.name || event?.homeTeam?.name || '';
-    const isHome = homeName.toLowerCase() === teamName.toLowerCase();
+    const homeName = teamNameOf(event?.home_team || event?.homeTeam);
+    const isHome = sameTeam(homeName, teamName);
     const g = teamGoalsInMatch(event, teamName);
     if (!g) continue;
 

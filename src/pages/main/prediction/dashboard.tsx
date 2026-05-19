@@ -73,11 +73,20 @@ const Stat = ({ label, value, sub, icon: Icon, tone = "text-white" }: any) => (
 );
 
 const PredictionCard = ({ prediction, onOpen }: { prediction: any; onOpen: () => void }) => {
-  const pick = prediction.best_pick || (prediction.picks || [])[0] || {};
+  const picks = prediction.picks || [];
+  const pick = prediction.best_pick || picks[0] || {};
+  const secondary = picks
+    .filter((candidate: any) =>
+      candidate &&
+      candidate.type !== "no_bet" &&
+      `${candidate.type}:${candidate.selection}` !== `${pick.type}:${pick.selection}`
+    )
+    .sort((a: any, b: any) => Number(b.confidence || 0) - Number(a.confidence || 0))[0];
   const confidence = Number(pick.confidence || 0);
   const band = confidenceBand(confidence, pick);
   const reasons = topReasons(prediction);
   const coverage = dataCoverage(prediction);
+  const created = prediction.created_at ? new Date(prediction.created_at) : null;
 
   return (
     <button
@@ -88,6 +97,11 @@ const PredictionCard = ({ prediction, onOpen }: { prediction: any; onOpen: () =>
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-white">{prediction.match_name || "Match"}</div>
           <div className="mt-1 truncate text-[11px] text-gray-600">{prediction.league_name || "Tournament"}</div>
+          {created && !Number.isNaN(created.getTime()) && (
+            <div className="mt-1 text-[10px] text-gray-700">
+              {created.toLocaleDateString()} {created.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </div>
+          )}
         </div>
         <div className="text-right">
           <div className={`text-2xl font-bold ${toneFor(confidence)}`}>{confidence || "--"}%</div>
@@ -100,6 +114,19 @@ const PredictionCard = ({ prediction, onOpen }: { prediction: any; onOpen: () =>
         <div className="text-sm font-semibold text-gray-200">{pick.selection || "--"}</div>
         {pick.reason && <div className="mt-1 text-[11px] leading-relaxed text-gray-500">{pick.reason}</div>}
       </div>
+
+      {secondary && (
+        <div className="mt-2 rounded border border-blue-500/20 bg-blue-500/5 px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-widest text-blue-300/80">Secondary lean</div>
+              <div className="truncate text-xs font-semibold text-blue-100">{secondary.selection || "--"}</div>
+            </div>
+            <div className="text-sm font-bold text-blue-300">{Number(secondary.confidence || 0)}%</div>
+          </div>
+          {secondary.reason && <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-gray-500">{secondary.reason}</div>}
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {coverage.map(item => (
@@ -162,9 +189,9 @@ const Dashboard = () => {
   useEffect(() => { load(); }, [load]);
 
   const ranked = useMemo(() => {
-    return [...predictions].sort((a, b) =>
-      Number(b.best_pick?.confidence || 0) - Number(a.best_pick?.confidence || 0)
-    );
+    return [...predictions]
+      .filter(item => !item.is_finished && !item.result && !item.graded_at)
+      .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
   }, [predictions]);
 
   const runAction = async (key: string, fn: () => Promise<any>) => {
@@ -262,7 +289,7 @@ const Dashboard = () => {
             <div>
               <div className="mb-3 flex items-center gap-2 px-1">
                 <Brain size={16} className="text-emerald-400" />
-                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Decision Board</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Recent Decision Board</div>
                 <div className="ml-auto text-[10px] text-gray-600">{ranked.length} picks</div>
               </div>
 
@@ -278,7 +305,7 @@ const Dashboard = () => {
                     <PredictionCard
                       key={`${prediction.match_id}-${prediction.id}`}
                       prediction={prediction}
-                      onOpen={() => router.push(`/match/${prediction.match_id}`, "forward", "push")}
+                      onOpen={() => router.push(`/match/${encodeURIComponent(prediction.match_id)}`, "forward", "push")}
                     />
                   ))}
                 </div>

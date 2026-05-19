@@ -1,7 +1,7 @@
 import {
   Sec, Empty, ResultBadge,
   buildTeamStats, resultForTeam, teamGoalsInMatch, scoreline, matchLabel,
-  fmtDateTime,
+  fmtDateTime, sameTeam, teamNameOf,
 } from './shared';
 
 interface CommonOpponent {
@@ -13,9 +13,9 @@ interface CommonOpponent {
 const norm = (s: string) => s.toLowerCase().trim().slice(0, 8);
 
 const getOppName = (event: any, teamName: string): string => {
-  const h = event?.home_team?.name || event?.homeTeam?.name || '';
-  const a = event?.away_team?.name || event?.awayTeam?.name || '';
-  return h.toLowerCase() === teamName.toLowerCase() ? a : h;
+  const h = teamNameOf(event?.home_team || event?.homeTeam);
+  const a = teamNameOf(event?.away_team || event?.awayTeam);
+  return sameTeam(h, teamName) ? a : h;
 };
 
 const findCommonOpponents = (homeMatches: any[], awayMatches: any[], homeTeam: string, awayTeam: string): CommonOpponent[] => {
@@ -39,16 +39,24 @@ const findCommonOpponents = (homeMatches: any[], awayMatches: any[], homeTeam: s
 };
 
 const resultBg = (r: string) =>
-  r === 'W' ? 'bg-emerald-500/10 border-emerald-700/30'
-  : r === 'L' ? 'bg-red-500/10 border-red-800/30'
-  : 'bg-white/[0.02] border-white/[0.06]';
+  r === 'W' ? 'bg-emerald-500/15 border-emerald-700/40'
+  : r === 'L' ? 'bg-red-500/15 border-red-800/40'
+  : 'bg-gray-500/10 border-gray-700/30';
+
+const venueOf = (event: any, teamName: string) => sameTeam(teamNameOf(event?.home_team || event?.homeTeam), teamName) ? 'Home' : 'Away';
+
+const resultPoints = (r: string) => r === 'W' ? 3 : r === 'D' ? 1 : 0;
 
 const CommonOppRow = ({ item, homeTeam, awayTeam }: { item: CommonOpponent; homeTeam: string; awayTeam: string }) => {
   const hr = resultForTeam(item.homeEvent, homeTeam);
   const ar = resultForTeam(item.awayEvent, awayTeam);
+  const hg = teamGoalsInMatch(item.homeEvent, homeTeam);
+  const ag = teamGoalsInMatch(item.awayEvent, awayTeam);
+  const hScore = resultPoints(hr) + ((hg?.diff || 0) * 0.35);
+  const aScore = resultPoints(ar) + ((ag?.diff || 0) * 0.35);
   const hDate = fmtDateTime(item.homeEvent?.start_timestamp || item.homeEvent?.startTimestamp || item.homeEvent?.start_time);
   const aDate = fmtDateTime(item.awayEvent?.start_timestamp || item.awayEvent?.startTimestamp || item.awayEvent?.start_time);
-  const winner = hr === 'W' && ar !== 'W' ? 'home' : ar === 'W' && hr !== 'W' ? 'away' : null;
+  const winner = Math.abs(hScore - aScore) < 0.1 ? null : hScore > aScore ? 'home' : 'away';
   return (
     <div className="rounded-xl border border-white/[0.07] bg-[#111] overflow-hidden">
       <div className="px-3 py-1.5 bg-white/[0.04] border-b border-white/[0.06] flex items-center justify-between">
@@ -73,7 +81,8 @@ const CommonOppRow = ({ item, homeTeam, awayTeam }: { item: CommonOpponent; home
                 <ResultBadge result={result} />
                 <span className="text-xs font-bold text-white">{scoreline(event)}</span>
               </div>
-              <div className="text-[10px] text-gray-600 mt-1">{date}</div>
+              <div className="text-[10px] text-gray-600 mt-1">{venueOf(event, team)} - GD {teamGoalsInMatch(event, team)?.diff ?? 0}</div>
+              <div className="text-[10px] text-gray-600">{date}</div>
             </div>
           ))}
       </div>
@@ -86,8 +95,9 @@ const CommonOppRow = ({ item, homeTeam, awayTeam }: { item: CommonOpponent; home
 const CompareBar = ({
   label, homeVal, awayVal,
   homeColor = 'bg-emerald-500', awayColor = 'bg-blue-500',
+  sample,
 }: {
-  label: string; homeVal: number; awayVal: number; homeColor?: string; awayColor?: string;
+  label: string; homeVal: number; awayVal: number; homeColor?: string; awayColor?: string; sample?: string;
 }) => {
   const total = (homeVal + awayVal) || 1;
   const homePct = Math.round((homeVal / total) * 100);
@@ -96,7 +106,7 @@ const CompareBar = ({
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
         <span className="text-emerald-400 font-bold tabular-nums">{homeVal}</span>
-        <span className="text-gray-500">{label}</span>
+        <span className="text-gray-500">{label}{sample ? ` (${sample})` : ''}</span>
         <span className="text-blue-400 font-bold tabular-nums">{awayVal}</span>
       </div>
       <div className="flex h-2 rounded-full overflow-hidden bg-white/10">
@@ -148,10 +158,10 @@ const TeamMatchRow = ({ event, teamName }: { event: any; teamName: string }) => 
   const r = resultForTeam(event, teamName);
   const g = teamGoalsInMatch(event, teamName);
   const opp = getOppName(event, teamName) || '?';
-  const isHome = (event?.home_team?.name || event?.homeTeam?.name || '').toLowerCase() === teamName.toLowerCase();
+  const isHome = sameTeam(teamNameOf(event?.home_team || event?.homeTeam), teamName);
   const date = fmtDateTime(event?.start_timestamp || event?.startTimestamp || event?.start_time);
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${resultBg(r)}`}>
       <ResultBadge result={r} />
       <div className="flex-1 min-w-0">
         <div className="text-xs text-gray-300 truncate">
@@ -162,7 +172,7 @@ const TeamMatchRow = ({ event, teamName }: { event: any; teamName: string }) => 
       </div>
       <div className="text-right shrink-0">
         <div className="text-xs font-bold text-white">{scoreline(event)}</div>
-        {g && <div className="text-[10px] text-gray-600">{g.scored}G {g.conceded}GA</div>}
+        {g && <div className="text-[10px] text-gray-600">{g.scored}G {g.conceded}GA GD {g.diff}</div>}
       </div>
     </div>
   );
@@ -191,18 +201,18 @@ const TabComparison = ({ m }: { m: any }) => {
       </div>
 
       {/* Overall record */}
-      <Sec title="Overall Record (Last Matches)">
+      <Sec title={`Overall Record (${home.played} vs ${away.played} finished matches)`}>
         <div className="grid grid-cols-2 gap-2 mb-3">
           <RecordGrid label="Overall" w={home.w} d={home.d} l={home.l} games={home.played} />
           <RecordGrid label="Overall" w={away.w} d={away.d} l={away.l} games={away.played} />
         </div>
-        <CompareBar label="Wins" homeVal={home.w} awayVal={away.w} />
+        <CompareBar label="Wins" homeVal={home.w} awayVal={away.w} sample={`${home.played}/${away.played} games`} />
         <div className="mt-3" />
-        <CompareBar label="Win Rate %" homeVal={home.winRate} awayVal={away.winRate} />
+        <CompareBar label="Win Rate %" homeVal={home.winRate} awayVal={away.winRate} sample={`${home.played}/${away.played} games`} />
       </Sec>
 
       {/* Home / Away split */}
-      <Sec title="Home & Away Record">
+      <Sec title={`Venue Split (${m.home_team} home ${home.homeGames}, ${m.away_team} away ${away.awayGames})`}>
         <div className="grid grid-cols-2 gap-2 mb-2">
           <RecordGrid label={`${m.home_team} at Home`} w={home.homeW} d={home.homeD} l={home.homeL} games={home.homeGames} />
           <RecordGrid label={`${m.away_team} Away`} w={away.awayW} d={away.awayD} l={away.awayL} games={away.awayGames} />
@@ -211,10 +221,10 @@ const TabComparison = ({ m }: { m: any }) => {
       </Sec>
 
       {/* Scoring */}
-      <Sec title="Scoring">
-        <CompareBar label="Goals Scored" homeVal={home.totalScored} awayVal={away.totalScored} />
+      <Sec title={`Scoring (${home.played} vs ${away.played} scored matches)`}>
+        <CompareBar label="Goals Scored" homeVal={home.totalScored} awayVal={away.totalScored} sample={`${home.played}/${away.played} games`} />
         <div className="mt-3" />
-        <CompareBar label="Goals Conceded" homeVal={home.totalConceded} awayVal={away.totalConceded} homeColor="bg-red-500" awayColor="bg-orange-500" />
+        <CompareBar label="Goals Conceded" homeVal={home.totalConceded} awayVal={away.totalConceded} homeColor="bg-red-500" awayColor="bg-orange-500" sample={`${home.played}/${away.played} games`} />
         <div className="mt-3 grid grid-cols-2 gap-3">
           {[
             { stats: home, scored: 'text-emerald-400', conceded: 'text-red-400' },
@@ -231,7 +241,7 @@ const TabComparison = ({ m }: { m: any }) => {
       </Sec>
 
       {/* Notable games */}
-      <Sec title="Notable Games">
+      <Sec title={`Notable Games (from ${home.played + away.played} finished records)`}>
         <div className="space-y-2">
           {home.highestScoring && (
             <NotableGame label={`${m.home_team} — Highest Scoring`} labelColor="text-emerald-400" event={home.highestScoring} total={home.highestTotal} />
@@ -252,12 +262,18 @@ const TabComparison = ({ m }: { m: any }) => {
       {(() => {
         const common = findCommonOpponents(homeMatches, awayMatches, m.home_team, m.away_team);
         if (common.length === 0) return null;
-        const homeWins = common.filter(c =>
-          resultForTeam(c.homeEvent, m.home_team) === 'W' && resultForTeam(c.awayEvent, m.away_team) !== 'W'
-        ).length;
-        const awayWins = common.filter(c =>
-          resultForTeam(c.awayEvent, m.away_team) === 'W' && resultForTeam(c.homeEvent, m.home_team) !== 'W'
-        ).length;
+        const commonScores = common.map(c => {
+          const hr = resultForTeam(c.homeEvent, m.home_team);
+          const ar = resultForTeam(c.awayEvent, m.away_team);
+          const hg = teamGoalsInMatch(c.homeEvent, m.home_team);
+          const ag = teamGoalsInMatch(c.awayEvent, m.away_team);
+          return {
+            home: resultPoints(hr) + ((hg?.diff || 0) * 0.35),
+            away: resultPoints(ar) + ((ag?.diff || 0) * 0.35),
+          };
+        });
+        const homeWins = commonScores.filter(c => c.home > c.away + 0.1).length;
+        const awayWins = commonScores.filter(c => c.away > c.home + 0.1).length;
         const even = common.length - homeWins - awayWins;
         return (
           <Sec title={`Common Opponents (${common.length})`}>

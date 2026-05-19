@@ -61,6 +61,9 @@ export const purgeGhostMatches = () =>
 export const getBufferStatus = () =>
   api.get('/buffer/status').then(r => r.data);
 
+export const getSystemActivity = (limit = 30) =>
+  api.get('/system/activity', { params: { limit } }).then(r => r.data);
+
 // ── Prediction history ───────────────────────────────────────
 export const refreshPredictions = () =>
   api.post('/predictions/refresh').then(r => r.data);
