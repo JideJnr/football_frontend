@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { IonContent, IonPage, useIonRouter } from '@ionic/react';
-import { getPredictionHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
+import { buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
 import { useAuth } from '../../../../contexts/useAuthContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -267,6 +267,165 @@ const BetSlip: React.FC<{
 
 // ── Saved Slip View ───────────────────────────────────────────────────────────
 
+const pickTypeOptions = [
+  { label: 'Goals', value: 'goals' },
+  { label: 'Double chance', value: 'double_chance' },
+  { label: 'Match result', value: 'match_result' },
+  { label: 'Market value', value: 'market_value' },
+  { label: 'Value bet', value: 'value_bet' },
+  { label: 'Live next goal', value: 'live_next_goal' },
+  { label: 'Live total goals', value: 'live_total_goals' },
+  { label: 'Live winner', value: 'live_match_winner' },
+  { label: 'Live team score', value: 'live_team_to_score' },
+];
+
+const upcomingPickTypes = ['goals', 'double_chance', 'match_result', 'market_value'];
+const livePickTypes = ['live_next_goal', 'live_total_goals', 'live_match_winner', 'live_team_to_score'];
+
+const BuilderTabs = ({ active, onChange }: { active: string; onChange: (value: any) => void }) => (
+  <div className="grid grid-cols-3 gap-1 border-b border-[#1e1e1e] bg-[#0d0d0d] px-3 py-2">
+    {[
+      ['auto', 'Auto Builder'],
+      ['manual', 'Manual Picks'],
+      ['history', 'Bet History'],
+    ].map(([value, label]) => (
+      <button
+        key={value}
+        onClick={() => onChange(value)}
+        className={`rounded-lg px-2 py-2 text-xs font-semibold ${active === value ? 'bg-white text-black' : 'border border-[#2a2a2a] text-gray-500'}`}
+      >
+        {label}
+      </button>
+    ))}
+  </div>
+);
+
+const AutoBuilderPanel = ({ form, setForm, result, building, saving, onBuild, onSave }: any) => {
+  const toggleType = (value: string) => {
+    setForm((current: any) => {
+      const set = new Set(current.pick_types || []);
+      set.has(value) ? set.delete(value) : set.add(value);
+      return { ...current, pick_types: Array.from(set) };
+    });
+  };
+  const fieldConfig: Array<[string, string, string, string?, string?]> = [
+    ['target_odds', 'Target odds', '1', '1'],
+    ['max_total_odds', 'Odds ceiling', '1', '1'],
+    ['min_confidence', 'Min confidence', '1', '40', '99'],
+    ['min_leg_odds', 'Min leg odds', '0.01', '1.01'],
+    ['max_leg_odds', 'Max leg odds', '0.01', '1.05'],
+    ['max_legs', 'Max picks', '1', '1', '30'],
+  ];
+  const setScope = (scope: 'upcoming' | 'live') => {
+    setForm((current: any) => ({
+      ...current,
+      scope,
+      pick_types: scope === 'live' ? livePickTypes : upcomingPickTypes,
+      date: '',
+      start_time: '',
+      end_time: '',
+    }));
+  };
+
+  return (
+    <div className="px-3 py-3 pb-24">
+      <div className="rounded-xl border border-[#2a2a2a] bg-[#151515] p-3">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-bold text-white">Request</div>
+            <div className="text-[11px] text-gray-500">Tell the app the odds shape you want.</div>
+          </div>
+          <button onClick={onBuild} disabled={building} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+            {building ? 'Building...' : 'Generate bet'}
+          </button>
+        </div>
+
+        <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-black/40 p-1">
+          {[
+            ['upcoming', 'Upcoming'],
+            ['live', 'Live'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setScope(value as 'upcoming' | 'live')}
+              className={`rounded-md px-3 py-2 text-xs font-bold ${form.scope === value ? 'bg-white text-black' : 'text-gray-500'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {fieldConfig.map(([key, label, step, min, max]) => (
+            <label key={key} className="text-[10px] text-gray-500">
+              {label}
+              <input type="number" step={step} min={min} max={max} value={form[key]} onChange={e => setForm((current: any) => ({ ...current, [key]: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" />
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <label className="text-[10px] text-gray-500">Date<input type="date" value={form.date} onChange={e => setForm((current: any) => ({ ...current, date: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
+          <label className="text-[10px] text-gray-500">From<input type="time" value={form.start_time} onChange={e => setForm((current: any) => ({ ...current, start_time: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
+          <label className="text-[10px] text-gray-500">To<input type="time" value={form.end_time} onChange={e => setForm((current: any) => ({ ...current, end_time: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {pickTypeOptions.map(option => {
+            const active = (form.pick_types || []).includes(option.value);
+            return <button key={option.value} onClick={() => toggleType(option.value)} className={`rounded-full border px-2.5 py-1 text-[10px] ${active ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300' : 'border-[#333] text-gray-500'}`}>{option.label}</button>;
+          })}
+        </div>
+      </div>
+
+      {result && (
+        <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-bold text-white">Generated Bet</div>
+              <div className="text-[11px] text-gray-500">
+                {result.selections?.length || 0} picks · {result.combined_odds || 0} odds · {result.confidence || 0}% average
+                <span className={`ml-2 ${result.target_met ? 'text-emerald-400' : 'text-yellow-400'}`}>{result.target_met ? 'target met' : 'closest fit'}</span>
+              </div>
+              {!result.target_met && (
+                <div className="mt-1 text-[10px] text-yellow-400">
+                  {result.constraint_warning || `Short by ${result.target_gap || 0} odds. Raise max picks or max leg odds.`}
+                </div>
+              )}
+              {result.max_possible_odds ? (
+                <div className="mt-1 text-[10px] text-gray-600">
+                  Constraint ceiling: {result.max_possible_odds}
+                  {result.request?.max_legs < 30 && !result.target_met ? ' - try 30 max picks for very high targets.' : ''}
+                </div>
+              ) : null}
+            </div>
+            <button onClick={onSave} disabled={!result.selections?.length || saving} className="rounded-lg bg-white px-3 py-2 text-[10px] font-bold text-black disabled:opacity-40">{saving ? 'Saving...' : 'Save bet'}</button>
+          </div>
+          <div className="mt-2 space-y-1.5">
+            {(result.selections || []).map((item: any) => (
+              <div key={`${item.match_id}-${item.type}-${item.selection}`} className="rounded-lg border border-white/[0.06] bg-[#151515] px-2.5 py-2">
+                <div className="truncate text-xs font-semibold text-white">{item.match}</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-gray-500">
+                  {item.country && <span>{item.country}</span>}
+                  {(item.league || item.tournament) && <span>{item.league || item.tournament}</span>}
+                  {item.status && <span className={item.scope === 'live' ? 'text-red-300' : 'text-blue-300'}>{item.status}</span>}
+                  {item.local_time && <span>{item.local_time}</span>}
+                  <span>{item.type?.replace(/_/g, ' ')}</span>
+                  <span className="text-emerald-300">{item.selection}</span>
+                  <span>odds {item.odds}</span>
+                  <span>{item.confidence}%</span>
+                </div>
+                {item.reason && <div className="mt-1 line-clamp-2 text-[10px] text-gray-600">{item.reason}</div>}
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-[10px] text-gray-600">{result.learning_note}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SavedSlipView: React.FC<{
   slip: any;
   user: any;
@@ -330,6 +489,61 @@ const SavedSlipView: React.FC<{
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+const BetHistoryPanel = ({ history, loading, onRefresh }: any) => {
+  return (
+    <IonContent style={{ '--background': '#111' } as any} className="flex-1">
+      <div className="px-3 py-3">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-bold text-white">Saved Bets</div>
+            <div className="text-[11px] text-gray-500">Full generated and manual slips.</div>
+          </div>
+          <button onClick={onRefresh} className="rounded-lg border border-[#2a2a2a] px-3 py-2 text-xs text-gray-300">Refresh</button>
+        </div>
+        {loading && <div className="mt-12 text-center text-xs text-gray-500">Loading saved bets...</div>}
+        {!loading && !history.length && <div className="mt-12 text-center text-xs text-gray-600">No saved bets yet.</div>}
+        <div className="space-y-3">
+          {history.map((bet: any) => (
+            <div key={bet.id} className="rounded-xl border border-[#2a2a2a] bg-[#161616] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-white">Bet #{bet.id}</div>
+                  <div className="mt-1 text-[10px] text-gray-500">{formatTime(bet.created_at)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-emerald-300">{Number(bet.combined_odds || 0).toFixed(2)}</div>
+                  <div className="text-[10px] text-gray-500">{bet.confidence || 0}% avg - {(bet.selections || []).length} picks</div>
+                </div>
+              </div>
+              {bet.request && Object.keys(bet.request).length > 0 && (
+                <div className="mt-2 rounded-lg bg-black/25 px-2 py-1.5 text-[10px] text-gray-500">
+                  Request: {bet.request.scope || 'upcoming'} - target {bet.request.target_odds || '-'} - max {bet.request.max_total_odds || '-'} - confidence {bet.request.min_confidence || '-'}+
+                </div>
+              )}
+              <div className="mt-3 space-y-1.5">
+                {(bet.selections || []).map((item: any, index: number) => (
+                  <div key={`${bet.id}-${index}`} className="rounded-lg border border-white/[0.05] bg-black/20 px-2.5 py-2">
+                    <div className="truncate text-xs font-semibold text-white">{item.match || item.match_name || item.match_id}</div>
+                    <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-gray-500">
+                      {item.country && <span>{item.country}</span>}
+                      {(item.league || item.tournament) && <span>{item.league || item.tournament}</span>}
+                      <span>{item.type?.replace?.(/_/g, ' ') || item.pick_type || 'pick'}</span>
+                      <span className="text-emerald-300">{item.selection}</span>
+                      <span>odds {item.odds || '-'}</span>
+                      <span>{item.confidence || '-'}%</span>
+                    </div>
+                    {item.reason && <div className="mt-1 line-clamp-2 text-[10px] text-gray-600">{item.reason}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </IonContent>
+  );
+};
+
 const Builder = () => {
   const router = useIonRouter();
   const { user } = useAuth();
@@ -341,6 +555,24 @@ const Builder = () => {
   const [saving, setSaving] = useState(false);
   const [savedSlip, setSavedSlip] = useState<any>(null);
   const [filter, setFilter] = useState<'all' | 'high' | 'medium'>('all');
+  const [mode, setMode] = useState<'auto' | 'manual' | 'history'>('auto');
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [buildingAuto, setBuildingAuto] = useState(false);
+  const [autoResult, setAutoResult] = useState<any>(null);
+  const [autoForm, setAutoForm] = useState<any>({
+    scope: 'upcoming',
+    target_odds: '5000',
+    max_total_odds: '6500',
+    min_leg_odds: '1.10',
+    max_leg_odds: '2.50',
+    min_confidence: '70',
+    max_legs: '30',
+    date: '',
+    start_time: '',
+    end_time: '',
+    pick_types: upcomingPickTypes,
+  });
 
   useEffect(() => {
     setLoading(true);
@@ -359,6 +591,22 @@ const Builder = () => {
       .catch(e => setError(e?.response?.data?.detail || 'Failed to load predictions'))
       .finally(() => setLoading(false));
   }, []);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await getBetbuilderHistory(100);
+      setHistory(res?.bets || []);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Failed to load bet history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode === 'history') loadHistory();
+  }, [mode]);
 
   const filtered = useMemo(() => {
     return predictions.filter(p => {
@@ -395,8 +643,48 @@ const Builder = () => {
       }));
       const res = await saveBetbuilder({ selections });
       setSavedSlip(res);
+      loadHistory();
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Failed to save slip');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAutoBuild = async () => {
+    setBuildingAuto(true);
+    setError(null);
+    try {
+      const res = await buildAutoBetbuilder({
+        ...autoForm,
+        target_odds: Number(autoForm.target_odds),
+        max_total_odds: Number(autoForm.max_total_odds),
+        min_leg_odds: Number(autoForm.min_leg_odds),
+        max_leg_odds: Number(autoForm.max_leg_odds),
+        min_confidence: Number(autoForm.min_confidence),
+        max_legs: Number(autoForm.max_legs),
+      });
+      setAutoResult(res);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Failed to build auto slip');
+    } finally {
+      setBuildingAuto(false);
+    }
+  };
+
+  const handleSaveAuto = async () => {
+    if (!autoResult?.selections?.length) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await saveBetbuilder({
+        selections: autoResult.selections,
+        request: autoResult.request,
+      } as any);
+      setSavedSlip(res);
+      loadHistory();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Failed to save auto slip');
     } finally {
       setSaving(false);
     }
@@ -427,8 +715,10 @@ const Builder = () => {
           <div className="text-xs text-gray-600">{filtered.length} matches</div>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-1 px-3 py-2 border-b border-[#1e1e1e] shrink-0">
+        <BuilderTabs active={mode} onChange={setMode} />
+
+        {mode === 'manual' && (
+          <div className="flex gap-1 px-3 py-2 border-b border-[#1e1e1e] shrink-0">
           {(['all', 'high', 'medium'] as const).map(f => (
             <button
               key={f}
@@ -442,11 +732,27 @@ const Builder = () => {
               {f === 'all' ? 'All' : f === 'high' ? '🔥 High (70%+)' : '⚡ Medium (58%+)'}
             </button>
           ))}
-        </div>
+          </div>
+        )}
 
         {/* Content */}
         {savedSlip ? (
           <SavedSlipView slip={savedSlip} user={user} onReset={handleReset} />
+        ) : mode === 'history' ? (
+          <BetHistoryPanel history={history} loading={historyLoading} onRefresh={loadHistory} />
+        ) : mode === 'auto' ? (
+          <IonContent style={{ '--background': '#111' } as any} className="flex-1">
+            {error && <div className="px-4 pt-4 text-center text-xs text-red-400">{error}</div>}
+            <AutoBuilderPanel
+              form={autoForm}
+              setForm={setAutoForm}
+              result={autoResult}
+              building={buildingAuto}
+              saving={saving}
+              onBuild={handleAutoBuild}
+              onSave={handleSaveAuto}
+            />
+          </IonContent>
         ) : (
           <>
             <IonContent style={{ '--background': '#111' } as any} className="flex-1">

@@ -61,6 +61,66 @@ const dataCoverage = (prediction: any) => {
   ];
 };
 
+const roleRate = (pick: any, role: "primary" | "secondary") => {
+  const memory = pick?.role_learning || {};
+  const stats = role === "primary"
+    ? memory.primary
+    : memory.secondary || memory.alternative;
+  const samples = Number(stats?.samples || 0);
+  const winRate = Number(stats?.win_rate || 0);
+  return { samples, winRate };
+};
+
+const roleMemoryText = (rate: { samples: number; winRate: number }, role: "primary" | "secondary") => {
+  if (!rate.samples) return `No graded ${role} history yet`;
+  const samples = Number.isInteger(rate.samples) ? rate.samples : rate.samples.toFixed(1);
+  return `${Math.round(rate.winRate * 100)}% from ${samples} weighted picks`;
+};
+
+const learnedPickScore = (pick: any, role: "primary" | "secondary") => {
+  const confidence = Number(pick?.confidence || 0);
+  const raw = Number(pick?.raw_confidence || confidence);
+  const ranking = Number(pick?.ranking_confidence || confidence);
+  const rate = roleRate(pick, role);
+  const roleLift = rate.samples >= 6 ? (rate.winRate - 0.52) * 18 : 0;
+  const learnedAdjustment = Number(pick?.role_learning?.primary_adjustment || 0);
+  return ranking + roleLift + learnedAdjustment * 0.5 + (confidence - raw) * 0.35;
+};
+
+const learnedChoice = (primary: any, secondary: any) => {
+  const backendBest = [primary, secondary].find((candidate: any) => candidate?.learned_best);
+  if (backendBest) {
+    const decision = backendBest.learned_role_decision || {};
+    const role = backendBest === secondary ? "secondary" : "primary";
+    return {
+      pick: backendBest,
+      role,
+      edge: Number(decision.edge || 0),
+      reason: decision.reason === "secondary_outscores_primary_in_context"
+        ? "Backend learning prefers the secondary pick in this league/country/odds context"
+        : "Backend learning keeps the primary pick ahead in this league/country/odds context",
+    };
+  }
+  if (!secondary) return { pick: primary, role: "primary", edge: 0, reason: "Primary only" };
+  const primaryScore = learnedPickScore(primary, "primary");
+  const secondaryScore = learnedPickScore(secondary, "secondary");
+  const edge = Number((secondaryScore - primaryScore).toFixed(1));
+  if (edge >= 1.5) {
+    return {
+      pick: secondary,
+      role: "secondary",
+      edge,
+      reason: "League/country and odds-context learning prefers the secondary lean",
+    };
+  }
+  return {
+    pick: primary,
+    role: "primary",
+    edge: Number((-edge).toFixed(1)),
+    reason: "League/country and odds-context learning keeps the primary pick ahead",
+  };
+};
+
 const Stat = ({ label, value, sub, icon: Icon, tone = "text-white" }: any) => (
   <div className="rounded-lg border border-white/[0.07] bg-[#161616] p-3">
     <div className="flex items-center justify-between">
@@ -74,16 +134,20 @@ const Stat = ({ label, value, sub, icon: Icon, tone = "text-white" }: any) => (
 
 const PredictionCard = ({ prediction, onOpen }: { prediction: any; onOpen: () => void }) => {
   const picks = prediction.picks || [];
-  const pick = prediction.best_pick || picks[0] || {};
+  const primary = picks.find((candidate: any) => candidate?.role === "primary") || picks[0] || prediction.best_pick || {};
   const secondary = picks
     .filter((candidate: any) =>
       candidate &&
       candidate.type !== "no_bet" &&
-      `${candidate.type}:${candidate.selection}` !== `${pick.type}:${pick.selection}`
+      `${candidate.type}:${candidate.selection}` !== `${primary.type}:${primary.selection}`
     )
     .sort((a: any, b: any) => Number(b.confidence || 0) - Number(a.confidence || 0))[0];
-  const confidence = Number(pick.confidence || 0);
-  const band = confidenceBand(confidence, pick);
+  const learned = learnedChoice(primary, secondary);
+  const learnedIsSecondary = learned.role === "secondary";
+  const learnedPrimaryRate = roleRate(primary, "primary");
+  const learnedSecondaryRate = roleRate(secondary, "secondary");
+  const confidence = Number((learned.pick || primary).confidence || 0);
+  const band = confidenceBand(confidence, learned.pick || primary);
   const reasons = topReasons(prediction);
   const coverage = dataCoverage(prediction);
   const created = prediction.created_at ? new Date(prediction.created_at) : null;
@@ -109,22 +173,43 @@ const PredictionCard = ({ prediction, onOpen }: { prediction: any; onOpen: () =>
         </div>
       </div>
 
-      <div className="mt-3 rounded bg-white/[0.03] px-3 py-2">
-        <div className="text-[10px] uppercase tracking-widest text-gray-600">{pick.type || "Pick"}</div>
-        <div className="text-sm font-semibold text-gray-200">{pick.selection || "--"}</div>
-        {pick.reason && <div className="mt-1 text-[11px] leading-relaxed text-gray-500">{pick.reason}</div>}
+      <div className={`mt-3 rounded border px-3 py-2 ${learnedIsSecondary ? "border-white/[0.06] bg-white/[0.03]" : "border-blue-500/30 bg-blue-500/10"}`}>
+        <div className={`text-[10px] uppercase tracking-widest ${learnedIsSecondary ? "text-gray-600" : "text-blue-300"}`}>
+          {learnedIsSecondary ? "Primary pick" : "Learned best pick"}
+        </div>
+        <div className="text-sm font-semibold text-gray-200">{primary.selection || "--"}</div>
+        {!learnedIsSecondary && (
+          <div className="mt-1 text-[10px] text-blue-300">
+            Primary role memory: {roleMemoryText(learnedPrimaryRate, "primary")}.
+          </div>
+        )}
+        {primary.reason && <div className="mt-1 text-[11px] leading-relaxed text-gray-500">{primary.reason}</div>}
       </div>
 
       {secondary && (
-        <div className="mt-2 rounded border border-blue-500/20 bg-blue-500/5 px-3 py-2">
+        <div className={`mt-2 rounded border px-3 py-2 ${learnedIsSecondary ? "border-blue-500/30 bg-blue-500/10" : "border-white/[0.06] bg-white/[0.025]"}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-widest text-blue-300/80">Secondary lean</div>
-              <div className="truncate text-xs font-semibold text-blue-100">{secondary.selection || "--"}</div>
+              <div className={`text-[10px] uppercase tracking-widest ${learnedIsSecondary ? "text-blue-300" : "text-gray-600"}`}>
+                {learnedIsSecondary ? "Learned best pick" : "Secondary lean"}
+              </div>
+              <div className={`truncate text-xs font-semibold ${learnedIsSecondary ? "text-blue-100" : "text-gray-300"}`}>{secondary.selection || "--"}</div>
             </div>
-            <div className="text-sm font-bold text-blue-300">{Number(secondary.confidence || 0)}%</div>
+            <div className={`text-sm font-bold ${learnedIsSecondary ? "text-blue-300" : "text-gray-400"}`}>{Number(secondary.confidence || 0)}%</div>
           </div>
+          {learnedIsSecondary && (
+            <div className="mt-1 text-[10px] text-blue-300">
+              Secondary role memory: {roleMemoryText(learnedSecondaryRate, "secondary")}.
+            </div>
+          )}
           {secondary.reason && <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-gray-500">{secondary.reason}</div>}
+        </div>
+      )}
+
+      {secondary && (
+        <div className="mt-2 rounded bg-black/20 px-3 py-2 text-[10px] leading-relaxed text-gray-500">
+          Blue means the learned role signal currently prefers that pick. {learned.reason}
+          {learned.edge ? ` by ${Math.abs(learned.edge).toFixed(1)} pts.` : "."}
         </div>
       )}
 
@@ -209,6 +294,8 @@ const Dashboard = () => {
 
   const graded = perf?.graded ?? 0;
   const pending = perf?.pending ?? Math.max(0, (perf?.total_predictions || 0) - graded);
+  const roiPct = roi?.odds_roi_percent ?? roi?.even_money_roi_percent ?? roi?.roi_percent;
+  const roiBasis = roi?.roi_basis === "entry_odds" ? "entry odds" : "break-even proxy";
   const clvQuality = clv?.edge_quality ? String(clv.edge_quality).replace(/_/g, " ") : "learning";
 
   return (
@@ -232,7 +319,7 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-2 gap-2">
               <Stat label="Win Rate" value={pct(perf?.win_percent)} sub={`${perf?.wins ?? 0}W / ${perf?.losses ?? 0}L`} icon={CheckCircle2} tone={Number(perf?.win_percent || 0) >= 50 ? "text-emerald-400" : "text-gray-300"} />
-              <Stat label="ROI" value={pct(roi?.roi_percent)} sub={`${roi?.total_predictions ?? 0} flat stakes`} icon={LineChart} tone={Number(roi?.roi_percent || 0) >= 0 ? "text-emerald-400" : "text-red-400"} />
+              <Stat label="ROI" value={pct(roiPct)} sub={`${roi?.settled_predictions ?? roi?.total_predictions ?? 0} settled · ${roiBasis}`} icon={LineChart} tone={Number(roiPct || 0) >= 0 ? "text-emerald-400" : "text-red-400"} />
               <Stat label="CLV Quality" value={clvQuality} sub={`${clv?.positive_clv_rate ?? "--"}% positive CLV`} icon={BarChart3} tone="text-yellow-400" />
               <Stat label="Learning Loop" value={`${graded}/${graded + pending}`} sub="graded predictions" icon={Activity} tone="text-blue-300" />
             </div>

@@ -43,6 +43,7 @@ export const parsePlayedSeconds = (v: any): number | null => {
 };
 
 export const getMatchTime = (m: any): string | null => {
+  if (m?.match_state?.state === 'prematch') return null;
   const p: string = m?.period || '';
   if (!p || p === 'Not start' || p === 'Not started') return null;
   if (p === 'HT') return 'HT';
@@ -67,6 +68,9 @@ export const getMatchTime = (m: any): string | null => {
 };
 
 export const isLive = (m: any) => {
+  if (typeof m?.is_live === 'boolean') return m.is_live;
+  const state = m?.match_state?.state;
+  if (state) return state === 'live';
   const p = m?.period;
   return p && p !== 'Not started' && p !== 'Not start' && p !== 'FT' && p !== 'AET' && p !== 'Finished';
 };

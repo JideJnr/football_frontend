@@ -6,9 +6,19 @@ import api from "../../services/apis/footballApi";
 const fetchPerformance = () => api.get("/agent/analytics/performance").then(r => r.data);
 const fetchRoi         = () => api.get("/agent/analytics/roi").then(r => r.data);
 const fetchClv         = () => api.get("/analytics/clv?days=30").then(r => r.data);
+const fetchLongshots   = () => api.get("/analytics/signal-matches", { params: { signal_name: "consensus_longshot_value", limit: 80 } }).then(r => r.data);
 const runGrade         = (h = 24) => api.post(`/results/grade?hours_back=${h}`).then(r => r.data);
 const runPurge         = () => api.post("/mongo/purge-junk-predictions").then(r => r.data);
 const runComputeClv    = () => api.post("/analytics/clv/compute").then(r => r.data);
+
+const familyForPickType = (pickType: string) => {
+  const text = String(pickType || "").toLowerCase();
+  if (text.includes("longshot")) return "longshot_value";
+  if (text.includes("double")) return "double_chance";
+  if (text.includes("goal") || text.includes("btts") || text.includes("over") || text.includes("under")) return "goals";
+  if (text.includes("value")) return "value";
+  return "all";
+};
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -72,6 +82,7 @@ const Analytics = () => {
   const [perf, setPerf]       = useState<any>(null);
   const [roi, setRoi]         = useState<any>(null);
   const [clv, setClv]         = useState<any>(null);
+  const [longshots, setLongshots] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [grading, setGrading] = useState(false);
   const [purging, setPurging] = useState(false);
@@ -112,10 +123,11 @@ const Analytics = () => {
     setLoading(true);
     setError("");
     try {
-      const [p, r, c] = await Promise.all([fetchPerformance(), fetchRoi(), fetchClv().catch(() => null)]);
+      const [p, r, c, l] = await Promise.all([fetchPerformance(), fetchRoi(), fetchClv().catch(() => null), fetchLongshots().catch(() => null)]);
       setPerf(p);
       setRoi(r);
       setClv(c);
+      setLongshots(l);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load analytics");
     } finally {
@@ -130,7 +142,8 @@ const Analytics = () => {
   const losses    = perf?.losses ?? 0;
   const pending   = perf?.pending ?? 0;
   const winPct    = perf?.win_percent;
-  const roiPct    = roi?.roi_percent ?? 0;
+  const roiPct    = roi?.odds_roi_percent ?? roi?.even_money_roi_percent ?? roi?.roi_percent ?? 0;
+  const roiBasis  = roi?.roi_basis === "entry_odds" ? "entry odds" : "break-even proxy";
   const byType    = perf?.by_type ?? [];
   const recent    = perf?.recent ?? [];
   const byConf    = roi?.by_confidence ?? {};
@@ -144,6 +157,7 @@ const Analytics = () => {
   const clvByType     = clv?.by_pick_type ?? [];
   const clvDaily      = clv?.daily_trend ?? [];
   const clvRecent     = clv?.recent ?? [];
+  const longshotItems = longshots?.items ?? [];
 
   const edgeColor = (q: string | null) => {
     if (q === "strong_edge")   return "text-emerald-400";
@@ -159,6 +173,15 @@ const Analytics = () => {
     if (q === "marginal")      return "Marginal";
     if (q === "no_edge")       return "No Edge";
     return "—";
+  };
+
+  const openMarketExplorer = (pickType: string) => {
+    const params = new URLSearchParams({
+      preset: familyForPickType(pickType),
+      model: "all",
+      pick_type: pickType || "",
+    });
+    router.push(`/prediction/model-explorer?${params.toString()}`, "forward", "push");
   };
 
   return (
@@ -220,11 +243,11 @@ const Analytics = () => {
                 <StatCard
                   label="ROI"
                   value={`${roiPct}%`}
-                  sub={`${roi?.total_predictions ?? 0} graded`}
+                  sub={`${roi?.settled_predictions ?? roi?.total_predictions ?? 0} settled · ${roiBasis}`}
                   tone={roiPct >= 0 ? "text-emerald-400" : "text-red-400"}
                 />
                 <StatCard label="Graded" value={graded} sub="predictions resolved" />
-                <StatCard label="Pending" value={pending} sub="awaiting result" tone="text-yellow-400" />
+                <StatCard label="Awaiting Result" value={pending} sub="not due or still live" tone="text-yellow-400" />
               </div>
             )}
 
@@ -247,6 +270,45 @@ const Analytics = () => {
                 </div>
               </section>
             )}
+
+            <section className="rounded-xl border border-white/[0.07] bg-[#161616] overflow-hidden">
+              <button
+                onClick={() => router.push('/prediction/model-explorer?preset=longshot_value&model=longshot&pick_type=consensus_longshot_value&min_samples=1', 'forward', 'push')}
+                className="w-full px-4 py-3 border-b border-white/[0.07] flex items-center justify-between text-left"
+              >
+                <div>
+                  <div className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest">Consensus Longshot Value</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">All models agree, market still prices the side at 3.00+</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-white">{longshots?.count ?? 0}</div>
+                  <div className="text-[10px] text-gray-600">
+                    {longshots?.accuracy != null ? `${longshots.accuracy}%` : 'building'}
+                  </div>
+                </div>
+              </button>
+              <div className="divide-y divide-white/[0.04] max-h-72 overflow-y-auto">
+                {longshotItems.length ? longshotItems.slice(0, 12).map((item: any) => (
+                  <button
+                    key={`${item.id}-${item.match_id}`}
+                    onClick={() => item.match_id && router.push(`/match/${encodeURIComponent(item.match_id)}`, 'forward', 'push')}
+                    className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-white/[0.03]"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-white truncate">{item.match_name || item.match_id}</div>
+                      <div className="text-[10px] text-gray-600 truncate">
+                        {item.selection} @ {item.signal?.decimal_odds ?? '-'} · edge {item.signal?.edge_percent ?? '-'}% · {item.league_name || item.country_name || 'Competition'}
+                      </div>
+                    </div>
+                    <div className={`text-xs font-bold ${item.result === 'win' ? 'text-emerald-400' : item.result === 'loss' ? 'text-red-400' : 'text-gray-500'}`}>
+                      {item.result || 'open'}
+                    </div>
+                  </button>
+                )) : (
+                  <div className="px-4 py-5 text-xs text-gray-600">No matches have triggered this signal yet. It will populate as new predictions are recorded.</div>
+                )}
+              </div>
+            </section>
 
             {/* ── CLV Section ── */}
             {clvEntries > 0 && (
@@ -320,7 +382,11 @@ const Analytics = () => {
                     <div className="text-[10px] text-gray-600 uppercase tracking-wide mb-2">CLV by Market</div>
                     <div className="space-y-2">
                       {clvByType.map((row: any) => (
-                        <div key={row.pick_type} className="flex items-center justify-between gap-2">
+                        <button
+                          key={row.pick_type}
+                          onClick={() => openMarketExplorer(row.pick_type)}
+                          className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left hover:bg-white/[0.03]"
+                        >
                           <span className="text-xs text-gray-400 capitalize flex-1 truncate">
                             {(row.pick_type || "").replace(/_/g, " ")}
                           </span>
@@ -328,7 +394,7 @@ const Analytics = () => {
                             {row.avg_clv != null ? `${row.avg_clv > 0 ? "+" : ""}${row.avg_clv.toFixed(1)}%` : "—"}
                           </span>
                           <span className="text-[10px] text-gray-600 w-8 text-right">{row.samples}x</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -373,7 +439,11 @@ const Analytics = () => {
                   {byType.map((row: any) => {
                     const wr = row.win_rate != null ? Math.round(row.win_rate * 100) : null;
                     return (
-                      <div key={row.pick_type} className="px-4 py-3 flex items-center gap-3">
+                      <button
+                        key={row.pick_type}
+                        onClick={() => openMarketExplorer(row.pick_type)}
+                        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-white/[0.03]"
+                      >
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-white capitalize">{row.pick_type?.replace(/_/g, " ")}</div>
                           <div className="text-[11px] text-gray-600">{row.wins}W · {row.losses}L · {row.total} total</div>
@@ -390,7 +460,7 @@ const Analytics = () => {
                             />
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>

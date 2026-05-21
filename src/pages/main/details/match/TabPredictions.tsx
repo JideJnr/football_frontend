@@ -137,6 +137,26 @@ const classifyMarketPull = (pull: any, target: string) => {
   return 'context';
 };
 
+const finishedMemoryRows = [
+  { key: 'tournament_odds', label: 'Tournament + odds', evidence: true },
+  { key: 'country_odds', label: 'Country + odds', evidence: true },
+  { key: 'global_odds', label: 'Whole DB + odds', evidence: true },
+  { key: 'tournament', label: 'Tournament fallback', evidence: true },
+  { key: 'country', label: 'Country fallback', evidence: true },
+  { key: 'global', label: 'Whole DB fallback', evidence: false },
+];
+
+const finishedMemoryEvidenceScope = (memory: any) => {
+  const scopes = memory?.scopes || {};
+  for (const row of finishedMemoryRows.filter(item => item.evidence)) {
+    const scope = scopes[row.key] || {};
+    if (num(scope.samples) > 0) return { ...row, scope };
+  }
+  const global = scopes.global || {};
+  if (num(global.samples) > 0) return { key: 'global', label: 'Whole DB fallback', evidence: false, scope: global };
+  return null;
+};
+
 const opposesTarget = (target: string, side: string | null) => {
   if (!side) return false;
   if (target === 'home') return side === 'away' || side === 'draw';
@@ -179,8 +199,11 @@ const signalText = (signal: any, m: any) => {
     case 'elo_model':
       return `ELO: ${home} ${pct(value.home_win_probability)}, ${away} ${pct(value.away_win_probability)}.`;
     case 'finished_database_memory': {
-      const b = value.blended || {};
-      return `Finished-match memory: over 1.5 ${pct((b.over_1_5_rate || 0) * 100)}, over 2.5 ${pct((b.over_2_5_rate || 0) * 100)}, BTTS ${pct((b.btts_rate || 0) * 100)} from ${value.samples || 0} games.`;
+      const evidence = finishedMemoryEvidenceScope(value);
+      const b = evidence?.scope || value.blended || {};
+      const label = evidence?.label || 'No scoped memory';
+      const contextNote = evidence?.evidence === false ? ' Context only until tournament, country, or odds-similar memory exists.' : '';
+      return `Finished-match memory (${label}): over 1.5 ${pct((b.over_1_5_rate || 0) * 100)}, over 2.5 ${pct((b.over_2_5_rate || 0) * 100)}, BTTS ${pct((b.btts_rate || 0) * 100)} from ${b.samples || value.samples || 0} games.${contextNote}`;
     }
     case 'prediction_memory':
       return `Graded-pick memory: tournament ${value?.scopes?.tournament?.samples ?? 0}, country ${value?.scopes?.country?.samples ?? 0}, whole DB ${value?.scopes?.global?.samples ?? 0} samples.`;
@@ -245,7 +268,9 @@ const classifySignal = (signal: any, target: string) => {
   }
 
   if (name === 'finished_database_memory') {
-    const b = signal?.value?.blended || {};
+    const evidence = finishedMemoryEvidenceScope(signal?.value);
+    if (!evidence?.evidence) return 'context';
+    const b = evidence.scope || {};
     if (target === 'over') return num(b.over_2_5_rate) >= 0.5 || num(b.over_1_5_rate) >= 0.7 ? 'support' : 'risk';
     if (target === 'under') return num(b.over_2_5_rate) <= 0.45 ? 'support' : 'risk';
     if (target === 'home' || target === 'home_or_draw') return num(b.away_win_rate) <= 0.38 ? 'support' : 'risk';
@@ -358,11 +383,11 @@ const PortfolioBadge = ({ prediction }: { prediction: any }) => {
 };
 
 const LiveGoalPanel = ({ picks, m, prediction }: { picks: any[]; m: any; prediction: any }) => {
+  if (!m?.is_live) return null;
   const livePicks = [...(prediction?.live_inplay || []), ...picks.filter((p: any) => String(p.type || '').startsWith('live_'))]
     .filter((pick: any, index: number, all: any[]) => (
       all.findIndex((item: any) => `${item.type || ''}:${item.selection || item.pick || ''}` === `${pick.type || ''}:${pick.selection || pick.pick || ''}`) === index
     ));
-  if (!m?.is_live && !livePicks.length) return null;
   return (
     <Sec title="In-play read">
       <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.06] p-3">
@@ -503,15 +528,17 @@ const MemoryWeights = ({ prediction, models }: { prediction: any; models: any })
   const finishedMemory = models?.finished_database_memory;
   if (!pickMemory && !finishedMemory) return null;
 
-  const rows = [
-    { key: 'tournament', label: 'Tournament' },
-    { key: 'country', label: 'Country' },
-    { key: 'global', label: 'Whole DB' },
-  ];
+  const rows = finishedMemory
+    ? finishedMemoryRows
+    : [
+        { key: 'tournament', label: 'Tournament', evidence: true },
+        { key: 'country', label: 'Country', evidence: true },
+        { key: 'global', label: 'Whole DB', evidence: false },
+      ];
 
   return (
     <Sec title="Database weight">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {rows.map(row => {
           const scope = pickMemory?.scopes?.[row.key] || finishedMemory?.scopes?.[row.key] || {};
           const weight = pickMemory?.weights?.[row.key] ?? finishedMemory?.weights?.[row.key] ?? 0;
@@ -520,6 +547,7 @@ const MemoryWeights = ({ prediction, models }: { prediction: any; models: any })
               <div className="text-[9px] text-gray-500">{row.label}</div>
               <div className="text-base font-bold text-white">{Math.round(weight * 100)}%</div>
               <div className="text-[9px] text-gray-600">{scope.samples ?? 0} samples</div>
+              {row.evidence === false && <div className="mt-1 text-[8px] uppercase tracking-wider text-gray-700">context</div>}
             </div>
           );
         })}
@@ -559,6 +587,7 @@ interface TabPredictionsProps {
 
 const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsProps) => {
   const prediction = m?.prediction;
+  const predictionError = m?.prediction_error;
   const picks = (prediction?.picks || [])
     .filter((p: any) => p?.type !== 'no_bet' && (p?.selection || p?.pick))
     .map(cleanPick)
@@ -579,7 +608,7 @@ const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsP
       {actionMsg && <div className="text-center text-xs text-emerald-400">{actionMsg}</div>}
 
       {!prediction ? (
-        <Empty msg="No prediction yet. Tap Run Prediction." />
+        <Empty msg={predictionError || "No prediction yet. Tap Run Prediction."} />
       ) : !primary ? (
         <>
           <Empty msg="No confident pick from the current data." />

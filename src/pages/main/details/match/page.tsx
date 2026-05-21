@@ -22,6 +22,19 @@ import TabH2H from './TabH2H';
 import TabPredictions from './TabPredictions';
 import { Sec } from './shared';
 
+const actionError = (err: any, fallback: string) => {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (detail?.message) {
+    if (Array.isArray(detail?.readiness?.missing) && detail.readiness.missing.length) {
+      return `${detail.message}: ${detail.readiness.missing.join(', ')}`;
+    }
+    const reason = detail?.refresh?.reason || detail?.refresh?.scope || '';
+    return reason ? `${detail.message}: ${reason}` : detail.message;
+  }
+  return err?.message || fallback;
+};
+
 // ─── Match page ───────────────────────────────────────────────────────────────
 
 const Match = () => {
@@ -64,7 +77,7 @@ const Match = () => {
       }
       await refresh();
     } catch (err: any) {
-      setActionMsg(err?.response?.data?.detail || err?.message || 'Enrichment failed');
+      setActionMsg(actionError(err, 'Enrichment failed'));
     } finally {
       setEnriching(false);
     }
@@ -79,7 +92,7 @@ const Match = () => {
       setActionMsg('Prediction complete');
       await refresh();
     } catch (err: any) {
-      setActionMsg(err?.response?.data?.detail || err?.message || 'Prediction failed');
+      setActionMsg(actionError(err, 'Prediction failed'));
     } finally {
       setPredicting(false);
     }

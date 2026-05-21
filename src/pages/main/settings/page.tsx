@@ -1,6 +1,6 @@
 import { useIonRouter } from '@ionic/react';
 import { useEffect, useState } from 'react';
-import { triggerIngestUpcoming, triggerIngestLive, triggerEnrichWorker, triggerGradeResults, getBufferStatus, purgeGhostMatches } from '../../../services/apis/footballApi';
+import { triggerIngestUpcoming, triggerIngestLive, triggerEnrichWorker, triggerGradeResults, getBufferStatus, purgeGhostMatches, getLivePriorityMode, setLivePriorityMode, triggerRefreshBufferOdds } from '../../../services/apis/footballApi';
 
 type Status = 'idle' | 'loading' | 'ok' | 'error';
 interface ActionResult { label: string; status: Status; msg: string; }
@@ -19,6 +19,7 @@ const Settings = () => {
   const [results, setResults] = useState<Record<string, ActionResult>>({});
   const [bufferStats, setBufferStats] = useState<any>(null);
   const [activity, setActivity] = useState<{ current?: ActivityEvent; events: ActivityEvent[] }>({ events: [] });
+  const [livePriority, setLivePriority] = useState<{ enabled: boolean; loading: boolean; msg: string }>({ enabled: false, loading: true, msg: '' });
 
   const loadBufferStats = async () => {
     try {
@@ -30,9 +31,53 @@ const Settings = () => {
 
   useEffect(() => {
     loadBufferStats();
+    loadLivePriorityMode();
     const timer = window.setInterval(loadBufferStats, 5000);
     return () => window.clearInterval(timer);
   }, []);
+
+  const loadLivePriorityMode = async () => {
+    try {
+      const res = await getLivePriorityMode();
+      setLivePriority({
+        enabled: !!res.enabled,
+        loading: false,
+        msg: res.enabled ? 'Continuous live lane is active' : 'Normal scheduler priority',
+      });
+    } catch (e: any) {
+      setLivePriority(s => ({
+        ...s,
+        loading: false,
+        msg: e?.response?.data?.detail || e?.message || 'Could not load live priority mode',
+      }));
+    }
+  };
+
+  const toggleLivePriority = async () => {
+    const next = !livePriority.enabled;
+    setLivePriority(s => ({
+      ...s,
+      enabled: next,
+      loading: true,
+      msg: next ? 'Enabling continuous live lane...' : 'Disabling continuous live lane...',
+    }));
+    try {
+      const res = await setLivePriorityMode(next);
+      setLivePriority({
+        enabled: !!res.enabled,
+        loading: false,
+        msg: res.enabled ? `Running every ${res.interval_seconds ?? 20}s` : 'Normal scheduler priority',
+      });
+      loadBufferStats();
+    } catch (e: any) {
+      setLivePriority(s => ({
+        ...s,
+        enabled: !next,
+        loading: false,
+        msg: e?.response?.data?.detail || e?.message || 'Failed to update live priority',
+      }));
+    }
+  };
 
   const run = async (key: string, label: string, fn: () => Promise<any>) => {
     setResults(r => ({ ...r, [key]: { label, status: 'loading', msg: '' } }));
@@ -46,7 +91,7 @@ const Settings = () => {
         key === 'purge'    ? `${res.purged_ghosts ?? 0} ghosts · ${res.deleted_finished ?? 0} finished · ${res.deleted_90_plus ?? 0} 90+ removed` :
         JSON.stringify(res).slice(0, 80);
       setResults(r => ({ ...r, [key]: { label, status: 'ok', msg } }));
-      if (key === 'live' || key === 'upcoming' || key === 'purge') loadBufferStats();
+      if (key === 'live' || key === 'upcoming' || key === 'odds' || key === 'purge') loadBufferStats();
     } catch (e: any) {
       setResults(r => ({ ...r, [key]: { label, status: 'error', msg: e?.response?.data?.detail || e?.message || 'Failed' } }));
     }
@@ -61,11 +106,13 @@ const Settings = () => {
   ];
 
   const bufferItems = [
-    { label: 'Total',    val: bufferStats?.total_buffered },
-    { label: 'Live',     val: bufferStats?.live,               tone: 'text-red-400' },
-    { label: 'Upcoming', val: bufferStats?.upcoming,           tone: 'text-yellow-400' },
-    { label: 'Enriched', val: bufferStats?.enriched,           tone: 'text-emerald-400' },
-    { label: 'Pending',  val: bufferStats?.pending_enrichment, tone: 'text-orange-400' },
+    { label: 'Upcoming',        val: bufferStats?.queue_labels?.upcoming ?? bufferStats?.upcoming,              tone: 'text-yellow-300' },
+    { label: 'Future queued',   val: bufferStats?.queue_labels?.future_queued ?? bufferStats?.future_buffered, tone: 'text-sky-300' },
+    { label: 'Needs enrichment', val: bufferStats?.queue_labels?.needs_enrichment ?? bufferStats?.needs_enrichment, tone: 'text-orange-300' },
+    { label: 'No Sofa match',   val: bufferStats?.queue_labels?.no_sofa_match ?? bufferStats?.no_sofa_match,    tone: 'text-rose-300' },
+    { label: 'Ready',           val: bufferStats?.queue_labels?.ready ?? bufferStats?.ready,                    tone: 'text-emerald-300' },
+    { label: 'Deferred',        val: bufferStats?.queue_labels?.deferred ?? bufferStats?.deferred,              tone: 'text-amber-300' },
+    { label: 'Stale live',      val: bufferStats?.queue_labels?.stale_live ?? bufferStats?.stale_live,          tone: 'text-red-400' },
   ];
 
   const current = activity.current;
@@ -97,7 +144,7 @@ const Settings = () => {
         </div>
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           {bufferItems.map(({ label, val, tone }) => (
-            <div key={label} className="shrink-0 rounded-lg bg-white/[0.04] border border-white/[0.07] px-3 py-1.5 text-center min-w-[60px]">
+            <div key={label} className="shrink-0 rounded-lg bg-white/[0.04] border border-white/[0.07] px-3 py-1.5 text-center min-w-[92px]">
               <div className={`text-sm font-bold ${tone ?? 'text-white'}`}>{val ?? '—'}</div>
               <div className="text-[9px] text-gray-600 mt-0.5">{label}</div>
             </div>
@@ -162,8 +209,52 @@ const Settings = () => {
 
         {/* ── Ingest controls ── */}
         <div>
+          <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Live Priority</div>
+          <div className={`mb-6 rounded-xl border px-4 py-3 ${livePriority.enabled ? 'bg-emerald-500/[0.08] border-emerald-500/30' : 'bg-[#161616] border-white/[0.07]'}`}>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-gray-200">Continuous live enrichment</div>
+                <div className="text-[11px] text-gray-600">Refresh live odds, enrich live first, and predict streaming matches automatically.</div>
+                <div className={`mt-1 text-[11px] ${livePriority.enabled ? 'text-emerald-300' : 'text-gray-500'}`}>
+                  {livePriority.loading ? 'Updating...' : livePriority.msg}
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={livePriority.enabled}
+                onClick={toggleLivePriority}
+                disabled={livePriority.loading}
+                className={`relative h-7 w-12 shrink-0 rounded-full border transition-all disabled:opacity-50 ${livePriority.enabled ? 'border-emerald-400 bg-emerald-500/30' : 'border-white/10 bg-white/[0.05]'}`}
+              >
+                <span className={`absolute top-1 h-5 w-5 rounded-full transition-all ${livePriority.enabled ? 'left-6 bg-emerald-300' : 'left-1 bg-gray-500'}`} />
+              </button>
+            </div>
+          </div>
+
           <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-3">Data Ingest</div>
           <div className="space-y-2">
+            <div className="rounded-xl bg-[#161616] border border-white/[0.07] px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">OD</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-gray-200">Refresh Buffer Odds</div>
+                  <div className="text-[11px] text-gray-600">Update live/upcoming odds, status, time, and movement snapshots.</div>
+                </div>
+                <button
+                  onClick={() => run('odds', 'Refresh Buffer Odds', triggerRefreshBufferOdds)}
+                  disabled={results.odds?.status === 'loading'}
+                  className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-40 transition-all"
+                >
+                  {results.odds?.status === 'loading' ? 'Running...' : 'Run'}
+                </button>
+              </div>
+              {results.odds && results.odds.status !== 'loading' && (
+                <div className={`mt-2 text-[11px] px-1 ${results.odds.status === 'ok' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {results.odds.status === 'ok' ? 'Done' : 'Failed'} {results.odds.msg}
+                </div>
+              )}
+            </div>
             {actions.map(({ key, label, desc, icon, fn }) => {
               const r = results[key];
               const loading = r?.status === 'loading';

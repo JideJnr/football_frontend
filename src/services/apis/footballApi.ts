@@ -75,8 +75,11 @@ export const getPredictionHistory = (limit = 200) =>
   api.get(`/predictions/history?limit=${limit}`).then(r => r.data);
 
 // ── Betbuilder ───────────────────────────────────────────────
-export const saveBetbuilder = (payload: { selections: any[] }) =>
+export const saveBetbuilder = (payload: { selections: any[]; request?: any; builder_request?: any }) =>
   api.post('/betbuilder', payload).then(r => r.data);
+
+export const buildAutoBetbuilder = (payload: any) =>
+  api.post('/betbuilder/auto', payload).then(r => r.data);
 
 export const getBetbuilderHistory = (limit = 100) =>
   api.get(`/betbuilder/history?limit=${limit}`).then(r => r.data);
@@ -88,8 +91,20 @@ export const triggerIngestUpcoming = () =>
 export const triggerIngestLive = () =>
   api.post('/mongo/scan/live').then(r => r.data);
 
+export const triggerRefreshBufferOdds = () =>
+  api.post('/mongo/scan/refresh-odds').then(r => r.data);
+
 export const triggerEnrichWorker = () =>
   api.post('/mongo/scan/enrich').then(r => r.data);
+
+export const triggerLivePriority = (count = 30) =>
+  api.post('/mongo/scan/live-priority', null, { params: { count } }).then(r => r.data);
+
+export const getLivePriorityMode = () =>
+  api.get('/mongo/live-priority').then(r => r.data);
+
+export const setLivePriorityMode = (enabled: boolean) =>
+  api.post('/mongo/live-priority', { enabled }).then(r => r.data);
 
 export const triggerMatchAndEnrich = (count = 12) =>
   api.post('/mongo/scan/match-and-enrich', null, { params: { count } }).then(r => r.data);
@@ -103,11 +118,18 @@ export const getOddsOnlyPredictions = () =>
 export const getSignalStats = (country = '', tournament = '', minSamples = 5) =>
   api.get('/analytics/signals', { params: { country, tournament, min_samples: minSamples } }).then(r => r.data);
 
-export const getModelExplorer = (params: { preset?: string; model?: string; minSamples?: number; limit?: number }) =>
+export const getSignalMatches = (signalName = 'consensus_longshot_value', result = '', limit = 300) =>
+  api.get('/analytics/signal-matches', {
+    params: { signal_name: signalName, result, limit },
+  }).then(r => r.data);
+
+export const getModelExplorer = (params: { preset?: string; model?: string; pickType?: string; selectionKey?: string; minSamples?: number; limit?: number }) =>
   api.get('/analytics/model-explorer', {
     params: {
       preset: params.preset || 'all',
       model: params.model || 'all',
+      pick_type: params.pickType || '',
+      selection_key: params.selectionKey || '',
       min_samples: params.minSamples ?? 1,
       limit: params.limit ?? 500,
     },
