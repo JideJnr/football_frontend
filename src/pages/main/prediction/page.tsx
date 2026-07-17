@@ -4,6 +4,7 @@ const navItems = [
   { label: 'Prediction Dashboard', route: '/prediction/dashboard' },
   { label: 'Value Bets', route: '/prediction/value-bets' },
   { label: 'Bet Builder', route: '/builder' },
+  { label: 'Competitions', route: '/competitions' },
   { label: 'Engines', route: '/engines' },
   { label: 'Upcoming Suggestions', route: '/suggestions' },
   { label: 'User Rating', route: '/rating' },

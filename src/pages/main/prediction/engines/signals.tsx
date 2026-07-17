@@ -145,8 +145,8 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
         <div className="border-t border-white/[0.06] px-3 py-3 space-y-3">
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
-              { label: 'Model', value: `${(signal.modelProbability * 100).toFixed(1)}%`, color: 'text-white' },
-              { label: 'Implied', value: `${(signal.impliedProbability * 100).toFixed(1)}%`, color: 'text-gray-400' },
+              { label: 'Backend', value: `${(signal.modelProbability * 100).toFixed(1)}%`, color: 'text-white' },
+              { label: 'Market', value: `${(signal.impliedProbability * 100).toFixed(1)}%`, color: 'text-gray-400' },
               { label: 'Edge', value: `${signal.valueEdge > 0 ? '+' : ''}${(signal.valueEdge * 100).toFixed(1)}%`, color: edgeColor(signal.valueEdge) },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-black/30 rounded-lg p-2">
@@ -158,10 +158,10 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
 
           <div className="bg-black/20 rounded-lg p-2 text-xs text-gray-400">
             {signal.signalType === 'value_bet' && (
-              <span>Model gives <span className="text-white">{(signal.modelProbability * 100).toFixed(0)}%</span> while the market implies <span className="text-white">{(signal.impliedProbability * 100).toFixed(0)}%</span>, creating <span className="text-yellow-400">{((signal.modelProbability - signal.impliedProbability) * 100).toFixed(1)}% edge</span>.</span>
+              <span>Backend-approved probability is <span className="text-white">{(signal.modelProbability * 100).toFixed(0)}%</span>; market implied is <span className="text-white">{(signal.impliedProbability * 100).toFixed(0)}%</span>, leaving <span className="text-yellow-400">{((signal.modelProbability - signal.impliedProbability) * 100).toFixed(1)}% edge</span>.</span>
             )}
             {signal.signalType === 'high_confidence' && (
-              <span>Model is <span className="text-emerald-400">{(signal.modelProbability * 100).toFixed(0)}% confident</span> in this outcome.</span>
+              <span>Backend confidence score is <span className="text-emerald-400">{(signal.modelProbability * 100).toFixed(0)}%</span> for this outcome.</span>
             )}
             {signal.signalType === 'form_signal' && (
               <span>Recent form supports this side, marked as a <span className="text-purple-400">momentum pick</span>.</span>

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export const TABS = ['Home', 'Details', 'Lineups', 'Statistics', 'Odds', 'Comparison', 'H2H', 'Prediction'] as const;
+export const TABS = ['Home', 'Details', 'Lineups', 'Statistics', 'Odds', 'Comparison', 'H2H', 'Prediction', 'Similar'] as const;
 export type Tab = typeof TABS[number];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

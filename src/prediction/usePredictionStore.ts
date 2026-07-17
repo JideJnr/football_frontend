@@ -31,6 +31,8 @@ export const usePredictionStore = create<PredictionState>((set, get) => ({
 
   runPredictions: (matches: any[]) => {
     set({ running: true });
+    // Adapter only: backend predictions are the authority. The frontend no
+    // longer creates betting signals from bookmaker market probabilities.
     const signals = runEngines(matches, get().engines);
     set({ signals, running: false, lastRun: Date.now() });
   },

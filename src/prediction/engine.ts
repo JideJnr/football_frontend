@@ -396,11 +396,6 @@ const parseOdds = (v: any): number => {
   return isNaN(n) ? 0 : n;
 };
 
-const parseProb = (v: any): number => {
-  const n = parseFloat(v);
-  return isNaN(n) ? 0 : n;
-};
-
 // ─── Market extractors ─────────────────────────────────────────────────────────
 
 const extract1x2 = (markets: any[], side: '1' | 'X' | '2') => {
@@ -410,7 +405,7 @@ const extract1x2 = (markets: any[], side: '1' | 'X' | '2') => {
   const selMap: Record<string, string> = { '1': 'Home', 'X': 'Draw', '2': 'Away' };
   const sel = market.selections?.find((s: any) => s.name === selMap[side]);
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: selMap[side], market: '1X2' };
+  return { odds: parseOdds(sel.odds), probability: 0, label: selMap[side], market: '1X2' };
 };
 
 const extractOU = (markets: any[], line: number, side: 'over' | 'under') => {
@@ -422,7 +417,7 @@ const extractOU = (markets: any[], line: number, side: 'over' | 'under') => {
   const selName = side === 'over' ? `Over ${line}` : `Under ${line}`;
   const sel = market.selections?.find((s: any) => s.name === selName);
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: selName, market: `O/U ${line}` };
+  return { odds: parseOdds(sel.odds), probability: 0, label: selName, market: `O/U ${line}` };
 };
 
 const extractGGNG = (markets: any[], side: 'gg' | 'ng') => {
@@ -432,7 +427,7 @@ const extractGGNG = (markets: any[], side: 'gg' | 'ng') => {
   if (!market) return null;
   const sel = market.selections?.find((s: any) => s.name === (side === 'gg' ? 'Yes' : 'No'));
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: side === 'gg' ? 'GG (Both Score)' : 'No Goal', market: 'GG/NG' };
+  return { odds: parseOdds(sel.odds), probability: 0, label: side === 'gg' ? 'GG (Both Score)' : 'No Goal', market: 'GG/NG' };
 };
 
 const extractDC = (markets: any[], side: '1X' | '12' | 'X2') => {
@@ -443,7 +438,7 @@ const extractDC = (markets: any[], side: '1X' | '12' | 'X2') => {
   const nameMap: Record<string, string> = { '1X': 'Home or Draw', '12': 'Home or Away', 'X2': 'Draw or Away' };
   const sel = market.selections?.find((s: any) => s.name === nameMap[side]);
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: nameMap[side], market: 'Double Chance' };
+  return { odds: parseOdds(sel.odds), probability: 0, label: nameMap[side], market: 'Double Chance' };
 };
 
 const extractHT1x2 = (markets: any[], side: '1' | 'X' | '2') => {
@@ -454,7 +449,7 @@ const extractHT1x2 = (markets: any[], side: '1' | 'X' | '2') => {
   const selMap: Record<string, string> = { '1': 'Home', 'X': 'Draw', '2': 'Away' };
   const sel = market.selections?.find((s: any) => s.name === selMap[side]);
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: `HT ${selMap[side]}`, market: 'HT 1X2' };
+  return { odds: parseOdds(sel.odds), probability: 0, label: `HT ${selMap[side]}`, market: 'HT 1X2' };
 };
 
 const extractCleanSheet = (markets: any[], csSide: 'home' | 'away') => {
@@ -466,7 +461,7 @@ const extractCleanSheet = (markets: any[], csSide: 'home' | 'away') => {
   if (!market) return null;
   const sel = market.selections?.find((s: any) => s.name === 'Yes');
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: `${csSide === 'home' ? 'Home' : 'Away'} Clean Sheet`, market: 'Clean Sheet' };
+  return { odds: parseOdds(sel.odds), probability: 0, label: `${csSide === 'home' ? 'Home' : 'Away'} Clean Sheet`, market: 'Clean Sheet' };
 };
 
 const extractDrawNoBet = (markets: any[], side: '1' | '2') => {
@@ -477,7 +472,7 @@ const extractDrawNoBet = (markets: any[], side: '1' | '2') => {
   const selMap: Record<string, string> = { '1': 'Home', '2': 'Away' };
   const sel = market.selections?.find((s: any) => s.name === selMap[side]);
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: `DNB ${selMap[side]}`, market: 'Draw No Bet' };
+  return { odds: parseOdds(sel.odds), probability: 0, label: `DNB ${selMap[side]}`, market: 'Draw No Bet' };
 };
 
 const extractCorners = (markets: any[], line: number, side: 'over' | 'under') => {
@@ -489,7 +484,7 @@ const extractCorners = (markets: any[], line: number, side: 'over' | 'under') =>
   const selName = side === 'over' ? `Over ${line}` : `Under ${line}`;
   const sel = market.selections?.find((s: any) => s.name === selName);
   if (!sel) return null;
-  return { odds: parseOdds(sel.odds), probability: parseProb(sel.probability), label: `Corners ${selName}`, market: 'Corners' };
+  return { odds: parseOdds(sel.odds), probability: 0, label: `Corners ${selName}`, market: 'Corners' };
 };
 
 // Form-based synthetic signal — reads match.home_form / match.away_form
@@ -543,82 +538,95 @@ const evaluateRule = (
 
 // ─── Main engine runner ────────────────────────────────────────────────────────
 
+const pickOdds = (pick: any): number => {
+  const stake = pick?.stake || {};
+  return parseOdds(stake.decimal_odds ?? pick?.decimal_odds ?? pick?.odds);
+};
+
+const pickProbability = (pick: any): number => {
+  const cal = pick?.calibration || {};
+  const p = parseFloat(cal.calibrated_probability ?? pick?.calibrated_probability ?? '');
+  if (Number.isFinite(p) && p > 0) return p > 1 ? p / 100 : p;
+  return Math.max(0, Math.min(1, parseFloat(pick?.confidence ?? 0) / 100));
+};
+
+const backendPrediction = (match: any) =>
+  match?.prediction
+  || match?.intelligence?.prediction
+  || match?.current_prediction
+  || match?.latest_prediction
+  || null;
+
+const preferredEngineId = (pick: any): string => {
+  const type = String(pick?.type || '').toLowerCase();
+  const selection = String(pick?.selection || pick?.pick || '').toLowerCase();
+  if (type.includes('value')) return 'value_hunter';
+  if (selection.includes('away')) return 'away_value';
+  if (selection.includes('over')) return 'over_specialist';
+  if (selection.includes('under')) return 'under_specialist';
+  if (selection.includes('both teams') || selection.includes('btts') || selection.includes('gg')) return 'gg_hunter';
+  if (type.includes('live')) return 'sharp_follower';
+  if (type.includes('match_result') && selection.includes('home')) return 'safe_home';
+  if (type.includes('draw')) return 'draw_specialist';
+  return 'value_hunter';
+};
+
+const pickSignalType = (pick: any, probability: number): SignalType => {
+  const type = String(pick?.type || '').toLowerCase();
+  const stake = pick?.stake || {};
+  if (type.includes('value') || stake.value_bet) return 'value_bet';
+  if (probability >= 0.65 || Number(pick?.confidence || 0) >= 75) return 'high_confidence';
+  return 'rule_match';
+};
+
+const backendPickToSignal = (
+  match: any,
+  prediction: any,
+  pick: any,
+  engines: PredictionEngine[],
+): MatchSignal | null => {
+  if (!pick || pick.type === 'no_bet') return null;
+  const engine = engines.find(e => e.id === preferredEngineId(pick)) || engines[0];
+  if (!engine) return null;
+
+  const odds = pickOdds(pick);
+  const probability = pickProbability(pick);
+  const implied = odds > 1 ? impliedProb(odds) : 0;
+  const edge = odds > 1 ? parseFloat(((probability * odds) - 1).toFixed(4)) : 0;
+  const backendConfidence = Number(pick?.confidence || Math.round(probability * 100));
+
+  return {
+    matchId: String(match.sportybet_id || match.id || prediction.match_id || ''),
+    matchName: prediction.name || match.name || `${match.home_team || 'Home'} vs ${match.away_team || 'Away'}`,
+    tournament: match.tournament || prediction.league || prediction.tournament || 'Unknown',
+    startTime: Number(match.start_time || prediction.start_time || Date.now()),
+    homeTeam: match.home_team || prediction?.teams?.home?.name || 'Home',
+    awayTeam: match.away_team || prediction?.teams?.away?.name || 'Away',
+    engineId: engine.id,
+    engineName: engine.name,
+    engineIcon: engine.icon,
+    signalType: pickSignalType(pick, probability),
+    market: String(pick.type || 'backend_prediction'),
+    pick: String(pick.selection || pick.pick || 'Backend pick'),
+    odds,
+    modelProbability: probability,
+    impliedProbability: implied,
+    valueEdge: edge,
+    confidence: confidenceLevel(backendConfidence / 100),
+    status: 'pending',
+    note: pick.reason || 'Backend prediction authority',
+    contextAdjustment: undefined,
+  };
+};
+
 export const runEngines = (matches: any[], engines: PredictionEngine[]): MatchSignal[] => {
-  const signals: MatchSignal[] = [];
-  const activeEngines = engines.filter(e => e.enabled);
-
-  for (const match of matches) {
-    if (match.period && match.period !== 'Not start' && match.period !== 'Not started') continue;
-
-    const markets: any[] = match.all_markets || match.sportybet_markets || match.markets || [];
-
-    // Pre-compute context factors once per match (not per rule)
-    const h2hBias = calcH2HBias(match);
-    const tablePressure = calcTablePressure(match);
-
-    for (const engine of activeEngines) {
-      for (const rule of engine.rules) {
-        const result = evaluateRule(rule, markets, match);
-        if (!result) continue;
-
-        const { odds, probability, label, market, note } = result as any;
-        if (!odds || odds <= 1) continue;
-
-        // Determine which side this pick is for (for context adjustment)
-        const pickSide: '1' | 'X' | '2' =
-          rule.side === 'X' ? 'X'
-          : rule.side === '2' || rule.dcSide === 'X2' || rule.csSide === 'away' ? '2'
-          : '1';
-
-        // Apply opponent-weighted form + H2H + table pressure
-        const ctx = applyContextAdjustment(probability, pickSide, match);
-        const adjustedProb = ctx.adjustedProbability;
-
-        const implied = impliedProb(odds);
-        const edge = parseFloat(((adjustedProb * odds) - 1).toFixed(4));
-
-        if (adjustedProb < rule.minProbability) continue;
-        if (odds < rule.minOdds) continue;
-        if (rule.requireValue && adjustedProb <= implied + rule.edgeThreshold) continue;
-
-        const signalType: SignalType =
-          rule.requireValue ? 'value_bet'
-          : rule.market === 'form' ? 'form_signal'
-          : adjustedProb >= 0.65 ? 'high_confidence'
-          : 'rule_match';
-
-        signals.push({
-          matchId: match.sportybet_id || match.id,
-          matchName: match.name || `${match.home_team} vs ${match.away_team}`,
-          tournament: match.tournament || 'Unknown',
-          startTime: match.start_time,
-          homeTeam: match.home_team,
-          awayTeam: match.away_team,
-          engineId: engine.id,
-          engineName: engine.name,
-          engineIcon: engine.icon,
-          signalType,
-          market,
-          pick: label,
-          odds,
-          modelProbability: adjustedProb,
-          impliedProbability: implied,
-          valueEdge: edge,
-          confidence: confidenceLevel(adjustedProb),
-          status: 'pending',
-          note,
-          contextAdjustment: ctx.factors.length > 0 ? {
-            rawProbability: ctx.rawProbability,
-            delta: ctx.delta,
-            factors: ctx.factors,
-            h2hBias: h2hBias.meetings > 0 ? h2hBias : undefined,
-            tablePressure: (tablePressure.homeZone !== 'none' || tablePressure.awayZone !== 'none')
-              ? tablePressure : undefined,
-          } : undefined,
-        });
-      }
-    }
-  }
+  const signals = matches.flatMap((match) => {
+    const prediction = backendPrediction(match);
+    const picks = Array.isArray(prediction?.picks) ? prediction.picks : [];
+    return picks
+      .map((pick: any) => backendPickToSignal(match, prediction, pick, engines))
+      .filter(Boolean) as MatchSignal[];
+  });
 
   return signals.sort((a, b) => {
     if (a.signalType === 'value_bet' && b.signalType !== 'value_bet') return -1;
@@ -626,6 +634,8 @@ export const runEngines = (matches: any[], engines: PredictionEngine[]): MatchSi
     return b.valueEdge - a.valueEdge;
   });
 };
+
+const disabledFrontendLabRunner = (_matches: any[], _engines: PredictionEngine[]): MatchSignal[] => [];
 
 // ─── Default engines ───────────────────────────────────────────────────────────
 
@@ -637,7 +647,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '💰',
     category: 'value',
     description: 'Finds bets where model probability beats the bookmaker by 5%+',
-    enabled: true,
+    enabled: false,
     rules: [
       { market: '1x2', side: '1', minProbability: 0.50, minOdds: 1.60, requireValue: true, edgeThreshold: 0.05 },
       { market: '1x2', side: '2', minProbability: 0.45, minOdds: 1.80, requireValue: true, edgeThreshold: 0.05 },
@@ -652,7 +662,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '✈️',
     category: 'value',
     description: 'Away wins are systematically underpriced — finds edges on away teams',
-    enabled: true,
+    enabled: false,
     rules: [
       { market: '1x2', side: '2', minProbability: 0.42, minOdds: 2.00, requireValue: true, edgeThreshold: 0.04 },
       { market: 'draw_no_bet', side: '2', minProbability: 0.50, minOdds: 1.70, requireValue: true, edgeThreshold: 0.04 },
@@ -668,10 +678,10 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '⚽',
     category: 'goals',
     description: 'High probability Over 2.5 and Over 1.5 picks',
-    enabled: true,
+    enabled: false,
     rules: [
-      { market: 'over_under', ouLine: 2.5, ouSide: 'over', minProbability: 0.62, minOdds: 1.50, requireValue: false, edgeThreshold: 0 },
-      { market: 'over_under', ouLine: 1.5, ouSide: 'over', minProbability: 0.80, minOdds: 1.20, requireValue: false, edgeThreshold: 0 },
+      { market: 'over_under', ouLine: 2.5, ouSide: 'over', minProbability: 0.62, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
+      { market: 'over_under', ouLine: 1.5, ouSide: 'over', minProbability: 0.80, minOdds: 1.20, requireValue: true, edgeThreshold: 0 },
       { market: 'over_under', ouLine: 3.5, ouSide: 'over', minProbability: 0.45, minOdds: 2.00, requireValue: true, edgeThreshold: 0.05 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
@@ -684,7 +694,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     description: 'Low-scoring games — defensive matchups, cup ties, tight leagues',
     enabled: false,
     rules: [
-      { market: 'over_under', ouLine: 2.5, ouSide: 'under', minProbability: 0.58, minOdds: 1.60, requireValue: false, edgeThreshold: 0 },
+      { market: 'over_under', ouLine: 2.5, ouSide: 'under', minProbability: 0.58, minOdds: 1.60, requireValue: true, edgeThreshold: 0 },
       { market: 'over_under', ouLine: 1.5, ouSide: 'under', minProbability: 0.35, minOdds: 3.00, requireValue: true, edgeThreshold: 0.06 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
@@ -695,9 +705,9 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🎯',
     category: 'goals',
     description: 'Both teams to score — high probability picks',
-    enabled: true,
+    enabled: false,
     rules: [
-      { market: 'gg_ng', minProbability: 0.60, minOdds: 1.50, requireValue: false, edgeThreshold: 0 },
+      { market: 'gg_ng', minProbability: 0.60, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
       { market: 'gg_ng', minProbability: 0.52, minOdds: 1.65, requireValue: true, edgeThreshold: 0.04 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
@@ -710,8 +720,8 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     description: 'Both teams score AND over 2.5 goals — high-action games',
     enabled: false,
     rules: [
-      { market: 'gg_ng', minProbability: 0.62, minOdds: 1.45, requireValue: false, edgeThreshold: 0 },
-      { market: 'over_under', ouLine: 2.5, ouSide: 'over', minProbability: 0.62, minOdds: 1.45, requireValue: false, edgeThreshold: 0 },
+      { market: 'gg_ng', minProbability: 0.62, minOdds: 1.45, requireValue: true, edgeThreshold: 0 },
+      { market: 'over_under', ouLine: 2.5, ouSide: 'over', minProbability: 0.62, minOdds: 1.45, requireValue: true, edgeThreshold: 0 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
   },
@@ -725,8 +735,8 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     description: 'Strong home favourites with high win probability',
     enabled: false,
     rules: [
-      { market: '1x2', side: '1', minProbability: 0.65, minOdds: 1.30, requireValue: false, edgeThreshold: 0 },
-      { market: 'double_chance', dcSide: '1X', minProbability: 0.80, minOdds: 1.10, requireValue: false, edgeThreshold: 0 },
+      { market: '1x2', side: '1', minProbability: 0.65, minOdds: 1.30, requireValue: true, edgeThreshold: 0 },
+      { market: 'double_chance', dcSide: '1X', minProbability: 0.80, minOdds: 1.10, requireValue: true, edgeThreshold: 0 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
   },
@@ -765,8 +775,8 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     description: 'Teams with strong defensive records keeping clean sheets',
     enabled: false,
     rules: [
-      { market: 'clean_sheet', csSide: 'home', minProbability: 0.50, minOdds: 1.70, requireValue: false, edgeThreshold: 0 },
-      { market: 'clean_sheet', csSide: 'away', minProbability: 0.45, minOdds: 2.00, requireValue: false, edgeThreshold: 0 },
+      { market: 'clean_sheet', csSide: 'home', minProbability: 0.50, minOdds: 1.70, requireValue: true, edgeThreshold: 0 },
+      { market: 'clean_sheet', csSide: 'away', minProbability: 0.45, minOdds: 2.00, requireValue: true, edgeThreshold: 0 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
   },
@@ -778,11 +788,11 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '📈',
     category: 'special',
     description: 'Teams on winning streaks — momentum is real in football',
-    enabled: true,
+    enabled: false,
     rules: [
-      { market: 'form', formSide: '1', minFormStreak: 4, minProbability: 0.45, minOdds: 1.50, requireValue: false, edgeThreshold: 0 },
-      { market: 'form', formSide: '2', minFormStreak: 4, minProbability: 0.40, minOdds: 1.80, requireValue: false, edgeThreshold: 0 },
-      { market: 'form', formSide: '1', minFormStreak: 6, minProbability: 0.40, minOdds: 1.30, requireValue: false, edgeThreshold: 0 },
+      { market: 'form', formSide: '1', minFormStreak: 4, minProbability: 0.45, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
+      { market: 'form', formSide: '2', minFormStreak: 4, minProbability: 0.40, minOdds: 1.80, requireValue: true, edgeThreshold: 0 },
+      { market: 'form', formSide: '1', minFormStreak: 6, minProbability: 0.40, minOdds: 1.30, requireValue: true, edgeThreshold: 0 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
   },
@@ -794,8 +804,8 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     description: 'High-pressing teams generate corner-heavy games',
     enabled: false,
     rules: [
-      { market: 'corners', cornersLine: 9.5, ouSide: 'over', minProbability: 0.55, minOdds: 1.70, requireValue: false, edgeThreshold: 0 },
-      { market: 'corners', cornersLine: 8.5, ouSide: 'over', minProbability: 0.65, minOdds: 1.40, requireValue: false, edgeThreshold: 0 },
+      { market: 'corners', cornersLine: 9.5, ouSide: 'over', minProbability: 0.55, minOdds: 1.70, requireValue: true, edgeThreshold: 0 },
+      { market: 'corners', cornersLine: 8.5, ouSide: 'over', minProbability: 0.65, minOdds: 1.40, requireValue: true, edgeThreshold: 0 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
   },
@@ -810,8 +820,8 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     enabled: false,
     rules: [
       // Uses 1x2 home — engine checks odds_movement.movement.home === 'shortened'
-      { market: '1x2', side: '1', minProbability: 0.40, minOdds: 1.50, requireValue: false, edgeThreshold: 0 },
-      { market: '1x2', side: '2', minProbability: 0.35, minOdds: 1.80, requireValue: false, edgeThreshold: 0 },
+      { market: '1x2', side: '1', minProbability: 0.40, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
+      { market: '1x2', side: '2', minProbability: 0.35, minOdds: 1.80, requireValue: true, edgeThreshold: 0 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
   },
@@ -825,7 +835,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     rules: [
       // Fade the drifted home team → back the away
       { market: '1x2', side: '2', minProbability: 0.35, minOdds: 2.20, requireValue: true, edgeThreshold: 0.03 },
-      { market: 'double_chance', dcSide: 'X2', minProbability: 0.60, minOdds: 1.40, requireValue: false, edgeThreshold: 0 },
+      { market: 'double_chance', dcSide: 'X2', minProbability: 0.60, minOdds: 1.40, requireValue: true, edgeThreshold: 0 },
     ],
     stats: { total: 0, wins: 0, losses: 0, pending: 0 },
   },

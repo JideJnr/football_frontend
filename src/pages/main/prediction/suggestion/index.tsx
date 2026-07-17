@@ -155,11 +155,11 @@ function Suggestions() {
             {/* Probability breakdown */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-[#111] rounded p-2">
-                <div className="text-[10px] text-gray-500">Model Prob</div>
+                <div className="text-[10px] text-gray-500">Backend Prob</div>
                 <div className="text-white font-bold text-sm">{(signal.modelProbability * 100).toFixed(1)}%</div>
               </div>
               <div className="bg-[#111] rounded p-2">
-                <div className="text-[10px] text-gray-500">Implied Prob</div>
+                <div className="text-[10px] text-gray-500">Market Implied</div>
                 <div className="text-white font-bold text-sm">{(signal.impliedProbability * 100).toFixed(1)}%</div>
               </div>
               <div className="bg-[#111] rounded p-2">
@@ -173,10 +173,10 @@ function Suggestions() {
             {/* What this means */}
             <div className="bg-[#111] rounded p-2 text-xs text-gray-400">
               {signal.signalType === 'value_bet' && (
-                <span>📊 Model gives <span className="text-white">{(signal.modelProbability * 100).toFixed(0)}%</span> chance but bookmaker only prices it at <span className="text-white">{(signal.impliedProbability * 100).toFixed(0)}%</span>. That's a <span className="text-yellow-400">{((signal.modelProbability - signal.impliedProbability) * 100).toFixed(1)}% edge</span>.</span>
+                <span>Backend-approved probability is <span className="text-white">{(signal.modelProbability * 100).toFixed(0)}%</span>; market implied is <span className="text-white">{(signal.impliedProbability * 100).toFixed(0)}%</span>. Backend validation shows a <span className="text-yellow-400">{((signal.modelProbability - signal.impliedProbability) * 100).toFixed(1)}% edge</span>.</span>
               )}
               {signal.signalType === 'high_confidence' && (
-                <span>🔥 Model is <span className="text-emerald-400">{(signal.modelProbability * 100).toFixed(0)}% confident</span> in this outcome. High probability pick.</span>
+                <span>Backend confidence score is <span className="text-emerald-400">{(signal.modelProbability * 100).toFixed(0)}%</span>. Stake sizing still depends on backend risk gates.</span>
               )}
               {signal.signalType === 'rule_match' && (
                 <span>📡 Matches your <span className="text-blue-400">{signal.engineName}</span> rule set criteria.</span>

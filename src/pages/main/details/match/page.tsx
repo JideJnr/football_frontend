@@ -20,6 +20,7 @@ import TabOdds from './TabOdds';
 import TabComparison from './TabComparison';
 import TabH2H from './TabH2H';
 import TabPredictions from './TabPredictions';
+import TabSimilar from './TabSimilar';
 import { Sec } from './shared';
 
 const actionError = (err: any, fallback: string) => {
@@ -161,6 +162,7 @@ const Match = () => {
       case 'Comparison': return <TabComparison m={m} />;
       case 'H2H':        return <TabH2H m={m} />;
       case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} predicting={predicting} actionMsg={actionMsg} />;
+      case 'Similar':    return <TabSimilar m={m} />;
       default:           return <TabOverview m={m} onEnrich={handleEnrich} onPredict={handlePredict} enriching={enriching} predicting={predicting} actionMsg={actionMsg} />;
     }
   };

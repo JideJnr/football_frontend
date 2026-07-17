@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { IonContent, IonPage, useIonRouter } from '@ionic/react';
-import { buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
+import { IonPage, useIonRouter } from '@ionic/react';
+import { buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
 import { useAuth } from '../../../../contexts/useAuthContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,6 +52,17 @@ const formatTime = (iso: string) => {
     });
   } catch { return iso; }
 };
+
+const matchPath = (id?: string) => id ? `/match/${encodeURIComponent(id)}` : '';
+
+const resultTone = (result?: string) => {
+  if (result === 'win') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300';
+  if (result === 'loss') return 'border-red-500/40 bg-red-500/10 text-red-300';
+  if (result === 'void') return 'border-gray-500/40 bg-gray-500/10 text-gray-300';
+  return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300';
+};
+
+const resultLabel = (result?: string) => result ? result.toUpperCase() : 'PENDING';
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -489,16 +500,20 @@ const SavedSlipView: React.FC<{
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-const BetHistoryPanel = ({ history, loading, onRefresh }: any) => {
+const BetHistoryPanel = ({ history, loading, grading, onRefresh, onGrade, onOpenMatch }: any) => {
   return (
-    <IonContent style={{ '--background': '#111' } as any} className="flex-1">
-      <div className="px-3 py-3">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-24">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <div className="text-sm font-bold text-white">Saved Bets</div>
-            <div className="text-[11px] text-gray-500">Full generated and manual slips.</div>
+            <div className="text-[11px] text-gray-500">Graded slips, signal traces, and match drill-down.</div>
           </div>
-          <button onClick={onRefresh} className="rounded-lg border border-[#2a2a2a] px-3 py-2 text-xs text-gray-300">Refresh</button>
+          <div className="flex gap-2">
+            <button onClick={onGrade} disabled={grading} className="rounded-lg border border-emerald-500/40 px-3 py-2 text-xs text-emerald-300 disabled:opacity-50">
+              {grading ? 'Grading...' : 'Grade now'}
+            </button>
+            <button onClick={onRefresh} className="rounded-lg border border-[#2a2a2a] px-3 py-2 text-xs text-gray-300">Refresh</button>
+          </div>
         </div>
         {loading && <div className="mt-12 text-center text-xs text-gray-500">Loading saved bets...</div>}
         {!loading && !history.length && <div className="mt-12 text-center text-xs text-gray-600">No saved bets yet.</div>}
@@ -507,7 +522,10 @@ const BetHistoryPanel = ({ history, loading, onRefresh }: any) => {
             <div key={bet.id} className="rounded-xl border border-[#2a2a2a] bg-[#161616] p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs font-bold text-white">Bet #{bet.id}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs font-bold text-white">Bet #{bet.id}</div>
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${resultTone(bet.result)}`}>{resultLabel(bet.result)}</span>
+                  </div>
                   <div className="mt-1 text-[10px] text-gray-500">{formatTime(bet.created_at)}</div>
                 </div>
                 <div className="text-right">
@@ -515,6 +533,22 @@ const BetHistoryPanel = ({ history, loading, onRefresh }: any) => {
                   <div className="text-[10px] text-gray-500">{bet.confidence || 0}% avg - {(bet.selections || []).length} picks</div>
                 </div>
               </div>
+              {bet.learning && Object.keys(bet.learning).length > 0 && (
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-black/25 px-2 py-1.5">
+                    <div className="text-[10px] text-gray-500">Won legs</div>
+                    <div className="text-xs font-bold text-emerald-300">{bet.learning.wins ?? 0}</div>
+                  </div>
+                  <div className="rounded-lg bg-black/25 px-2 py-1.5">
+                    <div className="text-[10px] text-gray-500">Lost legs</div>
+                    <div className="text-xs font-bold text-red-300">{bet.learning.losses ?? 0}</div>
+                  </div>
+                  <div className="rounded-lg bg-black/25 px-2 py-1.5">
+                    <div className="text-[10px] text-gray-500">Voids</div>
+                    <div className="text-xs font-bold text-gray-300">{bet.learning.voids ?? 0}</div>
+                  </div>
+                </div>
+              )}
               {bet.request && Object.keys(bet.request).length > 0 && (
                 <div className="mt-2 rounded-lg bg-black/25 px-2 py-1.5 text-[10px] text-gray-500">
                   Request: {bet.request.scope || 'upcoming'} - target {bet.request.target_odds || '-'} - max {bet.request.max_total_odds || '-'} - confidence {bet.request.min_confidence || '-'}+
@@ -523,7 +557,16 @@ const BetHistoryPanel = ({ history, loading, onRefresh }: any) => {
               <div className="mt-3 space-y-1.5">
                 {(bet.selections || []).map((item: any, index: number) => (
                   <div key={`${bet.id}-${index}`} className="rounded-lg border border-white/[0.05] bg-black/20 px-2.5 py-2">
-                    <div className="truncate text-xs font-semibold text-white">{item.match || item.match_name || item.match_id}</div>
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        onClick={() => onOpenMatch(item.match_id)}
+                        disabled={!item.match_id}
+                        className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-white hover:text-emerald-300 disabled:hover:text-white"
+                      >
+                        {item.match || item.match_name || item.match_id}
+                      </button>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold ${resultTone(item.leg_result)}`}>{resultLabel(item.leg_result)}</span>
+                    </div>
                     <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-gray-500">
                       {item.country && <span>{item.country}</span>}
                       {(item.league || item.tournament) && <span>{item.league || item.tournament}</span>}
@@ -531,16 +574,17 @@ const BetHistoryPanel = ({ history, loading, onRefresh }: any) => {
                       <span className="text-emerald-300">{item.selection}</span>
                       <span>odds {item.odds || '-'}</span>
                       <span>{item.confidence || '-'}%</span>
+                      {item.odds_band && <span>{item.odds_band}</span>}
                     </div>
                     {item.reason && <div className="mt-1 line-clamp-2 text-[10px] text-gray-600">{item.reason}</div>}
+                    {item.grading_reason?.reason && <div className="mt-1 text-[10px] text-gray-400">{item.grading_reason.reason}</div>}
                   </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
-      </div>
-    </IonContent>
+    </div>
   );
 };
 
@@ -558,6 +602,7 @@ const Builder = () => {
   const [mode, setMode] = useState<'auto' | 'manual' | 'history'>('auto');
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyGrading, setHistoryGrading] = useState(false);
   const [buildingAuto, setBuildingAuto] = useState(false);
   const [autoResult, setAutoResult] = useState<any>(null);
   const [autoForm, setAutoForm] = useState<any>({
@@ -604,6 +649,19 @@ const Builder = () => {
     }
   };
 
+  const handleGradeHistory = async () => {
+    setHistoryGrading(true);
+    setError(null);
+    try {
+      await gradeBetbuilderHistory(300);
+      await loadHistory();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Failed to grade bet history');
+    } finally {
+      setHistoryGrading(false);
+    }
+  };
+
   useEffect(() => {
     if (mode === 'history') loadHistory();
   }, [mode]);
@@ -636,10 +694,12 @@ const Builder = () => {
         match_id: p.match_id,
         match: p.match_name,
         league: p.league_name,
+        type: p.best_pick?.type,
         selection: p.best_pick?.selection,
         odds: parseFloat(estimateOdds(p.best_pick?.confidence ?? 50)),
         confidence: p.best_pick?.confidence,
         reason: p.best_pick?.reason,
+        signals: p.signals || [],
       }));
       const res = await saveBetbuilder({ selections });
       setSavedSlip(res);
@@ -699,7 +759,7 @@ const Builder = () => {
 
   return (
     <IonPage>
-      <div className="w-full h-full bg-[#111] text-white flex flex-col">
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#111] text-white">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1e1e1e] shrink-0">
@@ -716,6 +776,10 @@ const Builder = () => {
         </div>
 
         <BuilderTabs active={mode} onChange={setMode} />
+
+        {error && mode === 'history' && (
+          <div className="shrink-0 px-4 py-2 text-center text-xs text-red-400">{error}</div>
+        )}
 
         {mode === 'manual' && (
           <div className="flex gap-1 px-3 py-2 border-b border-[#1e1e1e] shrink-0">
@@ -739,9 +803,16 @@ const Builder = () => {
         {savedSlip ? (
           <SavedSlipView slip={savedSlip} user={user} onReset={handleReset} />
         ) : mode === 'history' ? (
-          <BetHistoryPanel history={history} loading={historyLoading} onRefresh={loadHistory} />
+          <BetHistoryPanel
+            history={history}
+            loading={historyLoading}
+            grading={historyGrading}
+            onRefresh={loadHistory}
+            onGrade={handleGradeHistory}
+            onOpenMatch={(id: string) => id && router.push(matchPath(id), 'forward', 'push')}
+          />
         ) : mode === 'auto' ? (
-          <IonContent style={{ '--background': '#111' } as any} className="flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {error && <div className="px-4 pt-4 text-center text-xs text-red-400">{error}</div>}
             <AutoBuilderPanel
               form={autoForm}
@@ -752,10 +823,10 @@ const Builder = () => {
               onBuild={handleAutoBuild}
               onSave={handleSaveAuto}
             />
-          </IonContent>
+          </div>
         ) : (
           <>
-            <IonContent style={{ '--background': '#111' } as any} className="flex-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <div className="px-3 py-3">
                 {loading && (
                   <div className="text-center text-gray-500 text-xs mt-16">Loading predictions…</div>
@@ -778,7 +849,7 @@ const Builder = () => {
                   />
                 ))}
               </div>
-            </IonContent>
+            </div>
 
             {/* Sticky bet slip */}
             <BetSlip accepted={accepted} onEnd={handleEnd} saving={saving} />

@@ -15,8 +15,9 @@ const ValueBets = () => {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
+    // Fire cleanup in background — do NOT await it, it was blocking the page load
+    triggerBufferCleanup().catch(() => {});
     try {
-      await triggerBufferCleanup().catch(() => {});
       const res = await getValueBets(date, minEdge);
       setBets(res?.value_bets || []);
     } catch (err: any) {

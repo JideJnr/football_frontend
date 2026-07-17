@@ -1,15 +1,12 @@
 import { IonContent, IonPage, IonRefresher, IonRefresherContent, useIonRouter } from "@ionic/react";
 import { useCallback, useEffect, useState } from "react";
 import api from "../../services/apis/footballApi";
+import { getAnalyticsDashboard } from "../../services/apis/footballApi";
 
-// ── API calls ─────────────────────────────────────────────────────────────────
-const fetchPerformance = () => api.get("/agent/analytics/performance").then(r => r.data);
-const fetchRoi         = () => api.get("/agent/analytics/roi").then(r => r.data);
-const fetchClv         = () => api.get("/analytics/clv?days=30").then(r => r.data);
-const fetchLongshots   = () => api.get("/analytics/signal-matches", { params: { signal_name: "consensus_longshot_value", limit: 80 } }).then(r => r.data);
-const runGrade         = (h = 24) => api.post(`/results/grade?hours_back=${h}`).then(r => r.data);
-const runPurge         = () => api.post("/mongo/purge-junk-predictions").then(r => r.data);
-const runComputeClv    = () => api.post("/analytics/clv/compute").then(r => r.data);
+// ── Action-only API calls (user-triggered, not on mount) ─────────────────────
+const runGrade      = (h = 24) => api.post(`/results/grade?hours_back=${h}`).then(r => r.data);
+const runPurge      = () => api.post("/mongo/purge-junk-predictions").then(r => r.data);
+const runComputeClv = () => api.post("/analytics/clv/compute").then(r => r.data);
 
 const familyForPickType = (pickType: string) => {
   const text = String(pickType || "").toLowerCase();
@@ -123,11 +120,11 @@ const Analytics = () => {
     setLoading(true);
     setError("");
     try {
-      const [p, r, c, l] = await Promise.all([fetchPerformance(), fetchRoi(), fetchClv().catch(() => null), fetchLongshots().catch(() => null)]);
-      setPerf(p);
-      setRoi(r);
-      setClv(c);
-      setLongshots(l);
+      const data = await getAnalyticsDashboard(30);
+      setPerf(data?.performance);
+      setRoi(data?.roi);
+      setClv(data?.clv);
+      setLongshots(data?.longshots);
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load analytics");
     } finally {

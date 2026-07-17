@@ -39,6 +39,12 @@ const pickTypeLabel: Record<string, string> = {
   live_match_winner: 'Live Winner',
 };
 
+const contextualFrom = (prediction: any, m: any) =>
+  prediction?.contextual_intelligence
+  || m?.intelligence?.prediction?.contextual
+  || prediction?.audit?.contextual_intelligence
+  || {};
+
 const cleanPick = (pick: any) => ({
   ...pick,
   selection: pick?.selection || pick?.pick || 'No clear pick',
@@ -455,6 +461,93 @@ const DecisionCard = ({ pick }: { pick: any }) => {
   );
 };
 
+const IntelligencePanel = ({ intelligence, riskManagement }: { intelligence: any; riskManagement?: any }) => {
+  if ((!intelligence || !Object.keys(intelligence).length) && (!riskManagement || !Object.keys(riskManagement).length)) return null;
+  const contextTags = intelligence?.match_context?.tags || [];
+  const marketFlags = intelligence?.market_behavior?.flags || [];
+  const relationships = intelligence?.signal_relationships || {};
+  const risk = intelligence?.risk || {};
+  const deskRisk = riskManagement || {};
+  const deskLevel = deskRisk.risk_level || risk.level;
+  const aging = intelligence?.prediction_aging || {};
+  const adjustment = num(intelligence?.confidence_adjustment);
+  const explain = intelligence?.explain || {};
+  const explainLines = Array.isArray(explain) ? explain : explain.lines || [];
+  const reasons = [
+    ...(relationships.synergies || []).map((value: string) => ({ tone: 'text-emerald-300', value })),
+    ...(relationships.conflicts || []).map((value: string) => ({ tone: 'text-red-300', value })),
+    ...(risk.reasons || []).map((value: string) => ({ tone: 'text-yellow-300', value })),
+  ].slice(0, 5);
+
+  return (
+    <Sec title="Intelligence">
+      <div className={`rounded-xl border p-3 ${
+        deskLevel === 'high'
+          ? 'border-red-500/25 bg-red-500/[0.06]'
+          : deskLevel === 'medium'
+            ? 'border-yellow-500/25 bg-yellow-500/[0.06]'
+            : 'border-emerald-500/20 bg-emerald-500/[0.05]'
+      }`}>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Risk intelligence</div>
+            <div className="mt-1 text-sm font-semibold text-white">
+              {deskLevel || 'low'} risk{deskRisk.hard_block || intelligence.no_prediction_recommended ? ' - avoid recommended' : ''}
+            </div>
+          </div>
+          <div className={`rounded-lg px-2 py-1 text-xs font-bold ${
+            adjustment > 0 ? 'bg-emerald-500/15 text-emerald-300' : adjustment < 0 ? 'bg-red-500/15 text-red-300' : 'bg-white/[0.06] text-gray-400'
+          }`}>
+            {adjustment > 0 ? '+' : ''}{adjustment}% confidence
+          </div>
+        </div>
+        {deskRisk.violations?.length > 0 && (
+          <div className="mb-3 rounded-lg border border-red-500/15 bg-red-500/[0.06] px-3 py-2">
+            <div className="mb-1 text-[9px] uppercase tracking-widest text-red-300">Desk controls</div>
+            <div className="text-xs leading-relaxed text-red-200">{deskRisk.violations.slice(0, 4).join(', ').replace(/_/g, ' ')}</div>
+          </div>
+        )}
+        {deskRisk.actions?.length > 0 && (
+          <div className="mb-3 rounded-lg bg-black/20 px-3 py-2 text-xs text-gray-400">
+            {deskRisk.actions.slice(0, 2).map((action: any) => (
+              <div key={`${action.type}-${action.selection || action.reason}`}>{String(action.type || '').replace(/_/g, ' ')}{action.from != null ? `: ${action.from} -> ${action.to}` : ''}</div>
+            ))}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-black/20 px-3 py-2">
+            <div className="text-[9px] uppercase tracking-widest text-gray-600">Market</div>
+            <div className="mt-1 text-xs text-gray-300">{marketFlags.length ? marketFlags.slice(0, 3).join(', ') : 'stable / limited movement'}</div>
+          </div>
+          <div className="rounded-lg bg-black/20 px-3 py-2">
+            <div className="text-[9px] uppercase tracking-widest text-gray-600">Prediction age</div>
+            <div className="mt-1 text-xs text-gray-300">{aging.phase || 'fresh'}{aging.age_minutes != null ? `, ${aging.age_minutes} min` : ''}</div>
+          </div>
+        </div>
+        {(contextTags.length > 0 || reasons.length > 0) && (
+          <div className="mt-3 space-y-2">
+            {contextTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {contextTags.slice(0, 7).map((tag: string) => (
+                  <span key={tag} className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-gray-400">{tag.replace(/_/g, ' ')}</span>
+                ))}
+              </div>
+            )}
+            {reasons.map((item: any, index: number) => (
+              <div key={`${item.value}-${index}`} className={`text-xs leading-relaxed ${item.tone}`}>{item.value}</div>
+            ))}
+          </div>
+        )}
+        {(explain.why_confidence || explain.why_market_moved || explainLines.length > 0) && (
+          <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 text-xs leading-relaxed text-gray-500">
+            {explain.why_confidence || explain.why_market_moved || explainLines[0]}
+          </div>
+        )}
+      </div>
+    </Sec>
+  );
+};
+
 const AlternativePicks = ({ picks }: { picks: any[] }) => {
   if (!picks.length) return null;
   return (
@@ -595,6 +688,8 @@ const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsP
   const primary = picks.find((p: any) => p.role === 'primary') || picks[0];
   const alternatives = picks.filter((p: any) => p !== primary).slice(0, 2);
   const signals = prediction?.signals || [];
+  const contextualIntelligence = contextualFrom(prediction, m);
+  const riskManagement = prediction?.risk_management || primary?.risk_management || m?.intelligence?.learning?.risk_management;
 
   return (
     <div className="space-y-3 px-4 py-4">
@@ -612,6 +707,7 @@ const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsP
       ) : !primary ? (
         <>
           <Empty msg="No confident pick from the current data." />
+          <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
           <ModelConsensus models={prediction.models} home={m?.home_team} away={m?.away_team} />
           <DataQuality q={prediction.data_quality} />
         </>
@@ -620,6 +716,7 @@ const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsP
           <LiveGoalPanel picks={picks} m={m} prediction={prediction} />
           <PortfolioBadge prediction={prediction} />
           <DecisionCard pick={primary} />
+          <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
           <StakeCard pick={primary} />
           <AlternativePicks picks={alternatives} />
           <EvidenceBoard signals={signals} pick={primary} m={m} />

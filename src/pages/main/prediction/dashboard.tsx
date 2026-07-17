@@ -2,16 +2,10 @@ import { IonContent, IonPage, IonRefresher, IonRefresherContent, useIonRouter } 
 import { Activity, BarChart3, Brain, CheckCircle2, Database, LineChart, RefreshCw, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  getPerformanceAnalytics,
-  getPredictionsToday,
-  getRoiAnalysis,
-  getUpcomingEnrichedPredicted,
+  getPredictionDashboard,
   refreshPredictions,
   triggerGradeResults,
 } from "../../../services/apis/footballApi";
-import api from "../../../services/apis/footballApi";
-
-const fetchClv = () => api.get("/analytics/clv?days=30").then(r => r.data);
 
 const pct = (value: any, fallback = "--") => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return fallback;
@@ -252,18 +246,12 @@ const Dashboard = () => {
     setLoading(true);
     setError("");
     try {
-      const [p, u, perfRes, roiRes, clvRes] = await Promise.all([
-        getPredictionsToday(),
-        getUpcomingEnrichedPredicted(),
-        getPerformanceAnalytics(),
-        getRoiAnalysis(),
-        fetchClv().catch(() => null),
-      ]);
-      setPredictions(p?.predictions || []);
-      setUpcoming(u);
-      setPerf(perfRes);
-      setRoi(roiRes);
-      setClv(clvRes);
+      const data = await getPredictionDashboard();
+      setPredictions(data?.predictions?.predictions || []);
+      setUpcoming(data?.upcoming);
+      setPerf(data?.performance);
+      setRoi(data?.roi);
+      setClv(data?.clv);
     } catch (err: any) {
       setError(err?.response?.data?.detail || err?.message || "Dashboard failed to load");
     } finally {

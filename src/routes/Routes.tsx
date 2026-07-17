@@ -12,6 +12,9 @@ const Engine = React.lazy(() => import("../pages/main/prediction/engines/index")
 const ValueBets = React.lazy(() => import("../pages/main/prediction/value-bets/index"));
 const Suggestions = React.lazy(() => import("../pages/main/prediction/suggestion/index"));
 const Rating = React.lazy(() => import("../pages/main/prediction/rating/index"));
+const Competitions = React.lazy(() => import("../pages/main/competition/page"));
+const Pipelines = React.lazy(() => import("../pages/main/pipelines/page"));
+const Scheduler = React.lazy(() => import("../pages/main/scheduler/page"));
 const Splash = React.lazy(() => import("../pages/splash/splash"));
 const Home = React.lazy(() => import("../pages/main/main"));
 const Loading = React.lazy(() => import("../components/loading/Loading"));
@@ -44,6 +47,9 @@ const Routes: React.FC = () => {
       <Route path="/prediction/value-bets" exact component={ValueBets} />
       <Route path="/suggestions" exact component={Suggestions} />
       <Route path="/rating" exact component={Rating} />
+      <Route path="/competitions" exact component={Competitions} />
+      <Route path="/pipelines" exact component={Pipelines} />
+      <Route path="/scheduler" exact component={Scheduler} />
       <Route path="/country/:id" exact component={CountryDetails} />
       <Route path="/team/:id" exact component={TeamDetails} />
       <Route path="/league/:id" exact component={LeagueDetails} />

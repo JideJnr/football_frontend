@@ -5,12 +5,13 @@ import {
   IonRefresher,
 } from "@ionic/react";
 import { Tab, TabGroup } from "@headlessui/react";
-import { BarChart3, HomeIcon, Settings as SettingsIcon, Trophy } from "lucide-react";
+import { BarChart3, Flag, HomeIcon, Settings as SettingsIcon, Trophy } from "lucide-react";
 import Header from "../../components/templates/header/header";
 import Home from "./home/page";
 import Country from "./country/page";
 import Settings from "./settings/page";
 import Prediction from "./prediction/page";
+import Competition from "./competition/page";
 
 
 function classNames(...classes: string[]) {
@@ -44,6 +45,9 @@ function Main() {
         <Prediction />
       </Tab.Panel>
       <Tab.Panel className="h-full w-full overflow-y-auto">
+        <Competition />
+      </Tab.Panel>
+      <Tab.Panel className="h-full w-full overflow-y-auto">
         < Settings />
       </Tab.Panel>
       
@@ -52,7 +56,7 @@ function Main() {
 
   const renderTabList = () => (
     <Tab.List className="h-full w-full border-t border-white/[0.08] bg-[#111111]/95 px-2 backdrop-blur">
-      <div className="grid h-full w-full grid-cols-4 gap-1">
+      <div className="grid h-full w-full grid-cols-5 gap-1">
         {[
           {
             label: "Home",
@@ -66,6 +70,10 @@ function Main() {
           {
             label: "Predictions",
             icon: BarChart3,
+          },
+          {
+            label: "Cups",
+            icon: Flag,
           },
           {
             label: "Settings",
