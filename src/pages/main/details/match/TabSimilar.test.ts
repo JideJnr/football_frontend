@@ -30,7 +30,7 @@ function arbitrarySimilarMatchItem(
   overrides: Partial<SimilarMatchItem> = {},
 ): SimilarMatchItem {
   const hasPrediction = Math.random() > 0.4;
-  const resultOpts = ['win', 'loss', 'void', null] as const;
+  const resultOpts: ('win' | 'loss' | 'void' | null)[] = ['win', 'loss', 'void', null];
   return {
     match_id: `m_${randInt(1, 99999)}`,
     match_name: `Team A${randInt()} vs Team B${randInt()}`,
