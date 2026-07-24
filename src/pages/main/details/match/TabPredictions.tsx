@@ -548,6 +548,57 @@ const IntelligencePanel = ({ intelligence, riskManagement }: { intelligence: any
   );
 };
 
+const AiAnalysisCard = ({ analysis, onRun, loading }: { analysis: any; onRun: () => void; loading: boolean }) => {
+  const unavailable = analysis?.status && analysis.status !== 'predicted';
+  const reasons = analysis?.reasoning && typeof analysis.reasoning === 'object'
+    ? Object.entries(analysis.reasoning).filter(([, value]) => typeof value === 'string' && value.trim())
+    : [];
+
+  return (
+    <Sec title="AI analysis">
+      <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] p-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">Grok evidence review</div>
+            <div className="mt-1 text-sm font-semibold text-white">{analysis?.recommendation || 'No AI analysis yet'}</div>
+          </div>
+          {analysis?.confidence != null && (
+            <div className={'rounded-lg bg-black/20 px-2 py-1 text-sm font-bold ' + confidenceTone(num(analysis.confidence))}>
+              {pct(analysis.confidence)}
+            </div>
+          )}
+        </div>
+
+        {analysis?.market_signal && (
+          <div className="mb-3 rounded-lg bg-black/20 px-3 py-2 text-xs text-gray-300">Market: {analysis.market_signal}</div>
+        )}
+        {analysis?.key_factors?.length > 0 && (
+          <div className="mb-3 space-y-1.5">
+            <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Why this lean</div>
+            {analysis.key_factors.slice(0, 5).map((factor: string, index: number) => (
+              <div key={String(factor) + index} className="text-xs leading-relaxed text-emerald-200">• {factor}</div>
+            ))}
+          </div>
+        )}
+        {reasons.length > 0 && (
+          <div className="space-y-2 border-t border-white/[0.06] pt-3">
+            {reasons.slice(0, 5).map(([label, reason]) => (
+              <div key={String(label)}>
+                <div className="text-[9px] uppercase tracking-widest text-gray-600">{String(label).replace(/_/g, ' ')}</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-gray-300">{String(reason)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {unavailable && <div className="mb-3 text-xs text-yellow-300">{analysis?.message || 'AI analysis is not available.'}</div>}
+        <ActionButton onClick={onRun} loading={loading} label={analysis ? 'Refresh AI Analysis' : 'Generate AI Analysis'} loadingLabel="Grok is reviewing the match..." variant="purple" />
+        <div className="mt-2 text-[10px] leading-relaxed text-gray-600">AI analysis explains available evidence; it does not guarantee an outcome.</div>
+      </div>
+    </Sec>
+  );
+};
+
 const AlternativePicks = ({ picks }: { picks: any[] }) => {
   if (!picks.length) return null;
   return (
@@ -674,11 +725,13 @@ const DataQuality = ({ q }: { q: any }) => {
 interface TabPredictionsProps {
   m: any;
   onPredict: () => void;
+  onAnalyze: () => void;
   predicting: boolean;
+  analyzing: boolean;
   actionMsg: string;
 }
 
-const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsProps) => {
+const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, actionMsg }: TabPredictionsProps) => {
   const prediction = m?.prediction;
   const predictionError = m?.prediction_error;
   const picks = (prediction?.picks || [])
@@ -701,6 +754,7 @@ const TabPredictions = ({ m, onPredict, predicting, actionMsg }: TabPredictionsP
         variant="purple"
       />
       {actionMsg && <div className="text-center text-xs text-emerald-400">{actionMsg}</div>}
+      <AiAnalysisCard analysis={m?.ai_analysis} onRun={onAnalyze} loading={analyzing} />
 
       {!prediction ? (
         <Empty msg={predictionError || "No prediction yet. Tap Run Prediction."} />

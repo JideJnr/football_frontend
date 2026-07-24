@@ -49,6 +49,9 @@ export const getSimilarMatches = (id: string, limit = 10) =>
 export const predictMatch = (id: string) =>
   api.post(`/matches/${id}/predict`).then(r => r.data);
 
+export const analyzeMatchWithAi = (id: string) =>
+  api.post(`/matches/${id}/ai-analysis`).then(r => r.data);
+
 export const getSofascoreCandidates = (id: string) =>
   api.get(`/matches/${id}/sofascore-candidates`).then(r => r.data);
 

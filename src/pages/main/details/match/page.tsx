@@ -7,6 +7,7 @@ import {
   getSofascoreCandidates,
   matchSofascoreCandidate,
   predictMatch,
+  analyzeMatchWithAi,
 } from '../../../../services/apis/footballApi';
 
 import { TABS, Tab } from './shared';
@@ -51,6 +52,7 @@ const Match = () => {
   const [activeTab, setActiveTab] = useState<Tab>('Home');
   const [enriching, setEnriching]     = useState(false);
   const [predicting, setPredicting]   = useState(false);
+  const [analyzing, setAnalyzing]     = useState(false);
   const [candidateLoading, setCandidateLoading] = useState(false);
   const [candidates, setCandidates]   = useState<any[]>([]);
   const [matching, setMatching]       = useState<string | null>(null);
@@ -96,6 +98,21 @@ const Match = () => {
       setActionMsg(actionError(err, 'Prediction failed'));
     } finally {
       setPredicting(false);
+    }
+  };
+
+  const handleAiAnalysis = async () => {
+    if (!id) return;
+    setAnalyzing(true);
+    setActionMsg('');
+    try {
+      await analyzeMatchWithAi(id);
+      setActionMsg('AI analysis complete');
+      await refresh();
+    } catch (err: any) {
+      setActionMsg(actionError(err, 'AI analysis failed'));
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -161,7 +178,7 @@ const Match = () => {
       case 'Odds':       return <TabOdds m={m} />;
       case 'Comparison': return <TabComparison m={m} />;
       case 'H2H':        return <TabH2H m={m} />;
-      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} predicting={predicting} actionMsg={actionMsg} />;
+      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} onAnalyze={handleAiAnalysis} predicting={predicting} analyzing={analyzing} actionMsg={actionMsg} />;
       case 'Similar':    return <TabSimilar m={m} />;
       default:           return <TabOverview m={m} onEnrich={handleEnrich} onPredict={handlePredict} enriching={enriching} predicting={predicting} actionMsg={actionMsg} />;
     }

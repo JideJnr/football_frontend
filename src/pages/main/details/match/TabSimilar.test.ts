@@ -22,7 +22,7 @@ function randInt(min = 0, max = 100): number {
   return Math.floor(min + Math.random() * (max - min + 1));
 }
 
-function randChoice<T>(arr: T[]): T {
+function randChoice<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
