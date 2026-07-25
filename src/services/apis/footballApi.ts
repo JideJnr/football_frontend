@@ -156,6 +156,12 @@ export const saveBetbuilder = (payload: { selections: any[]; request?: any; buil
 export const buildAutoBetbuilder = (payload: any) =>
   api.post('/betbuilder/auto', payload).then(r => r.data);
 
+export const getEnrichedAnalysis = (matchId: string, forceRefresh = false) =>
+  api.post(`/matches/${encodeURIComponent(matchId)}/enriched-analysis`, { force_refresh: forceRefresh }).then(r => r.data);
+
+export const synthesizeSurePicks = (payload: any) =>
+  api.post('/betbuilder/sure-picks', payload).then(r => r.data);
+
 export const getBetbuilderHistory = (limit = 100) =>
   api.get(`/betbuilder/history?limit=${limit}`).then(r => r.data);
 
