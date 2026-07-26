@@ -548,52 +548,127 @@ const IntelligencePanel = ({ intelligence, riskManagement }: { intelligence: any
   );
 };
 
-const AiAnalysisCard = ({ analysis, onRun, loading }: { analysis: any; onRun: () => void; loading: boolean }) => {
-  const unavailable = analysis?.status && analysis.status !== 'predicted';
-  const reasons = analysis?.reasoning && typeof analysis.reasoning === 'object'
-    ? Object.entries(analysis.reasoning).filter(([, value]) => typeof value === 'string' && value.trim())
-    : [];
+const AiReasoningBlock = ({ reasoning }: { reasoning: any }) => {
+  if (!reasoning || typeof reasoning !== 'object') return null;
+  const entries = Object.entries(reasoning).filter(([, v]) => typeof v === 'string' && (v as string).trim());
+  if (!entries.length) return null;
+  return (
+    <div className="space-y-2 border-t border-white/[0.06] pt-3">
+      {entries.slice(0, 5).map(([label, reason]) => (
+        <div key={String(label)}>
+          <div className="text-[9px] uppercase tracking-widest text-gray-600">{String(label).replace(/_/g, ' ')}</div>
+          <div className="mt-0.5 text-xs leading-relaxed text-gray-300">{String(reason)}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const AiModelCard = ({
+  label, emoji, role, borderColor, textColor, bgColor,
+  analysis, onRun, loading, runLabel, runningLabel,
+}: {
+  label: string; emoji: string; role: string;
+  borderColor: string; textColor: string; bgColor: string;
+  analysis: any; onRun: () => void; loading: boolean;
+  runLabel: string; runningLabel: string;
+}) => {
+  const unavailable = analysis?.status && !['predicted', 'low_confidence'].includes(analysis.status);
+  return (
+    <div className={`rounded-xl border ${borderColor} ${bgColor} p-3`}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className={`text-[10px] font-bold uppercase tracking-widest ${textColor}`}>{emoji} {label}</div>
+          <div className="text-[9px] text-gray-600">{role}</div>
+          <div className="mt-1 text-sm font-semibold text-white">{analysis?.recommendation || 'No analysis yet'}</div>
+        </div>
+        {analysis?.confidence != null && (
+          <div className={'rounded-lg bg-black/20 px-2 py-1 text-sm font-bold ' + confidenceTone(num(analysis.confidence))}>
+            {pct(analysis.confidence)}
+          </div>
+        )}
+      </div>
+      {analysis?.market_signal && (
+        <div className="mb-3 rounded-lg bg-black/20 px-3 py-2 text-xs text-gray-300">Market: {analysis.market_signal}</div>
+      )}
+      {analysis?.key_factors?.length > 0 && (
+        <div className="mb-3 space-y-1.5">
+          <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Key factors</div>
+          {analysis.key_factors.slice(0, 4).map((f: string, i: number) => (
+            <div key={String(f) + i} className="text-xs leading-relaxed text-emerald-200">• {f}</div>
+          ))}
+        </div>
+      )}
+      <AiReasoningBlock reasoning={analysis?.reasoning} />
+      {unavailable && <div className="mb-3 text-xs text-yellow-300">{analysis?.message || 'Analysis unavailable.'}</div>}
+      <ActionButton onClick={onRun} loading={loading} label={runLabel} loadingLabel={runningLabel} variant="purple" />
+    </div>
+  );
+};
+
+const AiAnalysisCard = ({
+  analysis, ollamaAnalysis, onRun, onRunOllama, loading, loadingOllama,
+}: {
+  analysis: any; ollamaAnalysis: any;
+  onRun: () => void; onRunOllama: () => void;
+  loading: boolean; loadingOllama: boolean;
+}) => {
+  const qwen = ollamaAnalysis?.models?.['qwen3:8b'];
+  const deepseek = ollamaAnalysis?.models?.['deepseek-r1:8b'];
+  const ollamaConsensus = ollamaAnalysis?.consensus;
+  const allPredictions = [
+    analysis?.recommendation,
+    qwen?.recommendation,
+    deepseek?.recommendation,
+  ].filter(Boolean);
+  const overallConsensus = allPredictions.length >= 2 && new Set(allPredictions).size === 1 ? allPredictions[0] : null;
 
   return (
     <Sec title="AI analysis">
-      <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] p-3">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">Grok evidence review</div>
-            <div className="mt-1 text-sm font-semibold text-white">{analysis?.recommendation || 'No AI analysis yet'}</div>
-          </div>
-          {analysis?.confidence != null && (
-            <div className={'rounded-lg bg-black/20 px-2 py-1 text-sm font-bold ' + confidenceTone(num(analysis.confidence))}>
-              {pct(analysis.confidence)}
-            </div>
-          )}
-        </div>
-
-        {analysis?.market_signal && (
-          <div className="mb-3 rounded-lg bg-black/20 px-3 py-2 text-xs text-gray-300">Market: {analysis.market_signal}</div>
-        )}
-        {analysis?.key_factors?.length > 0 && (
-          <div className="mb-3 space-y-1.5">
-            <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Why this lean</div>
-            {analysis.key_factors.slice(0, 5).map((factor: string, index: number) => (
-              <div key={String(factor) + index} className="text-xs leading-relaxed text-emerald-200">• {factor}</div>
-            ))}
+      <div className="space-y-3">
+        {/* Overall consensus banner */}
+        {overallConsensus && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] px-3 py-2">
+            <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-400">🤝 All models agree</div>
+            <div className="mt-0.5 text-sm font-bold text-white">{overallConsensus}</div>
           </div>
         )}
-        {reasons.length > 0 && (
-          <div className="space-y-2 border-t border-white/[0.06] pt-3">
-            {reasons.slice(0, 5).map(([label, reason]) => (
-              <div key={String(label)}>
-                <div className="text-[9px] uppercase tracking-widest text-gray-600">{String(label).replace(/_/g, ' ')}</div>
-                <div className="mt-0.5 text-xs leading-relaxed text-gray-300">{String(reason)}</div>
-              </div>
-            ))}
+        {ollamaConsensus && !overallConsensus && (
+          <div className="rounded-xl border border-blue-500/25 bg-blue-500/[0.06] px-3 py-2">
+            <div className="text-[9px] font-bold uppercase tracking-widest text-blue-300">🤝 Ollama models agree</div>
+            <div className="mt-0.5 text-sm font-bold text-white">{ollamaConsensus}</div>
           </div>
         )}
 
-        {unavailable && <div className="mb-3 text-xs text-yellow-300">{analysis?.message || 'AI analysis is not available.'}</div>}
-        <ActionButton onClick={onRun} loading={loading} label={analysis ? 'Refresh AI Analysis' : 'Generate AI Analysis'} loadingLabel="Grok is reviewing the match..." variant="purple" />
-        <div className="mt-2 text-[10px] leading-relaxed text-gray-600">AI analysis explains available evidence; it does not guarantee an outcome.</div>
+        {/* Groq */}
+        <AiModelCard
+          label="Groq (llama-3.3-70b)" emoji="⚡" role="Cloud LLM — fast, high-quality reasoning"
+          borderColor="border-violet-500/25" textColor="text-violet-300" bgColor="bg-violet-500/[0.06]"
+          analysis={analysis} onRun={onRun} loading={loading}
+          runLabel={analysis ? 'Refresh Groq Analysis' : 'Run Groq Analysis'}
+          runningLabel="Groq is reviewing..."
+        />
+
+        {/* Qwen3 8B */}
+        <AiModelCard
+          label="Qwen3 8B" emoji="🥇" role="Best Overall — excellent reasoning, long context"
+          borderColor="border-orange-500/25" textColor="text-orange-300" bgColor="bg-orange-500/[0.06]"
+          analysis={qwen} onRun={onRunOllama} loading={loadingOllama}
+          runLabel={qwen ? 'Refresh Ollama Analysis' : 'Run Ollama Analysis (Both Models)'}
+          runningLabel="Ollama models thinking..."
+        />
+
+        {/* DeepSeek-R1 8B */}
+        {deepseek && (
+          <AiModelCard
+            label="DeepSeek-R1 8B" emoji="🥈" role="Best Reasoning — Team A vs Team B analysis"
+            borderColor="border-cyan-500/25" textColor="text-cyan-300" bgColor="bg-cyan-500/[0.06]"
+            analysis={deepseek} onRun={onRunOllama} loading={loadingOllama}
+            runLabel="Refresh Ollama Analysis" runningLabel="Ollama models thinking..."
+          />
+        )}
+
+        <div className="text-[10px] leading-relaxed text-gray-600">AI analysis explains available evidence; it does not guarantee an outcome.</div>
       </div>
     </Sec>
   );
@@ -726,12 +801,14 @@ interface TabPredictionsProps {
   m: any;
   onPredict: () => void;
   onAnalyze: () => void;
+  onAnalyzeOllama: () => void;
   predicting: boolean;
   analyzing: boolean;
+  analyzingOllama: boolean;
   actionMsg: string;
 }
 
-const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, actionMsg }: TabPredictionsProps) => {
+const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeOllama, predicting, analyzing, analyzingOllama, actionMsg }: TabPredictionsProps) => {
   const prediction = m?.prediction;
   const predictionError = m?.prediction_error;
   const picks = (prediction?.picks || [])
@@ -754,7 +831,14 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
         variant="purple"
       />
       {actionMsg && <div className="text-center text-xs text-emerald-400">{actionMsg}</div>}
-      <AiAnalysisCard analysis={m?.ai_analysis} onRun={onAnalyze} loading={analyzing} />
+      <AiAnalysisCard
+        analysis={m?.ai_analysis}
+        ollamaAnalysis={m?.ai_analysis_ollama}
+        onRun={onAnalyze}
+        onRunOllama={onAnalyzeOllama}
+        loading={analyzing}
+        loadingOllama={analyzingOllama}
+      />
 
       {!prediction ? (
         <Empty msg={predictionError || "No prediction yet. Tap Run Prediction."} />
