@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { IonPage, useIonRouter } from '@ionic/react';
-import { buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
+import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
 import { useAuth } from '../../../../contexts/useAuthContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -311,7 +311,7 @@ const BuilderTabs = ({ active, onChange }: { active: string; onChange: (value: a
   </div>
 );
 
-const AutoBuilderPanel = ({ form, setForm, result, building, saving, onBuild, onSave }: any) => {
+const AutoBuilderPanel = ({ form, setForm, result, building, saving, booking, onBuild, onSave, onBook }: any) => {
   const toggleType = (value: string) => {
     setForm((current: any) => {
       const set = new Set(current.pick_types || []);
@@ -326,6 +326,7 @@ const AutoBuilderPanel = ({ form, setForm, result, building, saving, onBuild, on
     ['min_leg_odds', 'Min leg odds', '0.01', '1.01'],
     ['max_leg_odds', 'Max leg odds', '0.01', '1.05'],
     ['max_legs', 'Max picks', '1', '1', '30'],
+    ['stake', 'Stake (smallest unit)', '1', '1'],
   ];
   const setScope = (scope: 'upcoming' | 'live') => {
     setForm((current: any) => ({
@@ -380,6 +381,7 @@ const AutoBuilderPanel = ({ form, setForm, result, building, saving, onBuild, on
           <label className="text-[10px] text-gray-500">From<input type="time" value={form.start_time} onChange={e => setForm((current: any) => ({ ...current, start_time: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
           <label className="text-[10px] text-gray-500">To<input type="time" value={form.end_time} onChange={e => setForm((current: any) => ({ ...current, end_time: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
         </div>
+        <label className="mt-2 block text-[10px] text-gray-500">Loading share code<input value={form.loadingShareCode} onChange={e => setForm((current: any) => ({ ...current, loadingShareCode: e.target.value.toUpperCase() }))} maxLength={32} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs font-mono text-white outline-none" /></label>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
           {pickTypeOptions.map(option => {
@@ -410,7 +412,10 @@ const AutoBuilderPanel = ({ form, setForm, result, building, saving, onBuild, on
                 </div>
               ) : null}
             </div>
-            <button onClick={onSave} disabled={!result.selections?.length || saving} className="rounded-lg bg-white px-3 py-2 text-[10px] font-bold text-black disabled:opacity-40">{saving ? 'Saving...' : 'Save bet'}</button>
+            <div className="flex gap-2">
+              <button onClick={onBook} disabled={!result.selections?.length || booking} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-40">{booking ? 'Creating code...' : 'Get share code'}</button>
+              <button onClick={onSave} disabled={!result.selections?.length || saving} className="rounded-lg bg-white px-3 py-2 text-[10px] font-bold text-black disabled:opacity-40">{saving ? 'Saving...' : 'Save bet'}</button>
+            </div>
           </div>
           <div className="mt-2 space-y-1.5">
             {(result.selections || []).map((item: any) => (
@@ -431,6 +436,11 @@ const AutoBuilderPanel = ({ form, setForm, result, building, saving, onBuild, on
             ))}
           </div>
           <div className="mt-2 text-[10px] text-gray-600">{result.learning_note}</div>
+          {result.booking && (
+            <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[11px] ${result.booking.share_code ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200'}`}>
+              {result.booking.share_code ? <>SportyBet share code: <span className="font-mono font-bold">{result.booking.share_code}</span></> : result.booking.message || 'Booking payload is ready.'}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -604,6 +614,7 @@ const Builder = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyGrading, setHistoryGrading] = useState(false);
   const [buildingAuto, setBuildingAuto] = useState(false);
+  const [bookingAuto, setBookingAuto] = useState(false);
   const [autoResult, setAutoResult] = useState<any>(null);
   const [autoForm, setAutoForm] = useState<any>({
     scope: 'upcoming',
@@ -613,6 +624,8 @@ const Builder = () => {
     max_leg_odds: '2.50',
     min_confidence: '70',
     max_legs: '30',
+    stake: '1000000',
+    loadingShareCode: 'RC2DR7',
     date: '',
     start_time: '',
     end_time: '',
@@ -750,6 +763,24 @@ const Builder = () => {
     }
   };
 
+  const handleBookAuto = async () => {
+    if (!autoResult?.selections?.length) return;
+    setBookingAuto(true);
+    setError(null);
+    try {
+      const booking = await bookBetbuilder({
+        selections: autoResult.selections,
+        stake: Number(autoForm.stake),
+        loadingShareCode: autoForm.loadingShareCode || null,
+      });
+      setAutoResult((current: any) => ({ ...current, booking }));
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Unable to create a SportyBet share code');
+    } finally {
+      setBookingAuto(false);
+    }
+  };
+
   const handleReset = () => {
     setDecisions({});
     setSavedSlip(null);
@@ -820,8 +851,10 @@ const Builder = () => {
               result={autoResult}
               building={buildingAuto}
               saving={saving}
+              booking={bookingAuto}
               onBuild={handleAutoBuild}
               onSave={handleSaveAuto}
+              onBook={handleBookAuto}
             />
           </div>
         ) : (

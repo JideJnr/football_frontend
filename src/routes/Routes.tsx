@@ -12,7 +12,6 @@ const Engine = React.lazy(() => import("../pages/main/prediction/engines/index")
 const ValueBets = React.lazy(() => import("../pages/main/prediction/value-bets/index"));
 const Suggestions = React.lazy(() => import("../pages/main/prediction/suggestion/index"));
 const Rating = React.lazy(() => import("../pages/main/prediction/rating/index"));
-const PicksPage = React.lazy(() => import("../pages/main/prediction/picks/index"));
 const Competitions = React.lazy(() => import("../pages/main/competition/page"));
 const Pipelines = React.lazy(() => import("../pages/main/pipelines/page"));
 const Scheduler = React.lazy(() => import("../pages/main/scheduler/page"));
@@ -42,8 +41,8 @@ const Routes: React.FC = () => {
       <Route path="/analytics" exact component={Analytics} />
       <Route path="/analytics/upcoming" exact component={UpcomingAnalytics} />
       <Route path="/prediction/dashboard" exact component={PredictionDashboard} />
-      <Route path="/prediction/picks-hub" exact component={PicksPage} />
-      <Route path="/prediction/picks" exact component={PicksPage} />
+      <Route path="/prediction/picks-hub" exact component={Builder} />
+      <Route path="/prediction/picks" exact component={Builder} />
       <Route path="/prediction/model-explorer" exact component={ModelExplorer} />
       <Route path="/builder" exact component={Builder} />
       <Route path="/engines" exact component={Engine} />

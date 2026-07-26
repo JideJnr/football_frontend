@@ -185,6 +185,9 @@ export const saveBetbuilder = (payload: { selections: any[]; request?: any; buil
 export const buildAutoBetbuilder = (payload: any) =>
   api.post('/betbuilder/auto', payload).then(r => r.data);
 
+export const bookBetbuilder = (payload: { selections: any[]; stake: number; loadingShareCode?: string | null }) =>
+  api.post('/betbuilder/book', payload).then(r => r.data);
+
 export const getEnrichedAnalysis = (matchId: string, forceRefresh = false) =>
   api.post(`/matches/${encodeURIComponent(matchId)}/enriched-analysis`, { force_refresh: forceRefresh }).then(r => r.data);
 

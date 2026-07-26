@@ -227,7 +227,7 @@ const Settings = () => {
               highlight: true,
             },
             { path: '/scheduler',                 icon: 'SC', label: 'Scheduler',             desc: 'Adjust run intervals for active pipeline jobs',          highlight: true },
-            { path: '/prediction/picks-hub',      icon: 'AI', label: 'Picks Hub',             desc: 'Browse upcoming predictions and build AI-validated slips', highlight: true },
+            { path: '/builder',                   icon: 'AI', label: 'AI Bet Builder',        desc: 'Build, book, and review AI-selected SportyBet slips',    highlight: true },
             { path: '/prediction/dashboard',      icon: 'AI', label: 'Prediction Dashboard',  desc: 'Picks, explanations, model health and learning loop', highlight: false },
             { path: '/prediction/model-explorer', icon: 'M',  label: 'Model Explorer',         desc: 'Filter picks by proven accuracy',                     highlight: false },
             { path: '/analytics',                 icon: '📊', label: 'Analytics',              desc: 'Performance and ROI analysis',                         highlight: false },
