@@ -139,6 +139,29 @@ export const enrichPredictWorldCupSpecial = (limit = 4, allowRepeat = false) =>
 export const triggerWorldCupSpecial = () =>
   api.post('/mongo/scan/world-cup-special').then(r => r.data);
 
+// ── Competition special (curated SofaScore top 30) ────────────
+export const getCompetitionCatalogue = () =>
+  api.get('/competition-special/competitions').then(r => r.data);
+
+export const getCompetitionSpecialStatus = (key: string) =>
+  api.get(`/competition-special/${encodeURIComponent(key)}/status`).then(r => r.data);
+
+export const getCompetitionSpecialBuffer = (key: string, limit = 200) =>
+  api.get(`/competition-special/${encodeURIComponent(key)}/buffer`, { params: { limit } }).then(r => r.data);
+
+export const setCompetitionSpecialSettings = (key: string, payload: any) =>
+  api.post(`/competition-special/${encodeURIComponent(key)}/settings`, payload).then(r => r.data);
+
+export const syncCompetitionSpecial = (key: string, limitDays = 3) =>
+  api.post(`/competition-special/${encodeURIComponent(key)}/sync`, null, {
+    params: { limit_days: limitDays },
+  }).then(r => r.data);
+
+export const enrichPredictCompetitionSpecial = (key: string, limit = 8) =>
+  api.post(`/competition-special/${encodeURIComponent(key)}/enrich-predict`, null, {
+    params: { limit },
+  }).then(r => r.data);
+
 // ── Prediction history ───────────────────────────────────────
 export const refreshPredictions = () =>
   api.post('/predictions/refresh').then(r => r.data);
