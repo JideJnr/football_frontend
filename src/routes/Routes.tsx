@@ -13,6 +13,7 @@ const ValueBets = React.lazy(() => import("../pages/main/prediction/value-bets/i
 const Suggestions = React.lazy(() => import("../pages/main/prediction/suggestion/index"));
 const Rating = React.lazy(() => import("../pages/main/prediction/rating/index"));
 const Competitions = React.lazy(() => import("../pages/main/competition/page"));
+const CompetitionDetail = React.lazy(() => import("../pages/main/competition/detail"));
 const Pipelines = React.lazy(() => import("../pages/main/pipelines/page"));
 const Scheduler = React.lazy(() => import("../pages/main/scheduler/page"));
 const Splash = React.lazy(() => import("../pages/splash/splash"));
@@ -50,6 +51,7 @@ const Routes: React.FC = () => {
       <Route path="/suggestions" exact component={Suggestions} />
       <Route path="/rating" exact component={Rating} />
       <Route path="/competitions" exact component={Competitions} />
+      <Route path="/competition/:key" exact component={CompetitionDetail} />
       <Route path="/pipelines" exact component={Pipelines} />
       <Route path="/scheduler" exact component={Scheduler} />
       <Route path="/country/:id" exact component={CountryDetails} />

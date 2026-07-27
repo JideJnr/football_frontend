@@ -145,6 +145,12 @@ export const enrichPredictWorldCupSpecial = (limit = 4, allowRepeat = false) =>
 export const triggerWorldCupSpecial = () =>
   api.post('/mongo/scan/world-cup-special').then(r => r.data);
 
+export const triggerCompetitionCycles = () =>
+  api.post('/mongo/scan/world-cup-special').then(r => r.data);
+
+export const getCompetitionPage = (key: string, bufferLimit = 200) =>
+  api.get(`/competition-special/${encodeURIComponent(key)}/page`, { params: { buffer_limit: bufferLimit } }).then(r => r.data);
+
 // ── Competition special (curated SofaScore top 30) ────────────
 export const getCompetitionCatalogue = () =>
   api.get('/competition-special/competitions').then(r => r.data);
