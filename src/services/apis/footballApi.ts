@@ -56,9 +56,6 @@ export const predictMatch = (id: string) =>
 export const analyzeMatchWithAi = (id: string) =>
   api.post(`/matches/${id}/ai-analysis`).then(r => r.data);
 
-export const analyzeMatchWithOllama = (id: string, model = 'all') =>
-  api.post(`/matches/${id}/ai-analysis-ollama`, null, { params: { model } }).then(r => r.data);
-
 export const getOllamaStatus = () =>
   api.get('/agent/ollama/status').then(r => r.data);
 

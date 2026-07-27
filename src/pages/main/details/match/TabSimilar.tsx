@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useIonRouter } from '@ionic/react';
 import { getSimilarMatches } from '../../../../services/apis/footballApi';
 import { Empty, Sec, fmtDateTime } from './shared';
 
@@ -132,9 +133,13 @@ function SimilarityBar({ score }: { score: number }) {
 }
 
 function MatchCard({ item }: { item: SimilarMatchItem }) {
+  const router = useIonRouter();
   const pct = Math.round(item.similarity_score * 100);
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-3 space-y-2">
+    <div
+      className="rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-3 space-y-2 cursor-pointer hover:bg-white/[0.06] transition"
+      onClick={() => router.push(`/match/${item.match_id}`, 'forward', 'push')}
+    >
       {/* Header row */}
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-gray-200 font-medium truncate flex-1">
@@ -238,6 +243,7 @@ const ALL_FILTERS: FilterKey[] = [
 ];
 
 export default function TabSimilar({ m }: { m: any }) {
+  const router = useIonRouter();
   const [matches, setMatches] = useState<SimilarMatchItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

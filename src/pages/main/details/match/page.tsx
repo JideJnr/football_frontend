@@ -8,7 +8,6 @@ import {
   matchSofascoreCandidate,
   predictMatch,
   analyzeMatchWithAi,
-  analyzeMatchWithOllama,
   startPredictionPolling,
   trackUserBehavior,
 } from '../../../../services/apis/footballApi';
@@ -56,7 +55,6 @@ const Match = () => {
   const [enriching, setEnriching]     = useState(false);
   const [predicting, setPredicting]   = useState(false);
   const [analyzing, setAnalyzing]     = useState(false);
-  const [analyzingOllama, setAnalyzingOllama] = useState(false);
   const [candidateLoading, setCandidateLoading] = useState(false);
   const [candidates, setCandidates]   = useState<any[]>([]);
   const [matching, setMatching]       = useState<string | null>(null);
@@ -137,21 +135,6 @@ const Match = () => {
     }
   };
 
-  const handleOllamaAnalysis = async () => {
-    if (!id) return;
-    setAnalyzingOllama(true);
-    setActionMsg('');
-    try {
-      await analyzeMatchWithOllama(id, 'all');
-      setActionMsg('Ollama analysis complete (Qwen3 + DeepSeek-R1)');
-      await refresh();
-    } catch (err: any) {
-      setActionMsg(actionError(err, 'Ollama analysis failed — is Ollama running?'));
-    } finally {
-      setAnalyzingOllama(false);
-    }
-  };
-
   const loadCandidates = async () => {
     if (!id) return;
     setCandidateLoading(true);
@@ -214,7 +197,7 @@ const Match = () => {
       case 'Odds':       return <TabOdds m={m} />;
       case 'Comparison': return <TabComparison m={m} />;
       case 'H2H':        return <TabH2H m={m} />;
-      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} onAnalyze={handleAiAnalysis} onAnalyzeOllama={handleOllamaAnalysis} predicting={predicting} analyzing={analyzing} analyzingOllama={analyzingOllama} actionMsg={actionMsg} />;
+      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} onAnalyze={handleAiAnalysis} predicting={predicting} analyzing={analyzing} actionMsg={actionMsg} />;
       case 'Similar':    return <TabSimilar m={m} />;
       default:           return <TabOverview m={m} onEnrich={handleEnrich} onPredict={handlePredict} enriching={enriching} predicting={predicting} actionMsg={actionMsg} />;
     }
