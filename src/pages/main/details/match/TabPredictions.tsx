@@ -754,12 +754,14 @@ interface TabPredictionsProps {
   m: any;
   onPredict: () => void;
   onAnalyze: () => void;
+  onAnalyzeSnapshot: () => void;
   predicting: boolean;
   analyzing: boolean;
+  analyzingSnapshot: boolean;
   actionMsg: string;
 }
 
-const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, actionMsg }: TabPredictionsProps) => {
+const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting, analyzing, analyzingSnapshot, actionMsg }: TabPredictionsProps) => {
   const prediction = m?.prediction;
   const predictionError = m?.prediction_error;
   const picks = (prediction?.picks || [])
@@ -780,6 +782,13 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
         label="Run Prediction"
         loadingLabel="Running prediction..."
         variant="purple"
+      />
+      <ActionButton
+        onClick={onAnalyzeSnapshot}
+        loading={analyzingSnapshot}
+        label="Analyze Match Snapshot"
+        loadingLabel="AI is reviewing match snapshot..."
+        variant="default"
       />
       {actionMsg && <div className="text-center text-xs text-emerald-400">{actionMsg}</div>}
       <AiAnalysisCard

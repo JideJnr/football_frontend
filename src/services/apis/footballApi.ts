@@ -56,6 +56,15 @@ export const predictMatch = (id: string) =>
 export const analyzeMatchWithAi = (id: string) =>
   api.post(`/matches/${id}/ai-analysis`).then(r => r.data);
 
+export const analyzeMatchSnapshot = (id: string) =>
+  api.post(`/matches/${id}/ai-analysis-match`).then(r => r.data);
+
+export const analyzeGradedMatch = (id: string) =>
+  api.post(`/matches/${id}/ai-analyze-graded`).then(r => r.data);
+
+export const getFinishedMatchBySofascoreId = (sofascoreId: string) =>
+  api.get(`/matches/sofascore/${sofascoreId}`).then(r => r.data);
+
 export const getOllamaStatus = () =>
   api.get('/agent/ollama/status').then(r => r.data);
 
