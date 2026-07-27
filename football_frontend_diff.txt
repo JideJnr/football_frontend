@@ -1,0 +1,1149 @@
+diff --git a/src/interfaces/interface.d.ts b/src/interfaces/interface.d.ts
+index 241e19b..a285935 100644
+--- a/src/interfaces/interface.d.ts
++++ b/src/interfaces/interface.d.ts
+@@ -119,7 +119,115 @@ interface EngineState {
+   startBotById: () => Promise<void>;
+   stopBotById: () => Promise<void>;
+   getBotById: () => Promise<void>;
+-  getPlayerById: () => Promise<void>; 
++  getPlayerById: () => Promise<void>;
+ }
+ 
++export interface Competition {
++  key: string;
++  name: string;
++  unique_tournament_id: number;
++  enabled?: boolean;
++}
++
++export interface CompetitionSettings {
++  key: string;
++  name: string;
++  enabled: boolean;
++  unique_tournament_id: number;
++  season_id: number | null;
++  start_date: string;
++  end_date: string;
++  metadata: Record<string, any>;
++  updated_at: string;
++}
++
++export interface CompetitionBufferSummary {
++  total: number;
++  enriched: number;
++  predicted: number;
++  live: number;
++  finished: number;
++  high_importance: number;
++  critical_importance: number;
++  groups: string[];
++}
++
++export interface CompetitionBufferStatus {
++  total: number;
++  enriched: number;
++  predicted: number;
++  first_match_date: string | null;
++  last_match_date: string | null;
++  last_enriched_at: string | null;
++  last_predicted_at: string | null;
++}
++
++export interface CompetitionMatch {
++  competition_key: string;
++  match_id: string;
++  competition_match_id: string;
++  sofascore_id: string;
++  match_date: string;
++  group: string;
++  round: string;
++  match: string;
++  start_time: number;
++  status: string;
++  score: { home: string; away: string };
++  match_state: Record<string, any>;
++  enriched: boolean;
++  predicted: boolean;
++  enriched_at: string | null;
++  predicted_at: string | null;
++  prediction: Record<string, any> | null;
++  readiness: Record<string, any> | null;
++  importance_context: Record<string, any>;
++  competition_intelligence: Record<string, any> | null;
++  event: Record<string, any>;
++}
++
++export interface CompetitionAnalysis {
++  id: number;
++  competition_key: string;
++  round_name: string;
++  analysis_text: string;
++  model_used: string;
++  match_count: number;
++  matchday_date: string;
++  generated_at: string;
++}
++
++export interface CompetitionDashboardItem {
++  key: string;
++  name: string;
++  enabled: boolean;
++  unique_tournament_id: number;
++  settings: CompetitionSettings;
++  buffer_summary: CompetitionBufferSummary;
++  buffer_status: CompetitionBufferStatus;
++  latest_analysis: CompetitionAnalysis | null;
++  match_count: number;
++  error: string | null;
++}
++
++export interface CompetitionDashboardResponse {
++  status: string;
++  total_tracked: number;
++  enabled_count: number;
++  competitions: CompetitionDashboardItem[];
++  errors: Array<{ key: string; error: string }>;
++  generated_at: string;
++}
++
++export interface CompetitionPageResponse {
++  status: string;
++  competition_key: string;
++  settings: CompetitionSettings;
++  buffer_summary: CompetitionBufferSummary;
++  buffer_status: CompetitionBufferStatus;
++  matches: CompetitionMatch[];
++  latest_analysis: CompetitionAnalysis | null;
++  analysis_history: CompetitionAnalysis[];
++}
+ 
++export {};
+diff --git a/src/pages/main/competition/detail.tsx b/src/pages/main/competition/detail.tsx
+index 2657112..92e7a0b 100644
+--- a/src/pages/main/competition/detail.tsx
++++ b/src/pages/main/competition/detail.tsx
+@@ -5,6 +5,7 @@ import {
+   Activity,
+   AlertTriangle,
+   ArrowLeft,
++  Brain,
+   CheckCircle2,
+   ChevronRight,
+   Circle,
+@@ -18,7 +19,8 @@ import {
+   getCompetitionPage,
+   setCompetitionSpecialSettings,
+   syncCompetitionSpecial,
+-} from '../../../../services/apis/footballApi';
++} from '../../../services/apis/footballApi';
++import type { CompetitionAnalysis } from '../../../interfaces/interface';
+ 
+ // ─── helpers ──────────────────────────────────────────────────────────────────
+ 
+@@ -97,6 +99,8 @@ export default function CompetitionDetail() {
+   const [mode, setMode] = useState<FilterMode>('all');
+   const [group, setGroup] = useState('all');
+   const [query, setQuery] = useState('');
++  const [analysisLoading, setAnalysisLoading] = useState(false);
++  const [analysisMsg, setAnalysisMsg] = useState('');
+ 
+   const load = async () => {
+     setLoading(true);
+@@ -127,6 +131,25 @@ export default function CompetitionDetail() {
+     }
+   };
+ 
++  const triggerAnalysis = async () => {
++    setAnalysisLoading(true);
++    setAnalysisMsg('');
++    try {
++      const res = await fetch(`/api/competition-special/${encodeURIComponent(key)}/analysis/trigger`, { method: 'POST' });
++      const data = await res.json();
++      if (data.status === 'ok') {
++        setAnalysisMsg(`Analysis generated for ${data.round_name}`);
++      } else {
++        setAnalysisMsg(data.status === 'ollama_unavailable' ? 'Ollama unavailable — analysis skipped' : data.status === 'no_completed_rounds' ? 'No completed rounds to analyse' : data.error || 'Analysis failed');
++      }
++      await load();
++    } catch (e: any) {
++      setAnalysisMsg(e?.message || 'Failed to trigger analysis');
++    } finally {
++      setAnalysisLoading(false);
++    }
++  };
++
+   // derived
+   const settings = pageData?.settings ?? {};
+   const bufferSummary = pageData?.buffer_summary ?? {};
+@@ -274,6 +297,73 @@ export default function CompetitionDetail() {
+           </p>
+         )}
+ 
++        {/* ── analysis section ─────────────────────────────────── */}
++        {(() => {
++          const latestAnalysis = pageData?.latest_analysis as CompetitionAnalysis | null | undefined;
++          const analysisHistory = (pageData?.analysis_history as CompetitionAnalysis[] | undefined) ?? [];
++
++          return (
++            <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
++              <div className="flex items-center justify-between">
++                <div className="flex items-center gap-2">
++                  <Brain className="h-4 w-4 text-purple-400" />
++                  <span className="text-[12px] font-bold text-white">AI Analysis</span>
++                </div>
++                <button
++                  onClick={triggerAnalysis}
++                  disabled={analysisLoading || !!busy}
++                  className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[10px] font-bold text-purple-300 disabled:opacity-40"
++                >
++                  {analysisLoading ? 'Analysing…' : 'Trigger analysis'}
++                </button>
++              </div>
++
++              {analysisMsg && (
++                <p className={`mt-1.5 text-[10px] ${analysisMsg.toLowerCase().includes('fail') || analysisMsg.toLowerCase().includes('error') ? 'text-red-400' : 'text-emerald-300'}`}>
++                  {analysisMsg}
++                </p>
++              )}
++
++              {latestAnalysis ? (
++                <div className="mt-2 rounded-md bg-black/20 p-2.5">
++                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
++                    <span className="rounded bg-purple-500/10 px-1.5 py-0.5 font-bold text-purple-300">{latestAnalysis.round_name}</span>
++                    <span>{latestAnalysis.match_count} matches</span>
++                    <span>·</span>
++                    <span>{fmtShort(latestAnalysis.generated_at)}</span>
++                    <span>·</span>
++                    <span className="text-gray-600">{latestAnalysis.model_used}</span>
++                  </div>
++                  <p className="mt-1.5 text-[11px] leading-relaxed text-gray-300">{latestAnalysis.analysis_text}</p>
++                </div>
++              ) : (
++                <p className="mt-2 text-[10px] text-gray-600">No analysis yet. Complete a round and click Trigger analysis.</p>
++              )}
++
++              {analysisHistory.length > 1 && (
++                <details className="mt-2">
++                  <summary className="cursor-pointer text-[10px] font-bold text-gray-500 hover:text-gray-300">
++                    {analysisHistory.length - 1} earlier analyses
++                  </summary>
++                  <div className="mt-1.5 space-y-1.5">
++                    {analysisHistory.slice(1).map((a) => (
++                      <div key={a.id} className="rounded-md bg-black/10 p-2">
++                        <div className="flex items-center gap-2 text-[9px] text-gray-600">
++                          <span className="font-bold text-gray-500">{a.round_name}</span>
++                          <span>{a.match_count} matches</span>
++                          <span>·</span>
++                          <span>{fmtShort(a.generated_at)}</span>
++                        </div>
++                        <p className="mt-0.5 text-[10px] leading-relaxed text-gray-500" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.analysis_text}</p>
++                      </div>
++                    ))}
++                  </div>
++                </details>
++              )}
++            </div>
++          );
++        })()}
++
+         {/* filter bar */}
+         <div className="mt-3 flex flex-wrap items-center gap-2">
+           <div className="relative">
+diff --git a/src/pages/main/competition/page.tsx b/src/pages/main/competition/page.tsx
+index f0b1fb3..34706fb 100644
+--- a/src/pages/main/competition/page.tsx
++++ b/src/pages/main/competition/page.tsx
+@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
+ import { useIonRouter } from '@ionic/react';
+ import { AlertTriangle, ChevronRight, RefreshCw, Trophy, Zap } from 'lucide-react';
+ import {
+-  getCompetitionCatalogue,
+-  getCompetitionSpecialStatus,
++  getCompetitionSpecialDashboard,
+   triggerCompetitionCycles,
+ } from '../../../services/apis/footballApi';
++import type { CompetitionDashboardItem, CompetitionBufferSummary, CompetitionBufferStatus } from '../../../interfaces/interface';
+ 
+ const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
+ 
+@@ -27,8 +27,7 @@ const healthLabel = (enriched: number, total: number, predicted: number, enabled
+ 
+ export default function CompetitionList() {
+   const router = useIonRouter();
+-  const [catalogue, setCatalogue] = useState<any[]>([]);
+-  const [counts, setCounts] = useState<Record<string, any>>({});
++  const [dashboard, setDashboard] = useState<CompetitionDashboardItem[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [cycling, setCycling] = useState(false);
+   const [msg, setMsg] = useState('');
+@@ -36,35 +35,9 @@ export default function CompetitionList() {
+   const load = async () => {
+     setLoading(true);
+     try {
+-      const res = await getCompetitionCatalogue();
+-      const list: any[] = Array.isArray(res) ? res : (res?.competitions ?? []);
+-      setCatalogue(list);
+-
+-      // fetch counts in background batches of 6
+-      const chunks: any[][] = [];
+-      for (let i = 0; i < list.length; i += 6) chunks.push(list.slice(i, i + 6));
+-      for (const chunk of chunks) {
+-        const results = await Promise.allSettled(
+-          chunk.map((c: any) => getCompetitionSpecialStatus(c.key))
+-        );
+-        setCounts((prev) => {
+-          const next = { ...prev };
+-          chunk.forEach((c: any, i: number) => {
+-            const r = results[i];
+-            if (r.status === 'fulfilled') {
+-              const buf = (r.value as any)?.buffer ?? {};
+-              const comp = (r.value as any)?.competition ?? {};
+-              next[c.key] = {
+-                total: buf.total ?? 0,
+-                enriched: buf.enriched ?? 0,
+-                predicted: buf.predicted ?? 0,
+-                enabled: comp.enabled ?? c.enabled ?? false,
+-              };
+-            }
+-          });
+-          return next;
+-        });
+-      }
++      const res = await getCompetitionSpecialDashboard(50);
++      const items: CompetitionDashboardItem[] = res?.competitions ?? [];
++      setDashboard(items);
+     } catch {
+       setMsg('Failed to load competitions');
+     } finally {
+@@ -88,9 +61,9 @@ export default function CompetitionList() {
+     }
+   };
+ 
+-  const enabledCount = catalogue.filter((c) => counts[c.key]?.enabled).length;
+-  const totalFixtures = Object.values(counts).reduce((s: number, c: any) => s + (c?.total ?? 0), 0);
+-  const totalPredicted = Object.values(counts).reduce((s: number, c: any) => s + (c?.predicted ?? 0), 0);
++  const enabledCount = dashboard.filter((c) => c.enabled).length;
++  const totalFixtures = dashboard.reduce((s: number, c) => s + (c.buffer_status?.total ?? c.buffer_summary?.total ?? 0), 0);
++  const totalPredicted = dashboard.reduce((s: number, c) => s + (c.buffer_status?.predicted ?? c.buffer_summary?.predicted ?? 0), 0);
+ 
+   return (
+     <div className="h-full w-full overflow-y-auto bg-[#0c0c0c] text-white">
+@@ -122,7 +95,7 @@ export default function CompetitionList() {
+ 
+         {/* summary row */}
+         <div className="mt-3 flex gap-3 text-[11px]">
+-          <span className="text-gray-500">{catalogue.length} competitions</span>
++          <span className="text-gray-500">{dashboard.length} competitions</span>
+           <span className="text-emerald-400">{enabledCount} active</span>
+           <span className="text-gray-500">{totalFixtures} fixtures</span>
+           <span className="text-sky-400">{totalPredicted} predicted</span>
+@@ -137,16 +110,15 @@ export default function CompetitionList() {
+ 
+       {/* list */}
+       <div className="divide-y divide-white/[0.04]">
+-        {loading && catalogue.length === 0 && (
++        {loading && dashboard.length === 0 && (
+           <div className="py-16 text-center text-sm text-gray-600">Loading…</div>
+         )}
+ 
+-        {catalogue.map((comp) => {
+-          const c = counts[comp.key];
+-          const total = c?.total ?? 0;
+-          const enriched = c?.enriched ?? 0;
+-          const predicted = c?.predicted ?? 0;
+-          const enabled = c?.enabled ?? comp.enabled ?? false;
++        {dashboard.map((item) => {
++          const total = item.buffer_status?.total ?? item.buffer_summary?.total ?? 0;
++          const enriched = item.buffer_status?.enriched ?? item.buffer_summary?.enriched ?? 0;
++          const predicted = item.buffer_status?.predicted ?? item.buffer_summary?.predicted ?? 0;
++          const enabled = item.enabled;
+           const color = healthColor(enriched, total, predicted);
+           const label = healthLabel(enriched, total, predicted, enabled);
+           const enrichPct = pct(enriched, total);
+@@ -155,9 +127,9 @@ export default function CompetitionList() {
+ 
+           return (
+             <button
+-              key={comp.key}
++              key={item.key}
+               type="button"
+-              onClick={() => router.push(`/competition/${encodeURIComponent(comp.key)}`, 'forward', 'push')}
++              onClick={() => router.push(`/competition/${encodeURIComponent(item.key)}`, 'forward', 'push')}
+               className="w-full px-4 py-3.5 text-left transition active:bg-white/[0.03]"
+             >
+               <div className="flex items-center gap-3">
+@@ -167,7 +139,7 @@ export default function CompetitionList() {
+                 <div className="min-w-0 flex-1">
+                   {/* name + alert */}
+                   <div className="flex items-center gap-2">
+-                    <span className="truncate text-[14px] font-semibold text-white">{comp.name}</span>
++                    <span className="truncate text-[14px] font-semibold text-white">{item.name}</span>
+                     {needsAttention && (
+                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-400" />
+                     )}
+@@ -184,7 +156,7 @@ export default function CompetitionList() {
+                         <span className={`font-semibold ${color}`}>{label}</span>
+                       </>
+                     ) : (
+-                      <span className="text-gray-700">{c ? 'no fixtures synced' : 'loading…'}</span>
++                      <span className="text-gray-700">{item.error ? 'error loading' : 'no fixtures synced'}</span>
+                     )}
+                   </div>
+ 
+diff --git a/src/pages/main/details/match/page.tsx b/src/pages/main/details/match/page.tsx
+index 874d4ec..14c1a1a 100644
+--- a/src/pages/main/details/match/page.tsx
++++ b/src/pages/main/details/match/page.tsx
+@@ -9,6 +9,8 @@ import {
+   predictMatch,
+   analyzeMatchWithAi,
+   analyzeMatchWithOllama,
++  startPredictionPolling,
++  trackUserBehavior,
+ } from '../../../../services/apis/footballApi';
+ 
+ import { TABS, Tab } from './shared';
+@@ -66,6 +68,23 @@ const Match = () => {
+     getMatchDetail(id);
+   }, [id]);
+ 
++  // Auto-refresh match detail every 60s
++  useEffect(() => {
++    if (!id) return;
++    const stop = startPredictionPolling(
++      () => getMatchDetail(id),
++      60000,
++      false,
++    );
++    return () => stop();
++  }, [id]);
++
++  // Track user viewing this match
++  useEffect(() => {
++    if (!id) return;
++    trackUserBehavior({ match_id: id, action: 'viewed' });
++  }, [id]);
++
+   const refresh = async () => { if (id) await getMatchDetail(id); };
+ 
+   const handleEnrich = async () => {
+diff --git a/src/pages/main/home/page.tsx b/src/pages/main/home/page.tsx
+index 8e5c016..a06413c 100644
+--- a/src/pages/main/home/page.tsx
++++ b/src/pages/main/home/page.tsx
+@@ -1,7 +1,7 @@
+ import { IonContent, IonRefresher, IonRefresherContent, useIonRouter } from "@ionic/react";
+-import { useEffect, useState, useMemo, useCallback } from "react";
++import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+ import { useFootballContext } from "../../../contexts/useFootballContext";
+-import { LIVE_WS_URL } from "../../../services/apis/footballApi";
++import { LIVE_WS_URL, startPredictionPolling, startBufferStatusPolling, getPredictionCoverage, getAutoBetSuggestions, autoBetPlace } from "../../../services/apis/footballApi";
+ 
+ // ─── Helpers ────────────────────────────────────────────────────────────────
+ 
+@@ -487,7 +487,14 @@ const Home = () => {
+   const [selectedDate, setSelectedDate] = useState(todayISO());
+   const [sortMode, setSortMode] = useState<SortMode>("country");
+   const [wsConnected, setWsConnected] = useState(false);
++  const [predictionCount, setPredictionCount] = useState<number | null>(null);
++  const [bufferStats, setBufferStats] = useState<any>(null);
++  const [coverage, setCoverage] = useState<any>(null);
++  const [autoSuggestions, setAutoSuggestions] = useState<any[]>([]);
++  const [autoBetting, setAutoBetting] = useState(false);
+   const dateStrip = useMemo(() => buildDateStrip(), []);
++  const pollingCleanupRef = useRef<(() => void) | null>(null);
++  const bufferPollingCleanupRef = useRef<(() => void) | null>(null);
+ 
+   const fetchForDate = useCallback(
+     (date: string): Promise<void> => {
+@@ -553,6 +560,56 @@ const Home = () => {
+     };
+   }, [selectedDate, mergeLiveMatches]);
+ 
++  // ── Auto-refresh: poll for new predictions every 60s ──
++  useEffect(() => {
++    if (selectedDate !== todayISO()) return;
++
++    pollingCleanupRef.current = startPredictionPolling(
++      (data) => {
++        if (data?.predictions) {
++          setPredictionCount(data.predictions.length);
++        }
++      },
++      60000,
++      true,
++    );
++
++    bufferPollingCleanupRef.current = startBufferStatusPolling(
++      (data) => {
++        setBufferStats(data);
++      },
++      30000,
++      true,
++    );
++
++    // Fetch prediction coverage every 5min
++    const coverageInterval = setInterval(async () => {
++      try {
++        const cov = await getPredictionCoverage();
++        setCoverage(cov);
++      } catch { /* ignore */ }
++    }, 300000);
++
++    // Fetch auto-bet suggestions every 5min
++    const suggestionsInterval = setInterval(async () => {
++      try {
++        const suggestions = await getAutoBetSuggestions(5, 65);
++        setAutoSuggestions(suggestions?.suggestions || []);
++      } catch { /* ignore */ }
++    }, 300000);
++
++    // Initial fetch
++    getPredictionCoverage().then(setCoverage).catch(() => {});
++    getAutoBetSuggestions(5, 65).then((s: any) => setAutoSuggestions(s?.suggestions || [])).catch(() => {});
++
++    return () => {
++      pollingCleanupRef.current?.();
++      bufferPollingCleanupRef.current?.();
++      clearInterval(coverageInterval);
++      clearInterval(suggestionsInterval);
++    };
++  }, [selectedDate]);
++
+   const handleDateSelect = (date: string) => {
+     setSelectedDate(date);
+   };
+@@ -654,6 +711,34 @@ const Home = () => {
+ 
+   return (
+     <div className="w-full h-full bg-[#0e0e0e] text-white flex flex-col">
++      {/* ── Auto-refresh status bar ── */}
++       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.06] shrink-0 bg-[#111]">
++         <span className="text-[10px] text-gray-500">
++           {wsConnected ? "● Live" : "○ Connecting"}
++         </span>
++         {predictionCount !== null && (
++           <span className="text-[10px] text-emerald-400">
++             {predictionCount} predictions ready
++           </span>
++         )}
++         {bufferStats && (
++           <span className="text-[10px] text-gray-500">
++             Buffer: {bufferStats.total_buffered ?? 0} matches
++           </span>
++         )}
++         {coverage && (
++           <span className="text-[10px] text-blue-400">
++             Coverage: {coverage.coverage_pct ?? 0}% ({coverage.matches_with_predictions_24h ?? 0}/{coverage.total_matches_in_buffer ?? 0})
++           </span>
++         )}
++         {autoSuggestions.length > 0 && (
++           <span className="text-[10px] text-yellow-400">
++             🎯 {autoSuggestions.length} auto-bet picks
++           </span>
++         )}
++         <span className="flex-1" />
++         <span className="text-[10px] text-gray-600">Auto-refresh ON</span>
++       </div>
+ 
+       {/* ── Date strip ── */}
+       <div className="flex overflow-x-auto gap-1 px-3 pt-3 pb-2 shrink-0 scrollbar-hide">
+@@ -792,6 +877,59 @@ const Home = () => {
+             ))
+           )}
+         </div>
++
++        {/* ── Auto-Bet Suggestions Panel ── */}
++        {autoSuggestions.length > 0 && (
++          <div className="shrink-0 border-t border-white/[0.06] bg-[#111] px-3 py-2">
++            <div className="flex items-center justify-between mb-2">
++              <span className="text-[11px] font-bold text-yellow-400">🎯 Auto-Bet Picks</span>
++              <button
++                onClick={() => setAutoSuggestions([])}
++                className="text-[10px] text-gray-500 hover:text-gray-300"
++              >
++                Dismiss
++              </button>
++            </div>
++            <div className="space-y-1.5">
++              {autoSuggestions.map((suggestion: any, i: number) => (
++                <div
++                  key={i}
++                  className="flex items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#161616] px-3 py-2"
++                >
++                  <div className="flex-1 min-w-0">
++                    <div className="text-xs font-semibold text-white truncate">
++                      {suggestion.match_name || suggestion.match_id}
++                    </div>
++                    <div className="text-[10px] text-gray-500">
++                      {suggestion.pick_type?.replace(/_/g, ' ')} · {suggestion.selection} · {suggestion.confidence}% conf
++                    </div>
++                  </div>
++                  <button
++                    onClick={async () => {
++                      try {
++                        setAutoBetting(true);
++                        await autoBetPlace({
++                          selections: [{
++                            match_id: suggestion.match_id,
++                            pick_type: suggestion.pick_type,
++                            selection: suggestion.selection,
++                            confidence: suggestion.confidence,
++                          }],
++                          stake: 10,
++                        });
++                      } catch { /* ignore */ }
++                      setAutoBetting(false);
++                    }}
++                    disabled={autoBetting}
++                    className="shrink-0 rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-40"
++                  >
++                    {autoBetting ? 'Placing...' : 'Bet'}
++                  </button>
++                </div>
++              ))}
++            </div>
++          </div>
++        )}
+       </IonContent>
+     </div>
+   );
+diff --git a/src/pages/main/prediction/betbuilder/index.tsx b/src/pages/main/prediction/betbuilder/index.tsx
+index 09f7e2c..f19d51c 100644
+--- a/src/pages/main/prediction/betbuilder/index.tsx
++++ b/src/pages/main/prediction/betbuilder/index.tsx
+@@ -1,6 +1,6 @@
+ import { useEffect, useState, useMemo } from 'react';
+ import { IonPage, useIonRouter } from '@ionic/react';
+-import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
++import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder, getAutoBetSuggestions, autoBetPlace } from '../../../../services/apis/footballApi';
+ import { useAuth } from '../../../../contexts/useAuthContext';
+ 
+ // ── Types ─────────────────────────────────────────────────────────────────────
+@@ -616,6 +616,8 @@ const Builder = () => {
+   const [buildingAuto, setBuildingAuto] = useState(false);
+   const [bookingAuto, setBookingAuto] = useState(false);
+   const [autoResult, setAutoResult] = useState<any>(null);
++  const [autoSuggestions, setAutoSuggestions] = useState<any[]>([]);
++  const [autoBetting, setAutoBetting] = useState(false);
+   const [autoForm, setAutoForm] = useState<any>({
+     scope: 'upcoming',
+     target_odds: '5000',
+@@ -763,25 +765,58 @@ const Builder = () => {
+     }
+   };
+ 
+-  const handleBookAuto = async () => {
+-    if (!autoResult?.selections?.length) return;
+-    setBookingAuto(true);
+-    setError(null);
+-    try {
+-      const booking = await bookBetbuilder({
+-        selections: autoResult.selections,
+-        stake: Number(autoForm.stake),
+-        loadingShareCode: autoForm.loadingShareCode || null,
+-      });
+-      setAutoResult((current: any) => ({ ...current, booking }));
+-    } catch (e: any) {
+-      setError(e?.response?.data?.detail || 'Unable to create a SportyBet share code');
+-    } finally {
+-      setBookingAuto(false);
+-    }
+-  };
+-
+-  const handleReset = () => {
++   const handleBookAuto = async () => {
++     if (!autoResult?.selections?.length) return;
++     setBookingAuto(true);
++     setError(null);
++     try {
++       const booking = await bookBetbuilder({
++         selections: autoResult.selections,
++         stake: Number(autoForm.stake),
++         loadingShareCode: autoForm.loadingShareCode || null,
++       });
++       setAutoResult((current: any) => ({ ...current, booking }));
++     } catch (e: any) {
++       setError(e?.response?.data?.detail || 'Unable to create a SportyBet share code');
++     } finally {
++       setBookingAuto(false);
++     }
++   };
++
++   const handleFetchAutoSuggestions = async () => {
++     setError(null);
++     try {
++       const res = await getAutoBetSuggestions(5, 65);
++       setAutoSuggestions(res?.suggestions || []);
++     } catch (e: any) {
++       setError(e?.response?.data?.detail || 'Failed to fetch auto suggestions');
++     }
++   };
++
++   const handleAutoBetPlace = async (stake: number) => {
++     if (!autoSuggestions.length) return;
++     setAutoBetting(true);
++     setError(null);
++     try {
++       const res = await autoBetPlace({
++         selections: autoSuggestions.map((s: any) => ({
++           match_id: s.match_id,
++           pick_type: s.pick_type,
++           selection: s.selection,
++           confidence: s.confidence,
++         })),
++         stake,
++       });
++       setAutoResult(res);
++       loadHistory();
++     } catch (e: any) {
++       setError(e?.response?.data?.detail || 'Auto-bet placement failed');
++     } finally {
++       setAutoBetting(false);
++     }
++   };
++
++   const handleReset = () => {
+     setDecisions({});
+     setSavedSlip(null);
+   };
+diff --git a/src/pages/main/prediction/suggestion/index.tsx b/src/pages/main/prediction/suggestion/index.tsx
+index 2c51ea5..2db2c94 100644
+--- a/src/pages/main/prediction/suggestion/index.tsx
++++ b/src/pages/main/prediction/suggestion/index.tsx
+@@ -40,20 +40,22 @@ type FilterTab = 'all' | 'value_bet' | 'high_confidence' | 'accepted' | 'rejecte
+ function Suggestions() {
+   const router = useIonRouter();
+   const { getTodayMatches, matches, loading } = useFootballContext();
+-  const { signals, acceptedPicks, runPredictions, acceptSignal, rejectSignal, undoReject, running } = usePredictionStore();
++  const { signals, acceptedPicks, runPredictions, loadBackendPredictions, initBackendPredictions, acceptSignal, rejectSignal, undoReject, running, backendPredictionsLoaded } = usePredictionStore();
+ 
+   const [activeTab, setActiveTab] = useState<FilterTab>('all');
+   const [expandedId, setExpandedId] = useState<string | null>(null);
+ 
+   useEffect(() => {
+     getTodayMatches();
++    // Auto-load backend predictions on mount
++    initBackendPredictions();
+   }, []);
+ 
+   useEffect(() => {
+-    if (matches && matches.length > 0) {
++    if (matches && matches.length > 0 && !backendPredictionsLoaded) {
+       runPredictions(matches);
+     }
+-  }, [matches]);
++  }, [matches, backendPredictionsLoaded]);
+ 
+   const refresh = async (e: CustomEvent) => {
+     try {
+diff --git a/src/prediction/engine.ts b/src/prediction/engine.ts
+index e651302..515d275 100644
+--- a/src/prediction/engine.ts
++++ b/src/prediction/engine.ts
+@@ -1878,3 +1878,157 @@ export const batchLearnHomeAdvantage = (results: Array<{ homeTeam: string; awayT
+     recordMatchResult(r.homeTeam, r.awayTeam, r.result, r.league);
+   }
+ };
++
++// ─── Prediction Validation ──────────────────────────────────────
++//
++//  Fetches prediction check data from the DB and compares predictions
++//  against actual results to compute accuracy metrics.
++//  This drives the feedback loop that improves future predictions.
++
++export interface PredictionCheckResult {
++  matchId: string;
++  matchName: string;
++  predictedSide: '1' | 'X' | '2';
++  predictedProb: number;
++  actualResult: '1' | 'X' | '2';
++  correct: boolean;
++  odds: number;
++  valueEdge: number;
++  league: string;
++  date: number;
++}
++
++export interface PredictionValidation {
++  totalChecked: number;
++  correct: number;
++  incorrect: number;
++  accuracy: number;
++  bySide: {
++    home: { total: number; correct: number; accuracy: number };
++    draw: { total: number; correct: number; accuracy: number };
++    away: { total: number; correct: number; accuracy: number };
++  };
++  byConfidence: {
++    high: { total: number; correct: number; accuracy: number };
++    medium: { total: number; correct: number; accuracy: number };
++    low: { total: number; correct: number; accuracy: number };
++  };
++  roi: number;
++  details: PredictionCheckResult[];
++}
++
++export const validatePredictions = async (): Promise<PredictionValidation> => {
++  try {
++    const checkData = await fetch('/predictions/check-data?limit=500').then(r => r.json());
++    const results = checkData?.results || checkData?.predictions || [];
++
++    if (!results.length) {
++      return {
++        totalChecked: 0, correct: 0, incorrect: 0, accuracy: 0,
++        bySide: { home: { total: 0, correct: 0, accuracy: 0 }, draw: { total: 0, correct: 0, accuracy: 0 }, away: { total: 0, correct: 0, accuracy: 0 } },
++        byConfidence: { high: { total: 0, correct: 0, accuracy: 0 }, medium: { total: 0, correct: 0, accuracy: 0 }, low: { total: 0, correct: 0, accuracy: 0 } },
++        roi: 0, details: [],
++      };
++    }
++
++    const details: PredictionCheckResult[] = results.map((r: any) => {
++      const predictedSide = r.predicted_side || r.pick || r.selection || '1';
++      const actualResult = r.actual_result || r.result || r.final_score ? (
++        r.final_score?.home > r.final_score?.away ? '1' :
++        r.final_score?.home < r.final_score?.away ? '2' : 'X'
++      ) : predictedSide;
++      const predictedProb = r.predicted_probability || r.confidence || 0.5;
++      const odds = r.odds || 1.0;
++      const valueEdge = (predictedProb * odds) - 1;
++
++      return {
++        matchId: r.match_id || r.id || '',
++        matchName: r.match_name || r.name || '',
++        predictedSide: predictedSide as '1' | 'X' | '2',
++        predictedProb,
++        actualResult: actualResult as '1' | 'X' | '2',
++        correct: predictedSide === actualResult,
++        odds,
++        valueEdge,
++        league: r.league || r.tournament || '',
++        date: r.date || r.start_time || Date.now(),
++      };
++    });
++
++    const totalChecked = details.length;
++    const correct = details.filter(d => d.correct).length;
++    const incorrect = totalChecked - correct;
++    const accuracy = totalChecked > 0 ? correct / totalChecked : 0;
++
++    // By side
++    const bySide = { home: { total: 0, correct: 0 }, draw: { total: 0, correct: 0 }, away: { total: 0, correct: 0 } };
++    for (const d of details) {
++      const side = d.predictedSide === '1' ? 'home' : d.predictedSide === 'X' ? 'draw' : 'away';
++      bySide[side].total++;
++      if (d.correct) bySide[side].correct++;
++    }
++
++    // By confidence
++    const byConfidence = {
++      high: { total: 0, correct: 0 },
++      medium: { total: 0, correct: 0 },
++      low: { total: 0, correct: 0 },
++    };
++    for (const d of details) {
++      const conf = d.predictedProb >= 0.65 ? 'high' : d.predictedProb >= 0.50 ? 'medium' : 'low';
++      byConfidence[conf].total++;
++      if (d.correct) byConfidence[conf].correct++;
++    }
++
++    // ROI (assuming 1 unit stake per bet)
++    const roi = details.reduce((acc, d) => acc + (d.correct ? (d.odds - 1) : -1), 0) / totalChecked;
++
++    return {
++      totalChecked,
++      correct,
++      incorrect,
++      accuracy,
++      bySide: {
++        home: { ...bySide.home, accuracy: bySide.home.total > 0 ? bySide.home.correct / bySide.home.total : 0 },
++        draw: { ...bySide.draw, accuracy: bySide.draw.total > 0 ? bySide.draw.correct / bySide.draw.total : 0 },
++        away: { ...bySide.away, accuracy: bySide.away.total > 0 ? bySide.away.correct / bySide.away.total : 0 },
++      },
++      byConfidence: {
++        high: { ...byConfidence.high, accuracy: byConfidence.high.total > 0 ? byConfidence.high.correct / byConfidence.high.total : 0 },
++        medium: { ...byConfidence.medium, accuracy: byConfidence.medium.total > 0 ? byConfidence.medium.correct / byConfidence.medium.total : 0 },
++        low: { ...byConfidence.low, accuracy: byConfidence.low.total > 0 ? byConfidence.low.correct / byConfidence.low.total : 0 },
++      },
++      roi,
++      details,
++    };
++  } catch (err) {
++    console.error('Failed to validate predictions:', err);
++    return {
++      totalChecked: 0, correct: 0, incorrect: 0, accuracy: 0,
++      bySide: { home: { total: 0, correct: 0, accuracy: 0 }, draw: { total: 0, correct: 0, accuracy: 0 }, away: { total: 0, correct: 0, accuracy: 0 } },
++      byConfidence: { high: { total: 0, correct: 0, accuracy: 0 }, medium: { total: 0, correct: 0, accuracy: 0 }, low: { total: 0, correct: 0, accuracy: 0 } },
++      roi: 0, details: [],
++    };
++  }
++};
++
++// ─── Auto-Validate and Learn ──────────────────────────────────
++//
++//  Fetches prediction check data, validates predictions, and
++//  updates the home advantage model with the results.
++
++export const autoValidateAndLearn = async (): Promise<PredictionValidation | null> => {
++  const validation = await validatePredictions();
++
++  if (validation.totalChecked > 0) {
++    // Learn home advantage from actual results
++    const results = validation.details.map(d => ({
++      homeTeam: d.matchName.split(' vs ')[0] || '',
++      awayTeam: d.matchName.split(' vs ')[1] || '',
++      result: d.actualResult,
++    }));
++    batchLearnHomeAdvantage(results);
++  }
++
++  return validation;
++};
+diff --git a/src/prediction/usePredictionStore.ts b/src/prediction/usePredictionStore.ts
+index dacba6c..cf667a3 100644
+--- a/src/prediction/usePredictionStore.ts
++++ b/src/prediction/usePredictionStore.ts
+@@ -1,8 +1,11 @@
+ // ─────────────────────────────────────────────────────────────
+ //  Prediction Store — persists engines config + accepted picks
++//  Backend predictions are the source of truth. The client-side
++//  engine is kept as a fallback for matches without backend data.
+ // ─────────────────────────────────────────────────────────────
+ import { create } from 'zustand';
+ import { DEFAULT_ENGINES, PredictionEngine, MatchSignal, runEngines } from './engine';
++import { getPredictionsToday, getUpcomingEnrichedPredicted } from '../services/apis/footballApi';
+ 
+ interface PredictionState {
+   engines: PredictionEngine[];
+@@ -10,9 +13,12 @@ interface PredictionState {
+   acceptedPicks: MatchSignal[];
+   lastRun: number | null;
+   running: boolean;
++  backendPredictionsLoaded: boolean;
+ 
+   // actions
+   runPredictions: (matches: any[]) => void;
++  loadBackendPredictions: () => Promise<void>;
++  initBackendPredictions: () => Promise<void>;
+   toggleEngine: (id: string) => void;
+   updateEngineRule: (engineId: string, ruleIndex: number, patch: Partial<PredictionEngine['rules'][0]>) => void;
+   acceptSignal: (matchId: string, engineId: string, market: string) => void;
+@@ -22,17 +28,65 @@ interface PredictionState {
+   clearAccepted: () => void;
+ }
+ 
++/** Convert a backend prediction into a MatchSignal for the store. */
++function backendPredictionToSignal(prediction: any): MatchSignal {
++  const bestPick = prediction.best_pick || (prediction.picks?.[0] ?? {});
++  const conf = bestPick.confidence ?? prediction.confidence ?? 50;
++  const confidenceLevel: 'low' | 'medium' | 'high' = conf >= 70 ? 'high' : conf >= 55 ? 'medium' : 'low';
++  return {
++    matchId: prediction.match_id ?? prediction.matchId ?? '',
++    matchName: prediction.match_name ?? prediction.matchName ?? '',
++    tournament: prediction.league_name ?? prediction.leagueName ?? '',
++    startTime: 0,
++    homeTeam: '',
++    awayTeam: '',
++    engineId: 'backend_ai',
++    engineName: 'Backend AI',
++    engineIcon: '🤖',
++    signalType: 'value_bet',
++    market: bestPick.type ?? prediction.pick_type ?? '1x2',
++    pick: bestPick.selection ?? prediction.selection ?? '',
++    odds: bestPick.odds ?? 0,
++    modelProbability: conf / 100,
++    impliedProbability: 0,
++    valueEdge: bestPick.edge ?? 0,
++    confidence: confidenceLevel,
++    status: 'pending',
++    note: bestPick.reason ?? prediction.reason ?? '',
++  };
++}
++
+ export const usePredictionStore = create<PredictionState>((set, get) => ({
+   engines: DEFAULT_ENGINES,
+   signals: [],
+   acceptedPicks: [],
+   lastRun: null,
+   running: false,
++  backendPredictionsLoaded: false,
++
++  /** Fetch backend predictions and merge them into the store as the primary signals. */
++  loadBackendPredictions: async () => {
++    try {
++      const data = await getPredictionsToday();
++      const predictions = data?.predictions ?? [];
++      const signals: MatchSignal[] = predictions.map(backendPredictionToSignal);
++      set({ signals, backendPredictionsLoaded: true, lastRun: Date.now() });
++    } catch {
++      // Backend predictions unavailable — keep existing signals
++    }
++  },
++
++  /** Auto-load backend predictions on store init. */
++  initBackendPredictions: async () => {
++    await get().loadBackendPredictions();
++    // Refresh every 60s
++    setInterval(() => get().loadBackendPredictions(), 60000);
++  },
+ 
+   runPredictions: (matches: any[]) => {
+     set({ running: true });
+-    // Adapter only: backend predictions are the authority. The frontend no
+-    // longer creates betting signals from bookmaker market probabilities.
++    // Backend predictions are the authority. The client-side engine is
++    // kept as a fallback for matches without backend data.
+     const signals = runEngines(matches, get().engines);
+     set({ signals, running: false, lastRun: Date.now() });
+   },
+diff --git a/src/services/apis/footballApi.ts b/src/services/apis/footballApi.ts
+index 5e50acb..0664756 100644
+--- a/src/services/apis/footballApi.ts
++++ b/src/services/apis/footballApi.ts
+@@ -40,6 +40,10 @@ export const getRoiAnalysis = () =>
+   api.get('/agent/analytics/roi').then(r => r.data);
+ 
+ // ── Per-match actions ────────────────────────────────────────
++// NOTE: enrichMatch, predictMatch, analyzeMatchWithAi are deprecated.
++// The scheduler auto-enriches and auto-predicts all matches without user interaction.
++
++/** @deprecated Auto-enrichment runs via the scheduler every 30s */
+ export const enrichMatch = (id: string) =>
+   api.post(`/matches/${id}/enrich`).then(r => r.data);
+ 
+@@ -82,6 +86,72 @@ export const getMobileBridgeStatus = () =>
+ export const uploadProviderPacket = (packet: any) =>
+   api.post('/mobile-bridge/provider-packets', packet).then(r => r.data);
+ 
++// ── Auto-refresh / polling utilities ──────────────
++/** Poll for updated predictions at an interval. Returns cleanup function to stop polling. */
++export const startPredictionPolling = (
++  callback: (data: any) => void,
++  intervalMs = 60000,
++  immediate = true,
++) => {
++  let cancelled = false;
++  let timer: ReturnType<typeof setInterval> | undefined;
++  const poll = async () => {
++    if (cancelled) return;
++    try {
++      const data = await getPredictionsToday();
++      callback(data);
++    } catch { /* retry next interval */ }
++  };
++  if (immediate) poll();
++  timer = setInterval(poll, intervalMs);
++  return () => { cancelled = true; if (timer) clearInterval(timer); };
++};
++
++/** Poll for buffer status changes at an interval. Returns cleanup function. */
++export const startBufferStatusPolling = (
++  callback: (data: any) => void,
++  intervalMs = 30000,
++  immediate = true,
++) => {
++  let cancelled = false;
++  let timer: ReturnType<typeof setInterval> | undefined;
++  const poll = async () => {
++    if (cancelled) return;
++    try {
++      const data = await getBufferStatus();
++      callback(data);
++    } catch { /* retry next interval */ }
++  };
++  if (immediate) poll();
++  timer = setInterval(poll, intervalMs);
++  return () => { cancelled = true; if (timer) clearInterval(timer); };
++};
++
++// ── User behavior tracking ──────────────────────
++export const trackUserBehavior = (payload: {
++  match_id: string;
++  action: 'viewed' | 'accepted' | 'rejected' | 'bet_placed' | 'bet_graded' | 'prediction_dismissed';
++  pick_type?: string;
++  selection?: string;
++  confidence?: number;
++}) => api.post('/user-behavior/track', payload).then(r => r.data);
++
++export const getUserBehaviorSummary = (daysBack = 30) =>
++  api.get(`/user-behavior/summary?days_back=${daysBack}`).then(r => r.data);
++
++// ── Auto-bet ────────────────────────────────────
++export const getAutoBetSuggestions = (maxPicks = 5, minConfidence = 65) =>
++  api.get('/betbuilder/auto-suggestions', {
++    params: { max_picks: maxPicks, min_confidence: minConfidence },
++  }).then(r => r.data);
++
++export const autoBetPlace = (payload: { selections: any[]; stake: number; shareCode?: string | null }) =>
++  api.post('/betbuilder/auto-place', payload).then(r => r.data);
++
++// ── Prediction coverage ─────────────────────
++export const getPredictionCoverage = () =>
++  api.get('/diagnostics/prediction-coverage').then(r => r.data);
++
+ export const collectSportybetViaMobile = async (scope: 'upcoming' | 'live' = 'upcoming') => {
+   if (!Capacitor.isNativePlatform()) {
+     throw new Error('Direct provider fetch is mobile-native only. Use this from the Android app.');
+@@ -174,6 +244,9 @@ export const enrichPredictCompetitionSpecial = (key: string, limit = 8) =>
+     params: { limit },
+   }).then(r => r.data);
+ 
++export const getCompetitionSpecialDashboard = (bufferLimit = 50) =>
++  api.get('/composite/competition-special/dashboard', { params: { buffer_limit: bufferLimit } }).then(r => r.data);
++
+ // ── Prediction history ───────────────────────────────────────
+ export const refreshPredictions = () =>
+   api.post('/predictions/refresh').then(r => r.data);
+@@ -184,6 +257,12 @@ export const getPredictionsToday = () =>
+ export const getPredictionHistory = (limit = 200) =>
+   api.get(`/predictions/history?limit=${limit}`).then(r => r.data);
+ 
++export const getPredictionCheckData = (limit = 500) =>
++  api.get(`/predictions/check-data?limit=${limit}`).then(r => r.data);
++
++export const getPredictionAccuracy = (daysBack = 30) =>
++  api.get(`/predictions/accuracy?days_back=${daysBack}`).then(r => r.data);
++
+ // ── Betbuilder ───────────────────────────────────────────────
+ export const saveBetbuilder = (payload: { selections: any[]; request?: any; builder_request?: any }) =>
+   api.post('/betbuilder', payload).then(r => r.data);
+@@ -207,18 +286,26 @@ export const gradeBetbuilderHistory = (limit = 300) =>
+   api.post(`/betbuilder/grade?limit=${limit}`).then(r => r.data);
+ 
+ // ── Manual scan triggers ─────────────────────────────────────
++// NOTE: These are deprecated. The scheduler handles all ingestion, enrichment,
++// and grading automatically. Keep these for emergency debugging only.
++
++/** @deprecated Scheduler handles upcoming ingestion automatically */
+ export const triggerIngestUpcoming = () =>
+   api.post('/mongo/scan/upcoming').then(r => r.data);
+ 
++/** @deprecated Scheduler handles live ingestion automatically */
+ export const triggerIngestLive = () =>
+   api.post('/mongo/scan/live').then(r => r.data);
+ 
++/** @deprecated Scheduler handles odds refresh automatically */
+ export const triggerRefreshBufferOdds = () =>
+   api.post('/mongo/scan/refresh-odds').then(r => r.data);
+ 
++/** @deprecated Scheduler handles enrichment automatically */
+ export const triggerEnrichWorker = () =>
+   api.post('/mongo/scan/enrich').then(r => r.data);
+ 
++/** @deprecated Scheduler handles live priority automatically */
+ export const triggerLivePriority = (count = 30) =>
+   api.post('/mongo/scan/live-priority', null, { params: { count } }).then(r => r.data);
+ 
+@@ -228,9 +315,11 @@ export const getLivePriorityMode = () =>
+ export const setLivePriorityMode = (enabled: boolean) =>
+   api.post('/mongo/live-priority', { enabled }).then(r => r.data);
+ 
++/** @deprecated Scheduler handles match+enrich automatically */
+ export const triggerMatchAndEnrich = (count = 12) =>
+   api.post('/mongo/scan/match-and-enrich', null, { params: { count } }).then(r => r.data);
+ 
++/** @deprecated Scheduler handles grading automatically */
+ export const triggerGradeResults = (hoursBack = 24) =>
+   api.post(`/results/grade?hours_back=${hoursBack}`).then(r => r.data);
+ 

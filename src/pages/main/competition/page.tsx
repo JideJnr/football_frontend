@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useIonRouter } from '@ionic/react';
 import { AlertTriangle, ChevronRight, RefreshCw, Trophy, Zap } from 'lucide-react';
 import {
-  getCompetitionCatalogue,
-  getCompetitionSpecialStatus,
+  getCompetitionSpecialDashboard,
   triggerCompetitionCycles,
 } from '../../../services/apis/footballApi';
+import type { CompetitionDashboardItem, CompetitionBufferSummary, CompetitionBufferStatus } from '../../../interfaces/interface';
 
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
@@ -27,8 +27,7 @@ const healthLabel = (enriched: number, total: number, predicted: number, enabled
 
 export default function CompetitionList() {
   const router = useIonRouter();
-  const [catalogue, setCatalogue] = useState<any[]>([]);
-  const [counts, setCounts] = useState<Record<string, any>>({});
+  const [dashboard, setDashboard] = useState<CompetitionDashboardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cycling, setCycling] = useState(false);
   const [msg, setMsg] = useState('');
@@ -36,35 +35,9 @@ export default function CompetitionList() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await getCompetitionCatalogue();
-      const list: any[] = Array.isArray(res) ? res : (res?.competitions ?? []);
-      setCatalogue(list);
-
-      // fetch counts in background batches of 6
-      const chunks: any[][] = [];
-      for (let i = 0; i < list.length; i += 6) chunks.push(list.slice(i, i + 6));
-      for (const chunk of chunks) {
-        const results = await Promise.allSettled(
-          chunk.map((c: any) => getCompetitionSpecialStatus(c.key))
-        );
-        setCounts((prev) => {
-          const next = { ...prev };
-          chunk.forEach((c: any, i: number) => {
-            const r = results[i];
-            if (r.status === 'fulfilled') {
-              const buf = (r.value as any)?.buffer ?? {};
-              const comp = (r.value as any)?.competition ?? {};
-              next[c.key] = {
-                total: buf.total ?? 0,
-                enriched: buf.enriched ?? 0,
-                predicted: buf.predicted ?? 0,
-                enabled: comp.enabled ?? c.enabled ?? false,
-              };
-            }
-          });
-          return next;
-        });
-      }
+      const res = await getCompetitionSpecialDashboard(50);
+      const items: CompetitionDashboardItem[] = res?.competitions ?? [];
+      setDashboard(items);
     } catch {
       setMsg('Failed to load competitions');
     } finally {
@@ -88,9 +61,9 @@ export default function CompetitionList() {
     }
   };
 
-  const enabledCount = catalogue.filter((c) => counts[c.key]?.enabled).length;
-  const totalFixtures = Object.values(counts).reduce((s: number, c: any) => s + (c?.total ?? 0), 0);
-  const totalPredicted = Object.values(counts).reduce((s: number, c: any) => s + (c?.predicted ?? 0), 0);
+  const enabledCount = dashboard.filter((c) => c.enabled).length;
+  const totalFixtures = dashboard.reduce((s: number, c) => s + (c.buffer_status?.total ?? c.buffer_summary?.total ?? 0), 0);
+  const totalPredicted = dashboard.reduce((s: number, c) => s + (c.buffer_status?.predicted ?? c.buffer_summary?.predicted ?? 0), 0);
 
   return (
     <div className="h-full w-full overflow-y-auto bg-[#0c0c0c] text-white">
@@ -122,7 +95,7 @@ export default function CompetitionList() {
 
         {/* summary row */}
         <div className="mt-3 flex gap-3 text-[11px]">
-          <span className="text-gray-500">{catalogue.length} competitions</span>
+          <span className="text-gray-500">{dashboard.length} competitions</span>
           <span className="text-emerald-400">{enabledCount} active</span>
           <span className="text-gray-500">{totalFixtures} fixtures</span>
           <span className="text-sky-400">{totalPredicted} predicted</span>
@@ -137,16 +110,15 @@ export default function CompetitionList() {
 
       {/* list */}
       <div className="divide-y divide-white/[0.04]">
-        {loading && catalogue.length === 0 && (
+        {loading && dashboard.length === 0 && (
           <div className="py-16 text-center text-sm text-gray-600">Loading…</div>
         )}
 
-        {catalogue.map((comp) => {
-          const c = counts[comp.key];
-          const total = c?.total ?? 0;
-          const enriched = c?.enriched ?? 0;
-          const predicted = c?.predicted ?? 0;
-          const enabled = c?.enabled ?? comp.enabled ?? false;
+        {dashboard.map((item) => {
+          const total = item.buffer_status?.total ?? item.buffer_summary?.total ?? 0;
+          const enriched = item.buffer_status?.enriched ?? item.buffer_summary?.enriched ?? 0;
+          const predicted = item.buffer_status?.predicted ?? item.buffer_summary?.predicted ?? 0;
+          const enabled = item.enabled;
           const color = healthColor(enriched, total, predicted);
           const label = healthLabel(enriched, total, predicted, enabled);
           const enrichPct = pct(enriched, total);
@@ -155,9 +127,9 @@ export default function CompetitionList() {
 
           return (
             <button
-              key={comp.key}
+              key={item.key}
               type="button"
-              onClick={() => router.push(`/competition/${encodeURIComponent(comp.key)}`, 'forward', 'push')}
+              onClick={() => router.push(`/competition/${encodeURIComponent(item.key)}`, 'forward', 'push')}
               className="w-full px-4 py-3.5 text-left transition active:bg-white/[0.03]"
             >
               <div className="flex items-center gap-3">
@@ -167,7 +139,7 @@ export default function CompetitionList() {
                 <div className="min-w-0 flex-1">
                   {/* name + alert */}
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-[14px] font-semibold text-white">{comp.name}</span>
+                    <span className="truncate text-[14px] font-semibold text-white">{item.name}</span>
                     {needsAttention && (
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-orange-400" />
                     )}
@@ -184,7 +156,7 @@ export default function CompetitionList() {
                         <span className={`font-semibold ${color}`}>{label}</span>
                       </>
                     ) : (
-                      <span className="text-gray-700">{c ? 'no fixtures synced' : 'loading…'}</span>
+                      <span className="text-gray-700">{item.error ? 'error loading' : 'no fixtures synced'}</span>
                     )}
                   </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { IonPage, useIonRouter } from '@ionic/react';
-import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
+import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder, getAutoBetSuggestions, autoBetPlace } from '../../../../services/apis/footballApi';
 import { useAuth } from '../../../../contexts/useAuthContext';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -616,6 +616,8 @@ const Builder = () => {
   const [buildingAuto, setBuildingAuto] = useState(false);
   const [bookingAuto, setBookingAuto] = useState(false);
   const [autoResult, setAutoResult] = useState<any>(null);
+  const [autoSuggestions, setAutoSuggestions] = useState<any[]>([]);
+  const [autoBetting, setAutoBetting] = useState(false);
   const [autoForm, setAutoForm] = useState<any>({
     scope: 'upcoming',
     target_odds: '5000',
@@ -763,25 +765,58 @@ const Builder = () => {
     }
   };
 
-  const handleBookAuto = async () => {
-    if (!autoResult?.selections?.length) return;
-    setBookingAuto(true);
-    setError(null);
-    try {
-      const booking = await bookBetbuilder({
-        selections: autoResult.selections,
-        stake: Number(autoForm.stake),
-        loadingShareCode: autoForm.loadingShareCode || null,
-      });
-      setAutoResult((current: any) => ({ ...current, booking }));
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Unable to create a SportyBet share code');
-    } finally {
-      setBookingAuto(false);
-    }
-  };
+   const handleBookAuto = async () => {
+     if (!autoResult?.selections?.length) return;
+     setBookingAuto(true);
+     setError(null);
+     try {
+       const booking = await bookBetbuilder({
+         selections: autoResult.selections,
+         stake: Number(autoForm.stake),
+         loadingShareCode: autoForm.loadingShareCode || null,
+       });
+       setAutoResult((current: any) => ({ ...current, booking }));
+     } catch (e: any) {
+       setError(e?.response?.data?.detail || 'Unable to create a SportyBet share code');
+     } finally {
+       setBookingAuto(false);
+     }
+   };
 
-  const handleReset = () => {
+   const handleFetchAutoSuggestions = async () => {
+     setError(null);
+     try {
+       const res = await getAutoBetSuggestions(5, 65);
+       setAutoSuggestions(res?.suggestions || []);
+     } catch (e: any) {
+       setError(e?.response?.data?.detail || 'Failed to fetch auto suggestions');
+     }
+   };
+
+   const handleAutoBetPlace = async (stake: number) => {
+     if (!autoSuggestions.length) return;
+     setAutoBetting(true);
+     setError(null);
+     try {
+       const res = await autoBetPlace({
+         selections: autoSuggestions.map((s: any) => ({
+           match_id: s.match_id,
+           pick_type: s.pick_type,
+           selection: s.selection,
+           confidence: s.confidence,
+         })),
+         stake,
+       });
+       setAutoResult(res);
+       loadHistory();
+     } catch (e: any) {
+       setError(e?.response?.data?.detail || 'Auto-bet placement failed');
+     } finally {
+       setAutoBetting(false);
+     }
+   };
+
+   const handleReset = () => {
     setDecisions({});
     setSavedSlip(null);
   };

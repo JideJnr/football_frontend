@@ -1878,3 +1878,157 @@ export const batchLearnHomeAdvantage = (results: Array<{ homeTeam: string; awayT
     recordMatchResult(r.homeTeam, r.awayTeam, r.result, r.league);
   }
 };
+
+// ─── Prediction Validation ──────────────────────────────────────
+//
+//  Fetches prediction check data from the DB and compares predictions
+//  against actual results to compute accuracy metrics.
+//  This drives the feedback loop that improves future predictions.
+
+export interface PredictionCheckResult {
+  matchId: string;
+  matchName: string;
+  predictedSide: '1' | 'X' | '2';
+  predictedProb: number;
+  actualResult: '1' | 'X' | '2';
+  correct: boolean;
+  odds: number;
+  valueEdge: number;
+  league: string;
+  date: number;
+}
+
+export interface PredictionValidation {
+  totalChecked: number;
+  correct: number;
+  incorrect: number;
+  accuracy: number;
+  bySide: {
+    home: { total: number; correct: number; accuracy: number };
+    draw: { total: number; correct: number; accuracy: number };
+    away: { total: number; correct: number; accuracy: number };
+  };
+  byConfidence: {
+    high: { total: number; correct: number; accuracy: number };
+    medium: { total: number; correct: number; accuracy: number };
+    low: { total: number; correct: number; accuracy: number };
+  };
+  roi: number;
+  details: PredictionCheckResult[];
+}
+
+export const validatePredictions = async (): Promise<PredictionValidation> => {
+  try {
+    const checkData = await fetch('/predictions/check-data?limit=500').then(r => r.json());
+    const results = checkData?.results || checkData?.predictions || [];
+
+    if (!results.length) {
+      return {
+        totalChecked: 0, correct: 0, incorrect: 0, accuracy: 0,
+        bySide: { home: { total: 0, correct: 0, accuracy: 0 }, draw: { total: 0, correct: 0, accuracy: 0 }, away: { total: 0, correct: 0, accuracy: 0 } },
+        byConfidence: { high: { total: 0, correct: 0, accuracy: 0 }, medium: { total: 0, correct: 0, accuracy: 0 }, low: { total: 0, correct: 0, accuracy: 0 } },
+        roi: 0, details: [],
+      };
+    }
+
+    const details: PredictionCheckResult[] = results.map((r: any) => {
+      const predictedSide = r.predicted_side || r.pick || r.selection || '1';
+      const actualResult = r.actual_result || r.result || r.final_score ? (
+        r.final_score?.home > r.final_score?.away ? '1' :
+        r.final_score?.home < r.final_score?.away ? '2' : 'X'
+      ) : predictedSide;
+      const predictedProb = r.predicted_probability || r.confidence || 0.5;
+      const odds = r.odds || 1.0;
+      const valueEdge = (predictedProb * odds) - 1;
+
+      return {
+        matchId: r.match_id || r.id || '',
+        matchName: r.match_name || r.name || '',
+        predictedSide: predictedSide as '1' | 'X' | '2',
+        predictedProb,
+        actualResult: actualResult as '1' | 'X' | '2',
+        correct: predictedSide === actualResult,
+        odds,
+        valueEdge,
+        league: r.league || r.tournament || '',
+        date: r.date || r.start_time || Date.now(),
+      };
+    });
+
+    const totalChecked = details.length;
+    const correct = details.filter(d => d.correct).length;
+    const incorrect = totalChecked - correct;
+    const accuracy = totalChecked > 0 ? correct / totalChecked : 0;
+
+    // By side
+    const bySide = { home: { total: 0, correct: 0 }, draw: { total: 0, correct: 0 }, away: { total: 0, correct: 0 } };
+    for (const d of details) {
+      const side = d.predictedSide === '1' ? 'home' : d.predictedSide === 'X' ? 'draw' : 'away';
+      bySide[side].total++;
+      if (d.correct) bySide[side].correct++;
+    }
+
+    // By confidence
+    const byConfidence = {
+      high: { total: 0, correct: 0 },
+      medium: { total: 0, correct: 0 },
+      low: { total: 0, correct: 0 },
+    };
+    for (const d of details) {
+      const conf = d.predictedProb >= 0.65 ? 'high' : d.predictedProb >= 0.50 ? 'medium' : 'low';
+      byConfidence[conf].total++;
+      if (d.correct) byConfidence[conf].correct++;
+    }
+
+    // ROI (assuming 1 unit stake per bet)
+    const roi = details.reduce((acc, d) => acc + (d.correct ? (d.odds - 1) : -1), 0) / totalChecked;
+
+    return {
+      totalChecked,
+      correct,
+      incorrect,
+      accuracy,
+      bySide: {
+        home: { ...bySide.home, accuracy: bySide.home.total > 0 ? bySide.home.correct / bySide.home.total : 0 },
+        draw: { ...bySide.draw, accuracy: bySide.draw.total > 0 ? bySide.draw.correct / bySide.draw.total : 0 },
+        away: { ...bySide.away, accuracy: bySide.away.total > 0 ? bySide.away.correct / bySide.away.total : 0 },
+      },
+      byConfidence: {
+        high: { ...byConfidence.high, accuracy: byConfidence.high.total > 0 ? byConfidence.high.correct / byConfidence.high.total : 0 },
+        medium: { ...byConfidence.medium, accuracy: byConfidence.medium.total > 0 ? byConfidence.medium.correct / byConfidence.medium.total : 0 },
+        low: { ...byConfidence.low, accuracy: byConfidence.low.total > 0 ? byConfidence.low.correct / byConfidence.low.total : 0 },
+      },
+      roi,
+      details,
+    };
+  } catch (err) {
+    console.error('Failed to validate predictions:', err);
+    return {
+      totalChecked: 0, correct: 0, incorrect: 0, accuracy: 0,
+      bySide: { home: { total: 0, correct: 0, accuracy: 0 }, draw: { total: 0, correct: 0, accuracy: 0 }, away: { total: 0, correct: 0, accuracy: 0 } },
+      byConfidence: { high: { total: 0, correct: 0, accuracy: 0 }, medium: { total: 0, correct: 0, accuracy: 0 }, low: { total: 0, correct: 0, accuracy: 0 } },
+      roi: 0, details: [],
+    };
+  }
+};
+
+// ─── Auto-Validate and Learn ──────────────────────────────────
+//
+//  Fetches prediction check data, validates predictions, and
+//  updates the home advantage model with the results.
+
+export const autoValidateAndLearn = async (): Promise<PredictionValidation | null> => {
+  const validation = await validatePredictions();
+
+  if (validation.totalChecked > 0) {
+    // Learn home advantage from actual results
+    const results = validation.details.map(d => ({
+      homeTeam: d.matchName.split(' vs ')[0] || '',
+      awayTeam: d.matchName.split(' vs ')[1] || '',
+      result: d.actualResult,
+    }));
+    batchLearnHomeAdvantage(results);
+  }
+
+  return validation;
+};

@@ -1,7 +1,7 @@
 import { IonContent, IonRefresher, IonRefresherContent, useIonRouter } from "@ionic/react";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useFootballContext } from "../../../contexts/useFootballContext";
-import { LIVE_WS_URL } from "../../../services/apis/footballApi";
+import { LIVE_WS_URL, startPredictionPolling, startBufferStatusPolling, getPredictionCoverage, getAutoBetSuggestions, autoBetPlace } from "../../../services/apis/footballApi";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -487,7 +487,14 @@ const Home = () => {
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [sortMode, setSortMode] = useState<SortMode>("country");
   const [wsConnected, setWsConnected] = useState(false);
+  const [predictionCount, setPredictionCount] = useState<number | null>(null);
+  const [bufferStats, setBufferStats] = useState<any>(null);
+  const [coverage, setCoverage] = useState<any>(null);
+  const [autoSuggestions, setAutoSuggestions] = useState<any[]>([]);
+  const [autoBetting, setAutoBetting] = useState(false);
   const dateStrip = useMemo(() => buildDateStrip(), []);
+  const pollingCleanupRef = useRef<(() => void) | null>(null);
+  const bufferPollingCleanupRef = useRef<(() => void) | null>(null);
 
   const fetchForDate = useCallback(
     (date: string): Promise<void> => {
@@ -552,6 +559,56 @@ const Home = () => {
       socket?.close();
     };
   }, [selectedDate, mergeLiveMatches]);
+
+  // ── Auto-refresh: poll for new predictions every 60s ──
+  useEffect(() => {
+    if (selectedDate !== todayISO()) return;
+
+    pollingCleanupRef.current = startPredictionPolling(
+      (data) => {
+        if (data?.predictions) {
+          setPredictionCount(data.predictions.length);
+        }
+      },
+      60000,
+      true,
+    );
+
+    bufferPollingCleanupRef.current = startBufferStatusPolling(
+      (data) => {
+        setBufferStats(data);
+      },
+      30000,
+      true,
+    );
+
+    // Fetch prediction coverage every 5min
+    const coverageInterval = setInterval(async () => {
+      try {
+        const cov = await getPredictionCoverage();
+        setCoverage(cov);
+      } catch { /* ignore */ }
+    }, 300000);
+
+    // Fetch auto-bet suggestions every 5min
+    const suggestionsInterval = setInterval(async () => {
+      try {
+        const suggestions = await getAutoBetSuggestions(5, 65);
+        setAutoSuggestions(suggestions?.suggestions || []);
+      } catch { /* ignore */ }
+    }, 300000);
+
+    // Initial fetch
+    getPredictionCoverage().then(setCoverage).catch(() => {});
+    getAutoBetSuggestions(5, 65).then((s: any) => setAutoSuggestions(s?.suggestions || [])).catch(() => {});
+
+    return () => {
+      pollingCleanupRef.current?.();
+      bufferPollingCleanupRef.current?.();
+      clearInterval(coverageInterval);
+      clearInterval(suggestionsInterval);
+    };
+  }, [selectedDate]);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -654,6 +711,34 @@ const Home = () => {
 
   return (
     <div className="w-full h-full bg-[#0e0e0e] text-white flex flex-col">
+      {/* ── Auto-refresh status bar ── */}
+       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.06] shrink-0 bg-[#111]">
+         <span className="text-[10px] text-gray-500">
+           {wsConnected ? "● Live" : "○ Connecting"}
+         </span>
+         {predictionCount !== null && (
+           <span className="text-[10px] text-emerald-400">
+             {predictionCount} predictions ready
+           </span>
+         )}
+         {bufferStats && (
+           <span className="text-[10px] text-gray-500">
+             Buffer: {bufferStats.total_buffered ?? 0} matches
+           </span>
+         )}
+         {coverage && (
+           <span className="text-[10px] text-blue-400">
+             Coverage: {coverage.coverage_pct ?? 0}% ({coverage.matches_with_predictions_24h ?? 0}/{coverage.total_matches_in_buffer ?? 0})
+           </span>
+         )}
+         {autoSuggestions.length > 0 && (
+           <span className="text-[10px] text-yellow-400">
+             🎯 {autoSuggestions.length} auto-bet picks
+           </span>
+         )}
+         <span className="flex-1" />
+         <span className="text-[10px] text-gray-600">Auto-refresh ON</span>
+       </div>
 
       {/* ── Date strip ── */}
       <div className="flex overflow-x-auto gap-1 px-3 pt-3 pb-2 shrink-0 scrollbar-hide">
@@ -792,6 +877,59 @@ const Home = () => {
             ))
           )}
         </div>
+
+        {/* ── Auto-Bet Suggestions Panel ── */}
+        {autoSuggestions.length > 0 && (
+          <div className="shrink-0 border-t border-white/[0.06] bg-[#111] px-3 py-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-yellow-400">🎯 Auto-Bet Picks</span>
+              <button
+                onClick={() => setAutoSuggestions([])}
+                className="text-[10px] text-gray-500 hover:text-gray-300"
+              >
+                Dismiss
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {autoSuggestions.map((suggestion: any, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 rounded-lg border border-[#2a2a2a] bg-[#161616] px-3 py-2"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-white truncate">
+                      {suggestion.match_name || suggestion.match_id}
+                    </div>
+                    <div className="text-[10px] text-gray-500">
+                      {suggestion.pick_type?.replace(/_/g, ' ')} · {suggestion.selection} · {suggestion.confidence}% conf
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        setAutoBetting(true);
+                        await autoBetPlace({
+                          selections: [{
+                            match_id: suggestion.match_id,
+                            pick_type: suggestion.pick_type,
+                            selection: suggestion.selection,
+                            confidence: suggestion.confidence,
+                          }],
+                          stake: 10,
+                        });
+                      } catch { /* ignore */ }
+                      setAutoBetting(false);
+                    }}
+                    disabled={autoBetting}
+                    className="shrink-0 rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-40"
+                  >
+                    {autoBetting ? 'Placing...' : 'Bet'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </IonContent>
     </div>
   );

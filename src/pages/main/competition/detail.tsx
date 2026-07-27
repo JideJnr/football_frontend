@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  Brain,
   CheckCircle2,
   ChevronRight,
   Circle,
@@ -18,7 +19,8 @@ import {
   getCompetitionPage,
   setCompetitionSpecialSettings,
   syncCompetitionSpecial,
-} from '../../../../services/apis/footballApi';
+} from '../../../services/apis/footballApi';
+import type { CompetitionAnalysis } from '../../../interfaces/interface';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,6 +99,8 @@ export default function CompetitionDetail() {
   const [mode, setMode] = useState<FilterMode>('all');
   const [group, setGroup] = useState('all');
   const [query, setQuery] = useState('');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisMsg, setAnalysisMsg] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -124,6 +128,25 @@ export default function CompetitionDetail() {
       setMsg(e?.response?.data?.detail || e?.message || 'Failed');
     } finally {
       setBusy('');
+    }
+  };
+
+  const triggerAnalysis = async () => {
+    setAnalysisLoading(true);
+    setAnalysisMsg('');
+    try {
+      const res = await fetch(`/api/competition-special/${encodeURIComponent(key)}/analysis/trigger`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        setAnalysisMsg(`Analysis generated for ${data.round_name}`);
+      } else {
+        setAnalysisMsg(data.status === 'ollama_unavailable' ? 'Ollama unavailable — analysis skipped' : data.status === 'no_completed_rounds' ? 'No completed rounds to analyse' : data.error || 'Analysis failed');
+      }
+      await load();
+    } catch (e: any) {
+      setAnalysisMsg(e?.message || 'Failed to trigger analysis');
+    } finally {
+      setAnalysisLoading(false);
     }
   };
 
@@ -273,6 +296,73 @@ export default function CompetitionDetail() {
             {msg}
           </p>
         )}
+
+        {/* ── analysis section ─────────────────────────────────── */}
+        {(() => {
+          const latestAnalysis = pageData?.latest_analysis as CompetitionAnalysis | null | undefined;
+          const analysisHistory = (pageData?.analysis_history as CompetitionAnalysis[] | undefined) ?? [];
+
+          return (
+            <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-purple-400" />
+                  <span className="text-[12px] font-bold text-white">AI Analysis</span>
+                </div>
+                <button
+                  onClick={triggerAnalysis}
+                  disabled={analysisLoading || !!busy}
+                  className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[10px] font-bold text-purple-300 disabled:opacity-40"
+                >
+                  {analysisLoading ? 'Analysing…' : 'Trigger analysis'}
+                </button>
+              </div>
+
+              {analysisMsg && (
+                <p className={`mt-1.5 text-[10px] ${analysisMsg.toLowerCase().includes('fail') || analysisMsg.toLowerCase().includes('error') ? 'text-red-400' : 'text-emerald-300'}`}>
+                  {analysisMsg}
+                </p>
+              )}
+
+              {latestAnalysis ? (
+                <div className="mt-2 rounded-md bg-black/20 p-2.5">
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                    <span className="rounded bg-purple-500/10 px-1.5 py-0.5 font-bold text-purple-300">{latestAnalysis.round_name}</span>
+                    <span>{latestAnalysis.match_count} matches</span>
+                    <span>·</span>
+                    <span>{fmtShort(latestAnalysis.generated_at)}</span>
+                    <span>·</span>
+                    <span className="text-gray-600">{latestAnalysis.model_used}</span>
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-gray-300">{latestAnalysis.analysis_text}</p>
+                </div>
+              ) : (
+                <p className="mt-2 text-[10px] text-gray-600">No analysis yet. Complete a round and click Trigger analysis.</p>
+              )}
+
+              {analysisHistory.length > 1 && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-[10px] font-bold text-gray-500 hover:text-gray-300">
+                    {analysisHistory.length - 1} earlier analyses
+                  </summary>
+                  <div className="mt-1.5 space-y-1.5">
+                    {analysisHistory.slice(1).map((a) => (
+                      <div key={a.id} className="rounded-md bg-black/10 p-2">
+                        <div className="flex items-center gap-2 text-[9px] text-gray-600">
+                          <span className="font-bold text-gray-500">{a.round_name}</span>
+                          <span>{a.match_count} matches</span>
+                          <span>·</span>
+                          <span>{fmtShort(a.generated_at)}</span>
+                        </div>
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-gray-500" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.analysis_text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          );
+        })()}
 
         {/* filter bar */}
         <div className="mt-3 flex flex-wrap items-center gap-2">

@@ -40,20 +40,22 @@ type FilterTab = 'all' | 'value_bet' | 'high_confidence' | 'accepted' | 'rejecte
 function Suggestions() {
   const router = useIonRouter();
   const { getTodayMatches, matches, loading } = useFootballContext();
-  const { signals, acceptedPicks, runPredictions, acceptSignal, rejectSignal, undoReject, running } = usePredictionStore();
+  const { signals, acceptedPicks, runPredictions, loadBackendPredictions, initBackendPredictions, acceptSignal, rejectSignal, undoReject, running, backendPredictionsLoaded } = usePredictionStore();
 
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     getTodayMatches();
+    // Auto-load backend predictions on mount
+    initBackendPredictions();
   }, []);
 
   useEffect(() => {
-    if (matches && matches.length > 0) {
+    if (matches && matches.length > 0 && !backendPredictionsLoaded) {
       runPredictions(matches);
     }
-  }, [matches]);
+  }, [matches, backendPredictionsLoaded]);
 
   const refresh = async (e: CustomEvent) => {
     try {

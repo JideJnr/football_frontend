@@ -9,6 +9,8 @@ import {
   predictMatch,
   analyzeMatchWithAi,
   analyzeMatchWithOllama,
+  startPredictionPolling,
+  trackUserBehavior,
 } from '../../../../services/apis/footballApi';
 
 import { TABS, Tab } from './shared';
@@ -64,6 +66,23 @@ const Match = () => {
     if (!id) return;
     setCandidates([]);
     getMatchDetail(id);
+  }, [id]);
+
+  // Auto-refresh match detail every 60s
+  useEffect(() => {
+    if (!id) return;
+    const stop = startPredictionPolling(
+      () => getMatchDetail(id),
+      60000,
+      false,
+    );
+    return () => stop();
+  }, [id]);
+
+  // Track user viewing this match
+  useEffect(() => {
+    if (!id) return;
+    trackUserBehavior({ match_id: id, action: 'viewed' });
   }, [id]);
 
   const refresh = async () => { if (id) await getMatchDetail(id); };

@@ -1,8 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 //  Prediction Store — persists engines config + accepted picks
+//  Backend predictions are the source of truth. The client-side
+//  engine is kept as a fallback for matches without backend data.
 // ─────────────────────────────────────────────────────────────
 import { create } from 'zustand';
 import { DEFAULT_ENGINES, PredictionEngine, MatchSignal, runEngines } from './engine';
+import { getPredictionsToday, getUpcomingEnrichedPredicted } from '../services/apis/footballApi';
 
 interface PredictionState {
   engines: PredictionEngine[];
@@ -10,9 +13,12 @@ interface PredictionState {
   acceptedPicks: MatchSignal[];
   lastRun: number | null;
   running: boolean;
+  backendPredictionsLoaded: boolean;
 
   // actions
   runPredictions: (matches: any[]) => void;
+  loadBackendPredictions: () => Promise<void>;
+  initBackendPredictions: () => Promise<void>;
   toggleEngine: (id: string) => void;
   updateEngineRule: (engineId: string, ruleIndex: number, patch: Partial<PredictionEngine['rules'][0]>) => void;
   acceptSignal: (matchId: string, engineId: string, market: string) => void;
@@ -22,17 +28,65 @@ interface PredictionState {
   clearAccepted: () => void;
 }
 
+/** Convert a backend prediction into a MatchSignal for the store. */
+function backendPredictionToSignal(prediction: any): MatchSignal {
+  const bestPick = prediction.best_pick || (prediction.picks?.[0] ?? {});
+  const conf = bestPick.confidence ?? prediction.confidence ?? 50;
+  const confidenceLevel: 'low' | 'medium' | 'high' = conf >= 70 ? 'high' : conf >= 55 ? 'medium' : 'low';
+  return {
+    matchId: prediction.match_id ?? prediction.matchId ?? '',
+    matchName: prediction.match_name ?? prediction.matchName ?? '',
+    tournament: prediction.league_name ?? prediction.leagueName ?? '',
+    startTime: 0,
+    homeTeam: '',
+    awayTeam: '',
+    engineId: 'backend_ai',
+    engineName: 'Backend AI',
+    engineIcon: '🤖',
+    signalType: 'value_bet',
+    market: bestPick.type ?? prediction.pick_type ?? '1x2',
+    pick: bestPick.selection ?? prediction.selection ?? '',
+    odds: bestPick.odds ?? 0,
+    modelProbability: conf / 100,
+    impliedProbability: 0,
+    valueEdge: bestPick.edge ?? 0,
+    confidence: confidenceLevel,
+    status: 'pending',
+    note: bestPick.reason ?? prediction.reason ?? '',
+  };
+}
+
 export const usePredictionStore = create<PredictionState>((set, get) => ({
   engines: DEFAULT_ENGINES,
   signals: [],
   acceptedPicks: [],
   lastRun: null,
   running: false,
+  backendPredictionsLoaded: false,
+
+  /** Fetch backend predictions and merge them into the store as the primary signals. */
+  loadBackendPredictions: async () => {
+    try {
+      const data = await getPredictionsToday();
+      const predictions = data?.predictions ?? [];
+      const signals: MatchSignal[] = predictions.map(backendPredictionToSignal);
+      set({ signals, backendPredictionsLoaded: true, lastRun: Date.now() });
+    } catch {
+      // Backend predictions unavailable — keep existing signals
+    }
+  },
+
+  /** Auto-load backend predictions on store init. */
+  initBackendPredictions: async () => {
+    await get().loadBackendPredictions();
+    // Refresh every 60s
+    setInterval(() => get().loadBackendPredictions(), 60000);
+  },
 
   runPredictions: (matches: any[]) => {
     set({ running: true });
-    // Adapter only: backend predictions are the authority. The frontend no
-    // longer creates betting signals from bookmaker market probabilities.
+    // Backend predictions are the authority. The client-side engine is
+    // kept as a fallback for matches without backend data.
     const signals = runEngines(matches, get().engines);
     set({ signals, running: false, lastRun: Date.now() });
   },

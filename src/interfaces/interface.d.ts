@@ -119,7 +119,115 @@ interface EngineState {
   startBotById: () => Promise<void>;
   stopBotById: () => Promise<void>;
   getBotById: () => Promise<void>;
-  getPlayerById: () => Promise<void>; 
+  getPlayerById: () => Promise<void>;
 }
 
+export interface Competition {
+  key: string;
+  name: string;
+  unique_tournament_id: number;
+  enabled?: boolean;
+}
 
+export interface CompetitionSettings {
+  key: string;
+  name: string;
+  enabled: boolean;
+  unique_tournament_id: number;
+  season_id: number | null;
+  start_date: string;
+  end_date: string;
+  metadata: Record<string, any>;
+  updated_at: string;
+}
+
+export interface CompetitionBufferSummary {
+  total: number;
+  enriched: number;
+  predicted: number;
+  live: number;
+  finished: number;
+  high_importance: number;
+  critical_importance: number;
+  groups: string[];
+}
+
+export interface CompetitionBufferStatus {
+  total: number;
+  enriched: number;
+  predicted: number;
+  first_match_date: string | null;
+  last_match_date: string | null;
+  last_enriched_at: string | null;
+  last_predicted_at: string | null;
+}
+
+export interface CompetitionMatch {
+  competition_key: string;
+  match_id: string;
+  competition_match_id: string;
+  sofascore_id: string;
+  match_date: string;
+  group: string;
+  round: string;
+  match: string;
+  start_time: number;
+  status: string;
+  score: { home: string; away: string };
+  match_state: Record<string, any>;
+  enriched: boolean;
+  predicted: boolean;
+  enriched_at: string | null;
+  predicted_at: string | null;
+  prediction: Record<string, any> | null;
+  readiness: Record<string, any> | null;
+  importance_context: Record<string, any>;
+  competition_intelligence: Record<string, any> | null;
+  event: Record<string, any>;
+}
+
+export interface CompetitionAnalysis {
+  id: number;
+  competition_key: string;
+  round_name: string;
+  analysis_text: string;
+  model_used: string;
+  match_count: number;
+  matchday_date: string;
+  generated_at: string;
+}
+
+export interface CompetitionDashboardItem {
+  key: string;
+  name: string;
+  enabled: boolean;
+  unique_tournament_id: number;
+  settings: CompetitionSettings;
+  buffer_summary: CompetitionBufferSummary;
+  buffer_status: CompetitionBufferStatus;
+  latest_analysis: CompetitionAnalysis | null;
+  match_count: number;
+  error: string | null;
+}
+
+export interface CompetitionDashboardResponse {
+  status: string;
+  total_tracked: number;
+  enabled_count: number;
+  competitions: CompetitionDashboardItem[];
+  errors: Array<{ key: string; error: string }>;
+  generated_at: string;
+}
+
+export interface CompetitionPageResponse {
+  status: string;
+  competition_key: string;
+  settings: CompetitionSettings;
+  buffer_summary: CompetitionBufferSummary;
+  buffer_status: CompetitionBufferStatus;
+  matches: CompetitionMatch[];
+  latest_analysis: CompetitionAnalysis | null;
+  analysis_history: CompetitionAnalysis[];
+}
+
+export {};

@@ -40,6 +40,10 @@ export const getRoiAnalysis = () =>
   api.get('/agent/analytics/roi').then(r => r.data);
 
 // ── Per-match actions ────────────────────────────────────────
+// NOTE: enrichMatch, predictMatch, analyzeMatchWithAi are deprecated.
+// The scheduler auto-enriches and auto-predicts all matches without user interaction.
+
+/** @deprecated Auto-enrichment runs via the scheduler every 30s */
 export const enrichMatch = (id: string) =>
   api.post(`/matches/${id}/enrich`).then(r => r.data);
 
@@ -81,6 +85,72 @@ export const getMobileBridgeStatus = () =>
 
 export const uploadProviderPacket = (packet: any) =>
   api.post('/mobile-bridge/provider-packets', packet).then(r => r.data);
+
+// ── Auto-refresh / polling utilities ──────────────
+/** Poll for updated predictions at an interval. Returns cleanup function to stop polling. */
+export const startPredictionPolling = (
+  callback: (data: any) => void,
+  intervalMs = 60000,
+  immediate = true,
+) => {
+  let cancelled = false;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const poll = async () => {
+    if (cancelled) return;
+    try {
+      const data = await getPredictionsToday();
+      callback(data);
+    } catch { /* retry next interval */ }
+  };
+  if (immediate) poll();
+  timer = setInterval(poll, intervalMs);
+  return () => { cancelled = true; if (timer) clearInterval(timer); };
+};
+
+/** Poll for buffer status changes at an interval. Returns cleanup function. */
+export const startBufferStatusPolling = (
+  callback: (data: any) => void,
+  intervalMs = 30000,
+  immediate = true,
+) => {
+  let cancelled = false;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const poll = async () => {
+    if (cancelled) return;
+    try {
+      const data = await getBufferStatus();
+      callback(data);
+    } catch { /* retry next interval */ }
+  };
+  if (immediate) poll();
+  timer = setInterval(poll, intervalMs);
+  return () => { cancelled = true; if (timer) clearInterval(timer); };
+};
+
+// ── User behavior tracking ──────────────────────
+export const trackUserBehavior = (payload: {
+  match_id: string;
+  action: 'viewed' | 'accepted' | 'rejected' | 'bet_placed' | 'bet_graded' | 'prediction_dismissed';
+  pick_type?: string;
+  selection?: string;
+  confidence?: number;
+}) => api.post('/user-behavior/track', payload).then(r => r.data);
+
+export const getUserBehaviorSummary = (daysBack = 30) =>
+  api.get(`/user-behavior/summary?days_back=${daysBack}`).then(r => r.data);
+
+// ── Auto-bet ────────────────────────────────────
+export const getAutoBetSuggestions = (maxPicks = 5, minConfidence = 65) =>
+  api.get('/betbuilder/auto-suggestions', {
+    params: { max_picks: maxPicks, min_confidence: minConfidence },
+  }).then(r => r.data);
+
+export const autoBetPlace = (payload: { selections: any[]; stake: number; shareCode?: string | null }) =>
+  api.post('/betbuilder/auto-place', payload).then(r => r.data);
+
+// ── Prediction coverage ─────────────────────
+export const getPredictionCoverage = () =>
+  api.get('/diagnostics/prediction-coverage').then(r => r.data);
 
 export const collectSportybetViaMobile = async (scope: 'upcoming' | 'live' = 'upcoming') => {
   if (!Capacitor.isNativePlatform()) {
@@ -174,6 +244,9 @@ export const enrichPredictCompetitionSpecial = (key: string, limit = 8) =>
     params: { limit },
   }).then(r => r.data);
 
+export const getCompetitionSpecialDashboard = (bufferLimit = 50) =>
+  api.get('/composite/competition-special/dashboard', { params: { buffer_limit: bufferLimit } }).then(r => r.data);
+
 // ── Prediction history ───────────────────────────────────────
 export const refreshPredictions = () =>
   api.post('/predictions/refresh').then(r => r.data);
@@ -183,6 +256,12 @@ export const getPredictionsToday = () =>
 
 export const getPredictionHistory = (limit = 200) =>
   api.get(`/predictions/history?limit=${limit}`).then(r => r.data);
+
+export const getPredictionCheckData = (limit = 500) =>
+  api.get(`/predictions/check-data?limit=${limit}`).then(r => r.data);
+
+export const getPredictionAccuracy = (daysBack = 30) =>
+  api.get(`/predictions/accuracy?days_back=${daysBack}`).then(r => r.data);
 
 // ── Betbuilder ───────────────────────────────────────────────
 export const saveBetbuilder = (payload: { selections: any[]; request?: any; builder_request?: any }) =>
@@ -207,18 +286,26 @@ export const gradeBetbuilderHistory = (limit = 300) =>
   api.post(`/betbuilder/grade?limit=${limit}`).then(r => r.data);
 
 // ── Manual scan triggers ─────────────────────────────────────
+// NOTE: These are deprecated. The scheduler handles all ingestion, enrichment,
+// and grading automatically. Keep these for emergency debugging only.
+
+/** @deprecated Scheduler handles upcoming ingestion automatically */
 export const triggerIngestUpcoming = () =>
   api.post('/mongo/scan/upcoming').then(r => r.data);
 
+/** @deprecated Scheduler handles live ingestion automatically */
 export const triggerIngestLive = () =>
   api.post('/mongo/scan/live').then(r => r.data);
 
+/** @deprecated Scheduler handles odds refresh automatically */
 export const triggerRefreshBufferOdds = () =>
   api.post('/mongo/scan/refresh-odds').then(r => r.data);
 
+/** @deprecated Scheduler handles enrichment automatically */
 export const triggerEnrichWorker = () =>
   api.post('/mongo/scan/enrich').then(r => r.data);
 
+/** @deprecated Scheduler handles live priority automatically */
 export const triggerLivePriority = (count = 30) =>
   api.post('/mongo/scan/live-priority', null, { params: { count } }).then(r => r.data);
 
@@ -228,9 +315,11 @@ export const getLivePriorityMode = () =>
 export const setLivePriorityMode = (enabled: boolean) =>
   api.post('/mongo/live-priority', { enabled }).then(r => r.data);
 
+/** @deprecated Scheduler handles match+enrich automatically */
 export const triggerMatchAndEnrich = (count = 12) =>
   api.post('/mongo/scan/match-and-enrich', null, { params: { count } }).then(r => r.data);
 
+/** @deprecated Scheduler handles grading automatically */
 export const triggerGradeResults = (hoursBack = 24) =>
   api.post(`/results/grade?hours_back=${hoursBack}`).then(r => r.data);
 
