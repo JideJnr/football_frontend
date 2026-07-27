@@ -136,14 +136,18 @@ export const startBufferStatusPolling = (
 // ── User behavior tracking ──────────────────────
 export const trackUserBehavior = (payload: {
   match_id: string;
-  action: 'viewed' | 'accepted' | 'rejected' | 'bet_placed' | 'bet_graded' | 'prediction_dismissed';
+  action: 'viewed' | 'accepted' | 'rejected' | 'bet_placed' | 'bet_graded' | 'prediction_dismissed' | 'user_pick';
   pick_type?: string;
   selection?: string;
   confidence?: number;
+  metadata?: Record<string, any>;
 }) => api.post('/user-behavior/track', payload).then(r => r.data);
 
 export const getUserBehaviorSummary = (daysBack = 30) =>
   api.get(`/user-behavior/summary?days_back=${daysBack}`).then(r => r.data);
+
+export const getUserPickForMatch = (matchId: string) =>
+  api.get(`/user-behavior/history/${matchId}`).then(r => r.data);
 
 // ── Auto-bet ────────────────────────────────────
 export const getAutoBetSuggestions = (maxPicks = 5, minConfidence = 65) =>

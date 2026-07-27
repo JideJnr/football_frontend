@@ -1,7 +1,7 @@
 import { IonContent, IonRefresher, IonRefresherContent, useIonRouter } from "@ionic/react";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useFootballContext } from "../../../contexts/useFootballContext";
-import { LIVE_WS_URL, startPredictionPolling, startBufferStatusPolling, getPredictionCoverage, getAutoBetSuggestions, autoBetPlace } from "../../../services/apis/footballApi";
+import { LIVE_WS_URL, startPredictionPolling, getAutoBetSuggestions, autoBetPlace } from "../../../services/apis/footballApi";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -479,22 +479,17 @@ const TimeSlotSection = ({ time, matches, onMatchClick }: { time: string; matche
 
 type SortMode = "country" | "time";
 
-const Home = () => {
+const Home = ({ onWsStatus, onPredictionCount }: { onWsStatus: (connected: boolean) => void; onPredictionCount: (count: number | null) => void }) => {
   const router = useIonRouter();
   const { getTodayMatches, getMatchesByDate, mergeLiveMatches, matches, loading } = useFootballContext();
 
   const [activeTab, setActiveTab] = useState<"all" | "live" | "upcoming">("all");
   const [selectedDate, setSelectedDate] = useState(todayISO());
   const [sortMode, setSortMode] = useState<SortMode>("country");
-  const [wsConnected, setWsConnected] = useState(false);
-  const [predictionCount, setPredictionCount] = useState<number | null>(null);
-  const [bufferStats, setBufferStats] = useState<any>(null);
-  const [coverage, setCoverage] = useState<any>(null);
   const [autoSuggestions, setAutoSuggestions] = useState<any[]>([]);
   const [autoBetting, setAutoBetting] = useState(false);
   const dateStrip = useMemo(() => buildDateStrip(), []);
   const pollingCleanupRef = useRef<(() => void) | null>(null);
-  const bufferPollingCleanupRef = useRef<(() => void) | null>(null);
 
   const fetchForDate = useCallback(
     (date: string): Promise<void> => {
@@ -523,7 +518,7 @@ const Home = () => {
       socket = new WebSocket(LIVE_WS_URL);
 
       socket.onopen = () => {
-        setWsConnected(true);
+        onWsStatus(true);
         retryDelay = 1_000; // reset backoff on successful connect
       };
 
@@ -543,7 +538,7 @@ const Home = () => {
       };
 
       socket.onclose = () => {
-        setWsConnected(false);
+        onWsStatus(false);
         if (!dead) {
           setTimeout(connect, retryDelay);
           retryDelay = Math.min(retryDelay * 2, 30_000); // cap at 30 s
@@ -567,28 +562,12 @@ const Home = () => {
     pollingCleanupRef.current = startPredictionPolling(
       (data) => {
         if (data?.predictions) {
-          setPredictionCount(data.predictions.length);
+          onPredictionCount(data.predictions.length);
         }
       },
       60000,
       true,
     );
-
-    bufferPollingCleanupRef.current = startBufferStatusPolling(
-      (data) => {
-        setBufferStats(data);
-      },
-      30000,
-      true,
-    );
-
-    // Fetch prediction coverage every 5min
-    const coverageInterval = setInterval(async () => {
-      try {
-        const cov = await getPredictionCoverage();
-        setCoverage(cov);
-      } catch { /* ignore */ }
-    }, 300000);
 
     // Fetch auto-bet suggestions every 5min
     const suggestionsInterval = setInterval(async () => {
@@ -599,13 +578,10 @@ const Home = () => {
     }, 300000);
 
     // Initial fetch
-    getPredictionCoverage().then(setCoverage).catch(() => {});
     getAutoBetSuggestions(5, 65).then((s: any) => setAutoSuggestions(s?.suggestions || [])).catch(() => {});
 
     return () => {
       pollingCleanupRef.current?.();
-      bufferPollingCleanupRef.current?.();
-      clearInterval(coverageInterval);
       clearInterval(suggestionsInterval);
     };
   }, [selectedDate]);
@@ -710,37 +686,8 @@ const Home = () => {
   const isEmpty = filtered.length === 0;
 
   return (
-    <div className="w-full h-full bg-[#0e0e0e] text-white flex flex-col">
-      {/* ── Auto-refresh status bar ── */}
-       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.06] shrink-0 bg-[#111]">
-         <span className="text-[10px] text-gray-500">
-           {wsConnected ? "● Live" : "○ Connecting"}
-         </span>
-         {predictionCount !== null && (
-           <span className="text-[10px] text-emerald-400">
-             {predictionCount} predictions ready
-           </span>
-         )}
-         {bufferStats && (
-           <span className="text-[10px] text-gray-500">
-             Buffer: {bufferStats.total_buffered ?? 0} matches
-           </span>
-         )}
-         {coverage && (
-           <span className="text-[10px] text-blue-400">
-             Coverage: {coverage.coverage_pct ?? 0}% ({coverage.matches_with_predictions_24h ?? 0}/{coverage.total_matches_in_buffer ?? 0})
-           </span>
-         )}
-         {autoSuggestions.length > 0 && (
-           <span className="text-[10px] text-yellow-400">
-             🎯 {autoSuggestions.length} auto-bet picks
-           </span>
-         )}
-         <span className="flex-1" />
-         <span className="text-[10px] text-gray-600">Auto-refresh ON</span>
-       </div>
-
-      {/* ── Date strip ── */}
+     <div className="w-full h-full bg-[#0e0e0e] text-white flex flex-col">
+       {/* ── Date strip ── */}
       <div className="flex overflow-x-auto gap-1 px-3 pt-3 pb-2 shrink-0 scrollbar-hide">
         {dateStrip.map(d => {
           const label = formatDateLabel(d);
@@ -820,18 +767,11 @@ const Home = () => {
           </button>
         </div>
 
-        {/* WS status dot */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {finishedCount > 0 && (
-            <span className="text-[10px] text-gray-600 border border-white/10 rounded-full px-1.5 py-0.5">
-              {finishedCount} FT
-            </span>
-          )}
-          <span
-            className={`w-1.5 h-1.5 rounded-full shrink-0 ${wsConnected ? 'bg-emerald-400' : 'bg-gray-600'}`}
-            title={wsConnected ? 'Live feed connected' : 'Reconnecting…'}
-          />
-        </div>
+        {finishedCount > 0 && (
+          <span className="text-[10px] text-gray-600 border border-white/10 rounded-full px-1.5 py-0.5 shrink-0">
+            {finishedCount} FT
+          </span>
+        )}
       </div>
 
       {/* ── Match list ── */}

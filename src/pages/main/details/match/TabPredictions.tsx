@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { Sec, Empty, ActionButton } from './shared';
+import { trackUserBehavior, getUserPickForMatch } from '../../../../services/apis/footballApi';
 
 const num = (v: any, fb = 0) => {
   const n = Number(v);
@@ -750,6 +752,76 @@ const DataQuality = ({ q }: { q: any }) => {
   );
 };
 
+const USER_PICK_OPTIONS = [
+  { label: 'Home Win', value: 'Home Win', type: 'match_result' },
+  { label: 'Draw', value: 'Draw', type: 'match_result' },
+  { label: 'Away Win', value: 'Away Win', type: 'match_result' },
+  { label: 'Over 2.5', value: 'Over 2.5 goals', type: 'goals' },
+  { label: 'Under 2.5', value: 'Under 2.5 goals', type: 'goals' },
+  { label: 'BTTS Yes', value: 'Both teams to score', type: 'goals' },
+];
+
+const UserPickPanel = ({ matchId }: { matchId: string }) => {
+  const [saved, setSaved] = useState<{ selection: string; pick_type: string } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getUserPickForMatch(matchId)
+      .then((res: any) => {
+        const picks = (res?.weighted_picks || []).filter((p: any) => p.user_action === 'user_pick');
+        if (picks.length) setSaved({ selection: picks[0].selection, pick_type: picks[0].pick_type });
+      })
+      .catch(() => {});
+  }, [matchId]);
+
+  const submit = async (option: typeof USER_PICK_OPTIONS[0]) => {
+    setSubmitting(true);
+    try {
+      await trackUserBehavior({
+        match_id: matchId,
+        action: 'user_pick',
+        pick_type: option.type,
+        selection: option.value,
+        metadata: { source: 'tab_predictions' },
+      });
+      setSaved({ selection: option.value, pick_type: option.type });
+    } catch {}
+    setSubmitting(false);
+  };
+
+  return (
+    <Sec title="Your Pick">
+      <div className="space-y-3">
+        {saved && (
+          <div className="flex items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.08] px-3 py-2">
+            <span className="text-[10px] uppercase tracking-widest text-violet-400">Saved</span>
+            <span className="text-sm font-semibold text-white">{saved.selection}</span>
+          </div>
+        )}
+        <div className="grid grid-cols-3 gap-2">
+          {USER_PICK_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              disabled={submitting}
+              onClick={() => submit(opt)}
+              className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
+                saved?.selection === opt.value
+                  ? 'border-violet-500 bg-violet-500/20 text-violet-200'
+                  : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-white/20 hover:bg-white/[0.06]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] leading-relaxed text-gray-600">
+          Your pick trains the intelligence — it is factored into future predictions for this match.
+        </p>
+      </div>
+    </Sec>
+  );
+};
+
 interface TabPredictionsProps {
   m: any;
   onPredict: () => void;
@@ -811,6 +883,7 @@ const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting
           <LiveGoalPanel picks={picks} m={m} prediction={prediction} />
           <PortfolioBadge prediction={prediction} />
           <DecisionCard pick={primary} />
+          <UserPickPanel matchId={m?.id || m?.sportybet_id || m?.match_id || ''} />
           <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
           <StakeCard pick={primary} />
           <AlternativePicks picks={alternatives} />

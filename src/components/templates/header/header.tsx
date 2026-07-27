@@ -1,43 +1,41 @@
-import { IonButton, IonHeader } from "@ionic/react";
-import { useIonRouter } from "@ionic/react";
-import { arrowBackOutline } from "ionicons/icons";
+import { IonHeader } from "@ionic/react";
 
-const CustomHeader = () => {
-  const router = useIonRouter();
+interface HeaderProps {
+  wsConnected?: boolean;
+  predictionCount?: number | null;
+  selectedTab?: number;
+}
 
-  return (
-    <IonHeader className="bg-black text-purple-400 font-mono w-full p-2 flex justify-between items-center">
-        <div className="w-6 ">
-            <IonButton 
-          onClick={() => router.goBack()} 
-          fill="clear"
-          className="text-purple-400 hover:text-purple-300 -ml-2"
-          aria-label="Go back"
-        >
-          {/* Using Ionicons for consistent icon styling */}
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="h-6 w-6" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M10 19l-7-7m0 0l7-7m-7 7h18" 
-            />
-          </svg>
-        </IonButton>
-        </div>
+const tabTitles = ["Matches", "Predictions", "Tournaments", "Settings"];
 
-            <div className="text-xl mx-auto w-fit pb-2 font-bold">
-              SIGNAL 👁️‍🗨️ 
-            </div>
-        <div className="w-6 opacity-0"></div>
-    </IonHeader>
-  );
-};
+const CustomHeader = ({ wsConnected = false, predictionCount = null, selectedTab = 0 }: HeaderProps) => (
+  <IonHeader className="ion-no-border">
+    <div className="flex items-center justify-between px-4 py-3 bg-[#0e0e0e] border-b border-white/[0.06]">
+      {/* Left: brand */}
+      <div className="flex items-center gap-2">
+        <span className="text-white font-bold text-base tracking-tight">SIGNAL</span>
+        <span className="text-lg leading-none">👁️</span>
+      </div>
+
+      {/* Center: page title */}
+      <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+        {tabTitles[selectedTab] ?? ""}
+      </span>
+
+      {/* Right: live indicator + prediction badge */}
+      <div className="flex items-center gap-2">
+        {predictionCount !== null && predictionCount > 0 && (
+          <span className="text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full px-2 py-0.5">
+            {predictionCount} picks
+          </span>
+        )}
+        <span
+          className={`w-2 h-2 rounded-full ${wsConnected ? "bg-emerald-400" : "bg-gray-600"}`}
+          title={wsConnected ? "Live feed connected" : "Connecting…"}
+        />
+      </div>
+    </div>
+  </IonHeader>
+);
 
 export default CustomHeader;
