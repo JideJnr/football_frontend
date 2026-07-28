@@ -833,7 +833,116 @@ interface TabPredictionsProps {
   actionMsg: string;
 }
 
-const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting, analyzing, analyzingSnapshot, actionMsg }: TabPredictionsProps) => {
+const PredictionActions = ({
+  m,
+  onPredict,
+  onAnalyze,
+  onAnalyzeSnapshot,
+  predicting,
+  analyzing,
+  analyzingSnapshot,
+  actionMsg,
+  actionError,
+}: {
+  m: any;
+  onPredict: () => void;
+  onAnalyze: () => void;
+  onAnalyzeSnapshot: () => void;
+  predicting: boolean;
+  analyzing: boolean;
+  analyzingSnapshot: boolean;
+  actionMsg: string;
+  actionError: string;
+}) => {
+  const hasPrediction = m?.prediction;
+  const hasAiAnalysis = m?.ai_analysis;
+
+  return (
+    <div className="space-y-3">
+      {/* Primary action buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={onPredict}
+          disabled={predicting}
+          className="flex flex-col items-center gap-2 py-4 rounded-xl border border-white/[0.07] bg-[#161616] hover:border-purple-500/40 hover:bg-purple-500/[0.06] transition disabled:opacity-40 active:scale-[0.98]"
+        >
+          <Target size={22} className="text-purple-400" />
+          <span className="text-xs font-semibold text-gray-300">
+            {predicting ? 'Predicting...' : 'Run Prediction'}
+          </span>
+        </button>
+        <button
+          onClick={onAnalyze}
+          disabled={analyzing}
+          className="flex flex-col items-center gap-2 py-4 rounded-xl border border-white/[0.07] bg-[#161616] hover:border-violet-500/40 hover:bg-violet-500/[0.06] transition disabled:opacity-40 active:scale-[0.98]"
+        >
+          <Brain size={22} className="text-violet-400" />
+          <span className="text-xs font-semibold text-gray-300">
+            {analyzing ? 'Analyzing...' : 'AI Analysis'}
+          </span>
+        </button>
+      </div>
+
+      {/* Secondary action */}
+      <button
+        onClick={onAnalyzeSnapshot}
+        disabled={analyzingSnapshot}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-white/[0.07] bg-[#161616] hover:border-blue-500/40 hover:bg-blue-500/[0.06] transition disabled:opacity-40 active:scale-[0.98]"
+      >
+        <RefreshCw size={16} className="text-blue-400" />
+        <span className="text-xs font-semibold text-gray-300">
+          {analyzingSnapshot ? 'Refreshing...' : 'Refresh AI Snapshot'}
+        </span>
+      </button>
+
+      {/* Status messages */}
+      {actionMsg && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2 text-xs text-emerald-400">
+          <CheckCircle size={14} />
+          {actionMsg}
+        </div>
+      )}
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-xs text-red-400">
+          <AlertCircle size={14} />
+          {actionError}
+        </div>
+      )}
+
+      {/* Loading indicator */}
+      {(predicting || analyzing || analyzingSnapshot) && (
+        <div className="flex items-center justify-center py-4 gap-3">
+          <Clock size={16} className="text-gray-500 animate-spin" />
+          <span className="text-xs text-gray-400">
+            {predicting ? 'Running prediction engine...' : analyzing ? 'AI is reviewing the match...' : 'Refreshing AI snapshot...'}
+          </span>
+        </div>
+      )}
+
+      {/* Prediction status badge */}
+      {hasPrediction && !predicting && !analyzing && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2">
+          <CheckCircle size={14} className="text-emerald-400" />
+          <span className="text-xs text-emerald-400">
+            Prediction available — {hasPrediction.status || 'completed'}
+          </span>
+        </div>
+      )}
+
+      {/* AI analysis status badge */}
+      {hasAiAnalysis && !analyzing && !analyzingSnapshot && (
+        <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/[0.06] px-3 py-2">
+          <Brain size={14} className="text-violet-400" />
+          <span className="text-xs text-violet-400">
+            AI analysis available — {hasAiAnalysis.provider || 'completed'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting, analyzing, analyzingSnapshot, actionMsg, actionError }: TabPredictionsProps) => {
   const prediction = m?.prediction;
   const predictionError = m?.prediction_error;
   const picks = (prediction?.picks || [])
@@ -848,25 +957,16 @@ const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting
 
   return (
     <div className="space-y-3 px-4 py-4">
-      <ActionButton
-        onClick={onPredict}
-        loading={predicting}
-        label="Run Prediction"
-        loadingLabel="Running prediction..."
-        variant="purple"
-      />
-      <ActionButton
-        onClick={onAnalyzeSnapshot}
-        loading={analyzingSnapshot}
-        label="Analyze Match Snapshot"
-        loadingLabel="AI is reviewing match snapshot..."
-        variant="default"
-      />
-      {actionMsg && <div className="text-center text-xs text-emerald-400">{actionMsg}</div>}
-      <AiAnalysisCard
-        analysis={m?.ai_analysis}
-        onRun={onAnalyze}
-        loading={analyzing}
+      <PredictionActions
+        m={m}
+        onPredict={onPredict}
+        onAnalyze={onAnalyze}
+        onAnalyzeSnapshot={onAnalyzeSnapshot}
+        predicting={predicting}
+        analyzing={analyzing}
+        analyzingSnapshot={analyzingSnapshot}
+        actionMsg={actionMsg}
+        actionError={actionError || ''}
       />
 
       {!prediction ? (

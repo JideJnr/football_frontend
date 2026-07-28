@@ -23,6 +23,7 @@ import TabStats from './TabStats';
 import TabOdds from './TabOdds';
 import TabComparison from './TabComparison';
 import TabH2H from './TabH2H';
+import TabTable from './TabTable';
 import TabPredictions from './TabPredictions';
 import TabSimilar from './TabSimilar';
 import { Sec } from './shared';
@@ -61,6 +62,7 @@ const Match = () => {
   const [candidates, setCandidates]   = useState<any[]>([]);
   const [matching, setMatching]       = useState<string | null>(null);
   const [actionMsg, setActionMsg]     = useState('');
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => {
     if (!id) return;
@@ -100,12 +102,13 @@ const Match = () => {
     if (!id) return;
     setPredicting(true);
     setActionMsg('');
+    setActionError('');
     try {
       await predictMatch(id);
       setActionMsg('Prediction complete');
       await refresh();
     } catch (err: any) {
-      setActionMsg(actionError(err, 'Prediction failed'));
+      setActionError(actionError(err, 'Prediction failed'));
     } finally {
       setPredicting(false);
     }
@@ -115,12 +118,13 @@ const Match = () => {
     if (!id) return;
     setAnalyzing(true);
     setActionMsg('');
+    setActionError('');
     try {
       await analyzeMatchWithAi(id);
       setActionMsg('AI analysis complete');
       await refresh();
     } catch (err: any) {
-      setActionMsg(actionError(err, 'AI analysis failed'));
+      setActionError(actionError(err, 'AI analysis failed'));
     } finally {
       setAnalyzing(false);
     }
@@ -130,12 +134,13 @@ const Match = () => {
     if (!id) return;
     setAnalyzingSnapshot(true);
     setActionMsg('');
+    setActionError('');
     try {
       await analyzeMatchSnapshot(id);
       setActionMsg('AI snapshot analysis complete');
       await refresh();
     } catch (err: any) {
-      setActionMsg(actionError(err, 'AI snapshot analysis failed'));
+      setActionError(actionError(err, 'AI snapshot analysis failed'));
     } finally {
       setAnalyzingSnapshot(false);
     }
@@ -203,7 +208,8 @@ const Match = () => {
       case 'Odds':       return <TabOdds m={m} />;
       case 'Comparison': return <TabComparison m={m} />;
       case 'H2H':        return <TabH2H m={m} />;
-      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} onAnalyze={handleAiAnalysis} onAnalyzeSnapshot={handleAiAnalysisSnapshot} predicting={predicting} analyzing={analyzing} analyzingSnapshot={analyzingSnapshot} actionMsg={actionMsg} />;
+      case 'Table':      return <TabTable m={m} />;
+      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} onAnalyze={handleAiAnalysis} onAnalyzeSnapshot={handleAiAnalysisSnapshot} predicting={predicting} analyzing={analyzing} analyzingSnapshot={analyzingSnapshot} actionMsg={actionMsg} actionError={actionError} />;
       case 'Similar':    return <TabSimilar m={m} />;
       default:           return <TabOverview m={m} onEnrich={handleEnrich} onPredict={handlePredict} enriching={enriching} predicting={predicting} actionMsg={actionMsg} />;
     }
