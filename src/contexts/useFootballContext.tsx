@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useCallback, useState } from 'react';
+import { createContext, useContext, ReactNode, useCallback, useState, useRef } from 'react';
 import { useFootballStore } from '../stores/footballStore/useFootballStore';
 
 interface FootballContextType {
@@ -6,6 +6,7 @@ interface FootballContextType {
   getMatchesByDate: (date: string) => Promise<void>;
   getMatchDetail: (id: string) => Promise<void>;
   mergeLiveMatches: (liveMatches: any[]) => void;
+  prefetchToday: () => Promise<void>;
   matches: any[] | null;
   currentMatch: any | null;
   matchDetail: any | null;
@@ -21,13 +22,31 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
   const store = useFootballStore();
   const [matches, setMatches] = useState<any[] | null>(null);
   const [matchDetail, setMatchDetail] = useState<any | null>(null);
+  // Shared in-flight promise so splash + home never double-fetch
+  const prefetchRef = useRef<Promise<void> | null>(null);
 
-  const getTodayMatches = async () => {
-    try {
-      const res = await store.getTodayMatches();
-      if (res.status === 'success') setMatches(res.matches);
-    } catch {}
-  };
+  const _loadToday = useCallback(async () => {
+    const res = await store.getTodayMatches();
+    if (res.status === 'success') setMatches(res.matches);
+  }, [store]);
+
+  // Called by splash during animation — result is cached so Home reuses it
+  const prefetchToday = useCallback((): Promise<void> => {
+    if (!prefetchRef.current) {
+      prefetchRef.current = _loadToday().catch(() => {}).finally(() => {
+        prefetchRef.current = null;
+      });
+    }
+    return prefetchRef.current;
+  }, [_loadToday]);
+
+  const getTodayMatches = useCallback(async () => {
+    // If a prefetch is already in flight, wait for it instead of firing a second request
+    if (prefetchRef.current) return prefetchRef.current;
+    // If we already have data, skip the network call
+    if (matches !== null) return;
+    return _loadToday().catch(() => {});
+  }, [_loadToday, matches]);
 
   const getMatchesByDate = async (date: string) => {
     try {
@@ -37,7 +56,6 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   const getMatchDetail = async (id: string) => {
-    // Only clear if switching to a different match
     setMatchDetail((prev: any | null) => (prev && String(prev.sportybet_id) === String(id) ? prev : null));
     try {
       const res = await store.getMatchDetail(id);
@@ -62,7 +80,7 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   return (
     <FootballContext.Provider value={{
-      getTodayMatches, getMatchesByDate, getMatchDetail, mergeLiveMatches,
+      getTodayMatches, getMatchesByDate, getMatchDetail, mergeLiveMatches, prefetchToday,
       matches, matchDetail, currentMatch: matchDetail, team: matchDetail?.home_team || null, getTeamById,
       loading: store.loading,
       error: store.error,

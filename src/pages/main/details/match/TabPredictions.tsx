@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Target, Brain, RefreshCw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { Sec, Empty, ActionButton } from './shared';
 import { trackUserBehavior, getUserPickForMatch } from '../../../../services/apis/footballApi';
 
@@ -761,15 +762,19 @@ const USER_PICK_OPTIONS = [
   { label: 'BTTS Yes', value: 'Both teams to score', type: 'goals' },
 ];
 
-const UserPickPanel = ({ matchId }: { matchId: string }) => {
+const UserPickPanel = ({ matchId, modelSelection }: { matchId: string; modelSelection?: string }) => {
   const [saved, setSaved] = useState<{ selection: string; pick_type: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<'accepted' | 'rejected' | null>(null);
 
   useEffect(() => {
+    if (!matchId) return;
     getUserPickForMatch(matchId)
       .then((res: any) => {
         const picks = (res?.weighted_picks || []).filter((p: any) => p.user_action === 'user_pick');
         if (picks.length) setSaved({ selection: picks[0].selection, pick_type: picks[0].pick_type });
+        const fb = (res?.weighted_picks || []).find((p: any) => p.user_action === 'accepted' || p.user_action === 'rejected');
+        if (fb) setFeedback(fb.user_action);
       })
       .catch(() => {});
   }, [matchId]);
@@ -777,45 +782,107 @@ const UserPickPanel = ({ matchId }: { matchId: string }) => {
   const submit = async (option: typeof USER_PICK_OPTIONS[0]) => {
     setSubmitting(true);
     try {
+      // Detect agreement: normalise both sides to lowercase for comparison
+      const userSel = option.value.toLowerCase();
+      const modelSel = (modelSelection || '').toLowerCase();
+      const agrees = modelSel && userSel.includes(modelSel.split(' ')[0]);
       await trackUserBehavior({
         match_id: matchId,
         action: 'user_pick',
         pick_type: option.type,
         selection: option.value,
-        metadata: { source: 'tab_predictions' },
+        metadata: { source: 'tab_predictions', agrees_with_model: agrees },
       });
       setSaved({ selection: option.value, pick_type: option.type });
     } catch {}
     setSubmitting(false);
   };
 
+  const sendFeedback = async (action: 'accepted' | 'rejected') => {
+    if (feedback === action) return;
+    setFeedback(action);
+    try {
+      await trackUserBehavior({
+        match_id: matchId,
+        action,
+        pick_type: saved?.pick_type,
+        selection: saved?.selection || modelSelection,
+        metadata: { source: 'tab_predictions' },
+      });
+    } catch {}
+  };
+
+  // Highlight options that match the model pick
+  const normModel = (modelSelection || '').toLowerCase();
+
   return (
     <Sec title="Your Pick">
       <div className="space-y-3">
+        {/* Model feedback — accept / reject */}
+        {modelSelection && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-500 flex-1">Model says: <span className="text-white font-semibold">{modelSelection}</span></span>
+            <button
+              onClick={() => sendFeedback('accepted')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                feedback === 'accepted'
+                  ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                  : 'border-white/10 text-gray-500 hover:border-emerald-500/40 hover:text-emerald-400'
+              }`}
+            >
+              ✓ Agree
+            </button>
+            <button
+              onClick={() => sendFeedback('rejected')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                feedback === 'rejected'
+                  ? 'border-red-500 bg-red-500/20 text-red-300'
+                  : 'border-white/10 text-gray-500 hover:border-red-500/40 hover:text-red-400'
+              }`}
+            >
+              ✗ Disagree
+            </button>
+          </div>
+        )}
+
+        {/* Agreement badge when user pick matches model */}
+        {saved && normModel && saved.selection.toLowerCase().includes(normModel.split(' ')[0]) && (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] px-3 py-1.5">
+            <span className="text-emerald-400 text-xs">⚡ Your pick matches the model — signals reinforced</span>
+          </div>
+        )}
+
         {saved && (
           <div className="flex items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.08] px-3 py-2">
-            <span className="text-[10px] uppercase tracking-widest text-violet-400">Saved</span>
+            <span className="text-[10px] uppercase tracking-widest text-violet-400">Your pick</span>
             <span className="text-sm font-semibold text-white">{saved.selection}</span>
           </div>
         )}
+
         <div className="grid grid-cols-3 gap-2">
-          {USER_PICK_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              disabled={submitting}
-              onClick={() => submit(opt)}
-              className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
-                saved?.selection === opt.value
-                  ? 'border-violet-500 bg-violet-500/20 text-violet-200'
-                  : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-white/20 hover:bg-white/[0.06]'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {USER_PICK_OPTIONS.map(opt => {
+            const matchesModel = normModel && opt.value.toLowerCase().includes(normModel.split(' ')[0]);
+            return (
+              <button
+                key={opt.value}
+                disabled={submitting}
+                onClick={() => submit(opt)}
+                className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors relative ${
+                  saved?.selection === opt.value
+                    ? 'border-violet-500 bg-violet-500/20 text-violet-200'
+                    : matchesModel
+                      ? 'border-emerald-500/40 bg-emerald-500/[0.06] text-emerald-300 hover:bg-emerald-500/[0.12]'
+                      : 'border-white/10 bg-white/[0.03] text-gray-300 hover:border-white/20 hover:bg-white/[0.06]'
+                }`}
+              >
+                {opt.label}
+                {matchesModel && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />}
+              </button>
+            );
+          })}
         </div>
         <p className="text-[10px] leading-relaxed text-gray-600">
-          Your pick trains the intelligence — it is factored into future predictions for this match.
+          Your pick trains the intelligence. Agreeing with the model strengthens its signals.
         </p>
       </div>
     </Sec>
@@ -831,6 +898,7 @@ interface TabPredictionsProps {
   analyzing: boolean;
   analyzingSnapshot: boolean;
   actionMsg: string;
+  actionError: string;
 }
 
 const PredictionActions = ({
@@ -970,7 +1038,20 @@ const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting
       />
 
       {!prediction ? (
-        <Empty msg={predictionError || "No prediction yet. Tap Run Prediction."} />
+        <div className="rounded-xl border border-white/[0.07] bg-[#161616] p-6 text-center space-y-4">
+          <div className="text-3xl">🔮</div>
+          <div>
+            <div className="text-sm font-semibold text-white">No prediction yet</div>
+            <div className="text-xs text-gray-500 mt-1">{predictionError || 'The system hasn\'t run a prediction for this match. You can trigger one now.'}</div>
+          </div>
+          <button
+            onClick={onPredict}
+            disabled={predicting}
+            className="w-full py-3 rounded-xl border border-purple-500/40 bg-purple-500/[0.08] text-sm font-semibold text-purple-300 hover:bg-purple-500/[0.15] transition disabled:opacity-40 active:scale-[0.98]"
+          >
+            {predicting ? 'Running prediction...' : 'Run Prediction Now'}
+          </button>
+        </div>
       ) : !primary ? (
         <>
           <Empty msg="No confident pick from the current data." />

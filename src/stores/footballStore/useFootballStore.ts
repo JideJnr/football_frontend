@@ -9,8 +9,8 @@ interface FootballState {
   getMatchDetail: (id: string) => Promise<any>;
 }
 
-const wrap = (set: any, fn: () => Promise<any>) => async () => {
-  set({ loading: true, error: null });
+const wrap = (set: any, fn: () => Promise<any>, showLoading = true) => async () => {
+  if (showLoading) set({ loading: true, error: null });
   try {
     const res = await fn();
     set({ loading: false });
@@ -26,5 +26,6 @@ export const useFootballStore = create<FootballState>((set) => ({
   error: null,
   getTodayMatches: () => wrap(set, api.getTodayMatches)(),
   getMatchesByDate: (date) => wrap(set, () => api.getMatchesByDate(date))(),
+  // Match detail is a targeted fetch — always show loading
   getMatchDetail: (id) => wrap(set, () => api.getMatchDetail(id))(),
 }));

@@ -499,8 +499,9 @@ const Home = ({ onWsStatus, onPredictionCount }: { onWsStatus: (connected: boole
   );
 
   useEffect(() => {
+    // getTodayMatches is a no-op if splash already prefetched the data
     fetchForDate(selectedDate);
-  }, [selectedDate]);
+  }, [selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedDate !== todayISO()) return;
