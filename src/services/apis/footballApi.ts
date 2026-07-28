@@ -92,47 +92,6 @@ export const getMobileBridgeStatus = () =>
 export const uploadProviderPacket = (packet: any) =>
   api.post('/mobile-bridge/provider-packets', packet).then(r => r.data);
 
-// ── Auto-refresh / polling utilities ──────────────
-/** Poll for updated predictions at an interval. Returns cleanup function to stop polling. */
-export const startPredictionPolling = (
-  callback: (data: any) => void,
-  intervalMs = 60000,
-  immediate = true,
-) => {
-  let cancelled = false;
-  let timer: ReturnType<typeof setInterval> | undefined;
-  const poll = async () => {
-    if (cancelled) return;
-    try {
-      const data = await getPredictionsToday();
-      callback(data);
-    } catch { /* retry next interval */ }
-  };
-  if (immediate) poll();
-  timer = setInterval(poll, intervalMs);
-  return () => { cancelled = true; if (timer) clearInterval(timer); };
-};
-
-/** Poll for buffer status changes at an interval. Returns cleanup function. */
-export const startBufferStatusPolling = (
-  callback: (data: any) => void,
-  intervalMs = 30000,
-  immediate = true,
-) => {
-  let cancelled = false;
-  let timer: ReturnType<typeof setInterval> | undefined;
-  const poll = async () => {
-    if (cancelled) return;
-    try {
-      const data = await getBufferStatus();
-      callback(data);
-    } catch { /* retry next interval */ }
-  };
-  if (immediate) poll();
-  timer = setInterval(poll, intervalMs);
-  return () => { cancelled = true; if (timer) clearInterval(timer); };
-};
-
 // ── User behavior tracking ──────────────────────
 export const trackUserBehavior = (payload: {
   match_id: string;
@@ -157,10 +116,6 @@ export const getAutoBetSuggestions = (maxPicks = 5, minConfidence = 65) =>
 
 export const autoBetPlace = (payload: { selections: any[]; stake: number; shareCode?: string | null }) =>
   api.post('/betbuilder/auto-place', payload).then(r => r.data);
-
-// ── Prediction coverage ─────────────────────
-export const getPredictionCoverage = () =>
-  api.get('/diagnostics/prediction-coverage').then(r => r.data);
 
 export const collectSportybetViaMobile = async (scope: 'upcoming' | 'live' = 'upcoming') => {
   if (!Capacitor.isNativePlatform()) {

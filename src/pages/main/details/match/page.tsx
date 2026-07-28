@@ -10,7 +10,6 @@ import {
   analyzeMatchWithAi,
   analyzeMatchSnapshot,
   analyzeGradedMatch,
-  startPredictionPolling,
   trackUserBehavior,
 } from '../../../../services/apis/footballApi';
 
@@ -67,17 +66,6 @@ const Match = () => {
     if (!id) return;
     setCandidates([]);
     getMatchDetail(id);
-  }, [id]);
-
-  // Auto-refresh match detail every 60s
-  useEffect(() => {
-    if (!id) return;
-    const stop = startPredictionPolling(
-      () => getMatchDetail(id),
-      60000,
-      false,
-    );
-    return () => stop();
   }, [id]);
 
   // Track user viewing this match

@@ -219,7 +219,7 @@ export const LiveDot = () => (
 );
 
 export const Sec = ({ title, children }: { title: string; children: ReactNode }) => (
-  <div className="bg-[#161616] border border-white/[0.07] rounded-xl overflow-hidden mb-3">
+  <div className="bg-[#161616] border border-white/[0.07] rounded-xl overflow-x-auto overflow-y-hidden mb-3">
     <div className="px-4 py-2.5 border-b border-white/[0.07] text-[10px] font-bold text-gray-500 uppercase tracking-widest">{title}</div>
     <div className="p-4 space-y-2.5">{children}</div>
   </div>
@@ -273,22 +273,22 @@ export const StandingsTable = ({ m, standings, full = false }: { m: any; standin
   if (!standings?.length) return null;
   return (
     <Sec title={full ? 'Full Table' : 'Standings'}>
-      <div className="overflow-x-auto -mx-1">
-        <table className={`w-full text-xs ${full ? 'min-w-[420px]' : 'min-w-[280px]'}`}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[10px]">
           <thead>
             <tr className="text-gray-600 border-b border-white/[0.06]">
-              <th className="text-left pb-2 font-medium w-6">#</th>
-              <th className="text-left pb-2 font-medium">Team</th>
-              <th className="text-center pb-2 font-medium w-7">P</th>
-              <th className="text-center pb-2 font-medium w-7">W</th>
-              <th className="text-center pb-2 font-medium w-7">D</th>
-              <th className="text-center pb-2 font-medium w-7">L</th>
+              <th className="text-left pb-1.5 font-medium w-5">#</th>
+              <th className="text-left pb-1.5 font-medium">Team</th>
+              <th className="text-center pb-1.5 font-medium w-6">P</th>
+              <th className="text-center pb-1.5 font-medium w-6">W</th>
+              <th className="text-center pb-1.5 font-medium w-6">D</th>
+              <th className="text-center pb-1.5 font-medium w-6">L</th>
               {full && <>
-                <th className="text-center pb-2 font-medium">GF</th>
-                <th className="text-center pb-2 font-medium">GA</th>
-                <th className="text-center pb-2 font-medium">GD</th>
+                <th className="text-center pb-1.5 font-medium">GF</th>
+                <th className="text-center pb-1.5 font-medium">GA</th>
+                <th className="text-center pb-1.5 font-medium">GD</th>
               </>}
-              <th className="text-center pb-2 font-medium w-8">Pts</th>
+              <th className="text-center pb-1.5 font-medium w-7">Pts</th>
             </tr>
           </thead>
           <tbody>
@@ -299,18 +299,18 @@ export const StandingsTable = ({ m, standings, full = false }: { m: any; standin
               const highlight = name.toLowerCase().includes(ht) || name.toLowerCase().includes(at);
               return (
                 <tr key={row?.team?.id || i} className={`border-b border-white/[0.04] ${highlight ? 'bg-emerald-500/5' : ''}`}>
-                  <td className="py-1.5 text-gray-600">{row?.position ?? i + 1}</td>
-                  <td className={`py-1.5 truncate ${full ? 'min-w-[130px]' : 'max-w-[110px]'} ${highlight ? 'text-emerald-400 font-semibold' : 'text-gray-300'}`}>{name}</td>
-                  <td className="py-1.5 text-center text-gray-400">{row?.played ?? row?.matches ?? '—'}</td>
-                  <td className="py-1.5 text-center text-emerald-400">{row?.wins ?? '—'}</td>
-                  <td className="py-1.5 text-center text-gray-400">{row?.draws ?? '—'}</td>
-                  <td className="py-1.5 text-center text-red-400">{row?.losses ?? '—'}</td>
+                  <td className="py-1 text-gray-600">{row?.position ?? i + 1}</td>
+                  <td className={`py-1 truncate ${full ? 'min-w-[70px]' : 'max-w-[80px]'} ${highlight ? 'text-emerald-400 font-semibold' : 'text-gray-300'}`}>{name}</td>
+                  <td className="py-1 text-center text-gray-400">{row?.played ?? row?.matches ?? '—'}</td>
+                  <td className="py-1 text-center text-emerald-400">{row?.wins ?? '—'}</td>
+                  <td className="py-1 text-center text-gray-400">{row?.draws ?? '—'}</td>
+                  <td className="py-1 text-center text-red-400">{row?.losses ?? '—'}</td>
                   {full && <>
-                    <td className="py-1.5 text-center text-gray-400">{row?.goals_for ?? '—'}</td>
-                    <td className="py-1.5 text-center text-gray-400">{row?.goals_against ?? '—'}</td>
-                    <td className="py-1.5 text-center text-gray-400">{row?.goal_diff ?? '—'}</td>
+                    <td className="py-1 text-center text-gray-400">{row?.goals_for ?? '—'}</td>
+                    <td className="py-1 text-center text-gray-400">{row?.goals_against ?? '—'}</td>
+                    <td className="py-1 text-center text-gray-400">{row?.goal_diff ?? '—'}</td>
                   </>}
-                  <td className="py-1.5 text-center text-white font-bold">{row?.points ?? '—'}</td>
+                  <td className="py-1 text-center text-white font-bold">{row?.points ?? '—'}</td>
                 </tr>
               );
             })}
