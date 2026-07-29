@@ -8,12 +8,9 @@ import {
   matchSofascoreCandidate,
   predictMatch,
   analyzeMatchWithAi,
-  analyzeMatchSnapshot,
-  analyzeGradedMatch,
   trackUserBehavior,
 } from '../../../../services/apis/footballApi';
 import { usePredictionStore } from '../../../../prediction/usePredictionStore';
-import { assignEnginesToMatch } from '../../../../prediction/engine';
 
 import { TABS, Tab } from './shared';
 import MatchHero from './MatchHero';
@@ -30,7 +27,7 @@ import TabPredictions from './TabPredictions';
 import TabSimilar from './TabSimilar';
 import { Sec } from './shared';
 
-const actionError = (err: any, fallback: string) => {
+const formatActionError = (err: any, fallback: string) => {
   const detail = err?.response?.data?.detail;
   if (typeof detail === 'string') return detail;
   if (detail?.message) {
@@ -54,19 +51,17 @@ const Match = () => {
 
   const router = useIonRouter();
   const { getMatchDetail, matchDetail, loading, error } = useFootballContext();
-  const { assignEnginesToMatch: assignEngines, gradeMatch, engines } = usePredictionStore();
+  const { assignEnginesToMatch: assignEngines } = usePredictionStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('Home');
   const [enriching, setEnriching] = useState(false);
   const [predicting, setPredicting] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analyzingSnapshot, setAnalyzingSnapshot] = useState(false);
   const [candidateLoading, setCandidateLoading] = useState(false);
   const [candidates, setCandidates] = useState<any[]>([]);
   const [matching, setMatching] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState('');
   const [actionError, setActionError] = useState('');
-  const [grading, setGrading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -88,32 +83,6 @@ const Match = () => {
 
   const refresh = async () => { if (id) await getMatchDetail(id); };
 
-  const handleGradeMatch = async () => {
-    if (!id || !matchDetail) return;
-    setGrading(true);
-    setActionMsg('');
-    setActionError('');
-    try {
-      // Determine result from match data
-      const score = matchDetail?.score || {};
-      const homeScore = Number(score.home ?? matchDetail?.homeScore?.current ?? 0);
-      const awayScore = Number(score.away ?? matchDetail?.awayScore?.current ?? 0);
-
-      let result: 'won' | 'lost' | 'draw' = 'draw';
-      if (homeScore > awayScore) result = 'won';
-      else if (homeScore < awayScore) result = 'lost';
-
-      // Grade the match - this assigns engines and records results
-      gradeMatch(id, result, matchDetail);
-      setActionMsg(`Match graded: ${result.toUpperCase()}. Engines have learned from this outcome.`);
-      await refresh();
-    } catch (err: any) {
-      setActionError(err?.response?.data?.detail || err?.message || 'Grading failed');
-    } finally {
-      setGrading(false);
-    }
-  };
-
   const handleEnrich = async () => {
     if (!id) return;
     setEnriching(true);
@@ -128,7 +97,7 @@ const Match = () => {
       }
       await refresh();
     } catch (err: any) {
-      setActionMsg(actionError(err, 'Enrichment failed'));
+      setActionMsg(formatActionError(err, 'Enrichment failed'));
     } finally {
       setEnriching(false);
     }
@@ -144,7 +113,7 @@ const Match = () => {
       setActionMsg('Prediction complete');
       await refresh();
     } catch (err: any) {
-      setActionError(actionError(err, 'Prediction failed'));
+      setActionError(formatActionError(err, 'Prediction failed'));
     } finally {
       setPredicting(false);
     }
@@ -160,25 +129,9 @@ const Match = () => {
       setActionMsg('AI analysis complete');
       await refresh();
     } catch (err: any) {
-      setActionError(actionError(err, 'AI analysis failed'));
+      setActionError(formatActionError(err, 'AI analysis failed'));
     } finally {
       setAnalyzing(false);
-    }
-  };
-
-  const handleAiAnalysisSnapshot = async () => {
-    if (!id) return;
-    setAnalyzingSnapshot(true);
-    setActionMsg('');
-    setActionError('');
-    try {
-      await analyzeMatchSnapshot(id);
-      setActionMsg('AI snapshot analysis complete');
-      await refresh();
-    } catch (err: any) {
-      setActionError(actionError(err, 'AI snapshot analysis failed'));
-    } finally {
-      setAnalyzingSnapshot(false);
     }
   };
 
@@ -240,15 +193,6 @@ const Match = () => {
                           : 'Engines assigned and monitoring'}
                       </div>
                     </div>
-                    {!matchDetail?.is_finished && (
-                      <button
-                        onClick={handleGradeMatch}
-                        disabled={grading}
-                        className="px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-40"
-                      >
-                        {grading ? 'Grading...' : 'Grade Match'}
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
@@ -271,7 +215,7 @@ const Match = () => {
       case 'Comparison': return <TabComparison m={m} />;
       case 'H2H':        return <TabH2H m={m} />;
       case 'Table':      return <TabTable m={m} />;
-      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} onAnalyze={handleAiAnalysis} onAnalyzeSnapshot={handleAiAnalysisSnapshot} predicting={predicting} analyzing={analyzing} analyzingSnapshot={analyzingSnapshot} actionMsg={actionMsg} actionError={actionError} />;
+      case 'Prediction': return <TabPredictions m={m} onPredict={handlePredict} onAnalyze={handleAiAnalysis} predicting={predicting} analyzing={analyzing} actionMsg={actionMsg} actionError={actionError} />;
       case 'Similar':    return <TabSimilar m={m} />;
       default:           return <TabOverview m={m} onEnrich={handleEnrich} onPredict={handlePredict} enriching={enriching} predicting={predicting} actionMsg={actionMsg} />;
     }

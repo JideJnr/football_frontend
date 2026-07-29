@@ -537,6 +537,10 @@ export const getMatchEngineAssignments = (matchId: string): MatchEngineAssignmen
   return learningStore.getMatchAssignments(matchId);
 };
 
+export const getEngineMatchHistory = (engineId: string, limit = 50): MatchEngineAssignment[] => {
+  return learningStore.getEngineMatchHistory(engineId, limit);
+};
+
 export const getValueHunterContext = (matchId: string, match: any): ValueHunterContext | null => {
   return learningStore.buildValueHunterContext(matchId, match);
 };

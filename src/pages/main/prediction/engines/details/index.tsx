@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { IonContent, IonPage, IonRefresher, IonRefresherContent, useIonRouter } from '@ionic/react';
 import { useParams } from 'react-router';
-import { usePredictionStore } from '../../../../prediction/usePredictionStore';
-import { getEngineLearningData, getEngineMatchHistory, getTopPerformingRules } from '../../../../prediction/engineLearning';
-import { PredictionEngine, MatchEngineAssignment } from '../../../../prediction/engine';
+import { usePredictionStore } from '../../../../../prediction/usePredictionStore';
+import { getEngineLearningData, getEngineMatchHistory, getTopPerformingRules, MatchEngineAssignment } from '../../../../../prediction/engineLearning';
+import { PredictionEngine } from '../../../../../prediction/engine';
 
 const EngineDetails = () => {
   const { id: engineId } = useParams<{ id: string }>();

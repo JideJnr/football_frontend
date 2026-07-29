@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect } from 'react';
-import { Target, Brain, RefreshCw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
-import { Sec, Empty, ActionButton } from './shared';
+import { Target, Brain, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Sec, Empty } from './shared';
 import { trackUserBehavior, getUserPickForMatch } from '../../../../services/apis/footballApi';
 
 const num = (v: any, fb = 0) => {
@@ -567,26 +567,32 @@ const AiReasoningBlock = ({ reasoning }: { reasoning: any }) => {
   );
 };
 
+const AiAnalystBlock = ({ analysts }: { analysts: any[] }) => {
+  if (!Array.isArray(analysts) || analysts.length === 0) return null;
+  return (
+    <div className="space-y-2 border-t border-white/[0.06] pt-3">
+      <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Analyst calls</div>
+      {analysts.slice(0, 6).map((analyst: any, index: number) => (
+        <div key={`${analyst?.name || 'analyst'}-${index}`} className="rounded-lg bg-black/20 px-3 py-2">
+          <div className="text-[10px] font-semibold text-violet-200">{analyst?.name || `Analyst ${index + 1}`}</div>
+          {analyst?.trained_knowledge && (
+            <div className="mt-0.5 text-[9px] text-gray-600">{analyst.trained_knowledge}</div>
+          )}
+          <div className="mt-1 text-xs leading-relaxed text-gray-300">{analyst?.finding || 'No finding returned.'}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const AiAnalysisCard = ({
-  analysis, onRun, loading,
+  analysis,
 }: {
   analysis: any;
-  onRun: () => void;
-  loading: boolean;
 }) => {
-  const isGroq = analysis?.provider === 'groq';
-  const isOllamaFallback = analysis?.fallback === 'groq_unavailable';
-  const providerLabel = isGroq
-    ? 'Groq (llama-3.3-70b)'
-    : isOllamaFallback
-      ? 'Ollama (Qwen3 + DeepSeek-R1)'
-      : 'AI Analysis';
-  const providerEmoji = isGroq ? 'âš¡' : isOllamaFallback ? 'ðŸ¥‡' : 'ðŸ¤–';
-  const providerRole = isGroq
-    ? 'Cloud LLM â€” fast, high-quality reasoning'
-    : isOllamaFallback
-      ? 'Local LLM â€” fallback after Groq unavailable'
-      : 'AI analysis';
+  if (!analysis) return null;
+  const providerLabel = analysis?.provider || analysis?.source || 'AI Pipeline';
+  const providerRole = 'One call per specialist analyst with final model synthesis';
 
   const rec = analysis?.recommendation || analysis?.consensus || 'No analysis yet';
   const confidence = analysis?.confidence;
@@ -597,7 +603,7 @@ const AiAnalysisCard = ({
         <div className="rounded-xl border border-violet-500/25 bg-violet-500/[0.06] p-3">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">{providerEmoji} {providerLabel}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">{providerLabel}</div>
               <div className="text-[9px] text-gray-600">{providerRole}</div>
               <div className="mt-1 text-sm font-semibold text-white">{rec}</div>
             </div>
@@ -615,13 +621,8 @@ const AiAnalysisCard = ({
               ))}
             </div>
           )}
-          {isOllamaFallback && (
-            <div className="mb-3 rounded-lg border border-yellow-500/20 bg-yellow-500/[0.06] px-3 py-2 text-xs text-yellow-300">
-              Groq was unavailable â€” Ollama local models were used as fallback.
-            </div>
-          )}
           <AiReasoningBlock reasoning={analysis?.reasoning} />
-          <ActionButton onClick={onRun} loading={loading} label={analysis ? 'Refresh AI Analysis' : 'Run AI Analysis'} loadingLabel="AI is reviewing..." variant="purple" />
+          <AiAnalystBlock analysts={analysis?.analysts || analysis?.reasoning_context?.analysts || []} />
         </div>
 
         <div className="text-[10px] leading-relaxed text-gray-600">AI analysis explains available evidence; it does not guarantee an outcome.</div>
@@ -887,10 +888,8 @@ interface TabPredictionsProps {
   m: any;
   onPredict: () => void;
   onAnalyze: () => void;
-  onAnalyzeSnapshot: () => void;
   predicting: boolean;
   analyzing: boolean;
-  analyzingSnapshot: boolean;
   actionMsg: string;
   actionError: string;
 }
@@ -899,20 +898,16 @@ const PredictionActions = ({
   m,
   onPredict,
   onAnalyze,
-  onAnalyzeSnapshot,
   predicting,
   analyzing,
-  analyzingSnapshot,
   actionMsg,
   actionError,
 }: {
   m: any;
   onPredict: () => void;
   onAnalyze: () => void;
-  onAnalyzeSnapshot: () => void;
   predicting: boolean;
   analyzing: boolean;
-  analyzingSnapshot: boolean;
   actionMsg: string;
   actionError: string;
 }) => {
@@ -930,7 +925,7 @@ const PredictionActions = ({
         >
           <Target size={22} className="text-purple-400" />
           <span className="text-xs font-semibold text-gray-300">
-            {predicting ? 'Predicting...' : 'Run Prediction'}
+            {predicting ? 'Predicting...' : 'Manual Prediction'}
           </span>
         </button>
         <button
@@ -940,22 +935,10 @@ const PredictionActions = ({
         >
           <Brain size={22} className="text-violet-400" />
           <span className="text-xs font-semibold text-gray-300">
-            {analyzing ? 'Analyzing...' : 'AI Analysis'}
+            {analyzing ? 'Analyzing...' : 'AI Prediction'}
           </span>
         </button>
       </div>
-
-      {/* Secondary action */}
-      <button
-        onClick={onAnalyzeSnapshot}
-        disabled={analyzingSnapshot}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-white/[0.07] bg-[#161616] hover:border-blue-500/40 hover:bg-blue-500/[0.06] transition disabled:opacity-40 active:scale-[0.98]"
-      >
-        <RefreshCw size={16} className="text-blue-400" />
-        <span className="text-xs font-semibold text-gray-300">
-          {analyzingSnapshot ? 'Refreshing...' : 'Refresh AI Snapshot'}
-        </span>
-      </button>
 
       {/* Status messages */}
       {actionMsg && (
@@ -972,11 +955,11 @@ const PredictionActions = ({
       )}
 
       {/* Loading indicator */}
-      {(predicting || analyzing || analyzingSnapshot) && (
+      {(predicting || analyzing) && (
         <div className="flex items-center justify-center py-4 gap-3">
           <Clock size={16} className="text-gray-500 animate-spin" />
           <span className="text-xs text-gray-400">
-            {predicting ? 'Running prediction engine...' : analyzing ? 'AI is reviewing the match...' : 'Refreshing AI snapshot...'}
+            {predicting ? 'Running manual prediction engine...' : 'AI analysts are reviewing the match...'}
           </span>
         </div>
       )}
@@ -992,7 +975,7 @@ const PredictionActions = ({
       )}
 
       {/* AI analysis status badge */}
-      {hasAiAnalysis && !analyzing && !analyzingSnapshot && (
+      {hasAiAnalysis && !analyzing && (
         <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/[0.06] px-3 py-2">
           <Brain size={14} className="text-violet-400" />
           <span className="text-xs text-violet-400">
@@ -1004,7 +987,7 @@ const PredictionActions = ({
   );
 };
 
-const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting, analyzing, analyzingSnapshot, actionMsg, actionError }: TabPredictionsProps) => {
+const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, actionMsg, actionError }: TabPredictionsProps) => {
   const prediction = m?.prediction;
   const predictionError = m?.prediction_error;
   const picks = (prediction?.picks || [])
@@ -1016,6 +999,7 @@ const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting
   const signals = prediction?.signals || [];
   const contextualIntelligence = contextualFrom(prediction, m);
   const riskManagement = prediction?.risk_management || primary?.risk_management || m?.intelligence?.learning?.risk_management;
+  const aiAnalysis = m?.ai_analysis || null;
 
   return (
     <div className="space-y-3 px-4 py-4">
@@ -1023,13 +1007,13 @@ const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting
         m={m}
         onPredict={onPredict}
         onAnalyze={onAnalyze}
-        onAnalyzeSnapshot={onAnalyzeSnapshot}
         predicting={predicting}
         analyzing={analyzing}
-        analyzingSnapshot={analyzingSnapshot}
         actionMsg={actionMsg}
         actionError={actionError || ''}
       />
+
+      <AiAnalysisCard analysis={aiAnalysis} />
 
       {!prediction ? (
         <div className="rounded-xl border border-white/[0.07] bg-[#161616] p-6 text-center space-y-4">
