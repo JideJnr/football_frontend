@@ -244,6 +244,9 @@ export const buildAutoBetbuilder = (payload: any) =>
 export const bookBetbuilder = (payload: { selections: any[]; stake: number; loadingShareCode?: string | null }) =>
   api.post('/betbuilder/book', payload).then(r => r.data);
 
+export const bookBetbuilderSmart = (payload: { selections: any[]; stake: number; loadingShareCode?: string | null }) =>
+  api.post('/betbuilder/book-smart', payload).then(r => r.data);
+
 export const getEnrichedAnalysis = (matchId: string, forceRefresh = false) =>
   api.post(`/matches/${encodeURIComponent(matchId)}/enriched-analysis`, { force_refresh: forceRefresh }).then(r => r.data);
 

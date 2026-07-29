@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IonContent, IonPage, useIonRouter } from '@ionic/react';
 import { ArrowLeft, Bot, Check, ChevronRight, ClipboardCheck, History, LoaderCircle, Sparkles, Ticket, X } from 'lucide-react';
-import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
+import { bookBetbuilderSmart, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
 
 type Mode = 'ai' | 'manual' | 'results';
 
@@ -17,6 +17,7 @@ const Builder = () => {
   const [predictions, setPredictions] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [aiSlip, setAiSlip] = useState<any>(null);
+  const [bookResult, setBookResult] = useState<any>(null);
   const [manualPicks, setManualPicks] = useState<any[]>([]);
   const [targetOdds, setTargetOdds] = useState('3.0');
   const [stake, setStake] = useState('100');
@@ -82,13 +83,20 @@ const Builder = () => {
   const bookSlip = async () => {
     const selections = aiSlip?.selections || [];
     if (!selections.length) return;
-    setBooking(true); setError('');
+    setBooking(true); setError(''); setBookResult(null);
     try {
-      const result = await bookBetbuilder({ selections, stake: Number(stake) || 0 });
+      const result = await bookBetbuilderSmart({ selections, stake: Number(stake) || 0 });
+      setBookResult(result);
       setAiSlip((current: any) => ({ ...current, booking: result }));
-      setNotice(result?.share_code ? `Booking ready: ${result.share_code}` : 'The booking payload is ready for SportyBet.');
+      const dropped = result?.dropped?.length || 0;
+      const replaced = result?.replaced?.length || 0;
+      const code = result?.share_code;
+      if (code) setNotice(`Booked ✓ Share code: ${code}${dropped ? ` · ${dropped} leg(s) dropped` : ''}${replaced ? ` · ${replaced} replaced by Maya` : ''}`);
+      else if (dropped || replaced) setNotice(`Payload ready · ${dropped} leg(s) dropped${replaced ? `, ${replaced} replaced by Maya` : ''}.`);
+      else setNotice('The booking payload is ready for SportyBet.');
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'SportyBet booking could not be prepared.');
+      const detail = err?.response?.data?.detail;
+      setError(typeof detail === 'string' ? detail : detail?.message || 'SportyBet booking could not be prepared.');
     } finally { setBooking(false); }
   };
 
@@ -143,7 +151,9 @@ const Builder = () => {
                 <div className="divide-y divide-white/[0.07] border-x border-b border-white/[0.08]">
                   {(aiSlip.selections || []).map((pick: any) => <div key={`${pick.match_id}-${pick.selection}`} className="p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-xs font-bold">{pick.match || pick.match_name}</div><div className="mt-0.5 text-[10px] text-slate-500">{pick.league || 'Match analysis'}</div></div><div className={`text-sm font-bold ${confidenceTone(Number(pick.confidence || pick.groq_confidence || 0))}`}>{pick.confidence || pick.groq_confidence}%</div></div><div className="mt-2 flex items-center justify-between gap-2"><span className="text-sm font-semibold text-cyan-100">{pick.selection}</span><span className="text-xs text-slate-400">{Number(pick.odds || pick.estimated_odds || 0).toFixed(2)}</span></div><p className="mt-2 text-[11px] leading-4 text-slate-400">{pick.synthesis_reasoning || 'Included for its current AI conviction.'}</p>{pick.learning?.samples > 0 && <div className="mt-2 text-[10px] text-violet-200">Past legs: {Math.round(Number(pick.learning.win_rate || 0) * 100)}% win rate across {pick.learning.samples} comparable selections</div>}</div>)}
                 </div>
-                <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-[10px] text-slate-500">Stake<input value={stake} onChange={e => setStake(e.target.value)} type="number" min="1" className="ml-2 w-20 border border-white/[0.12] bg-black/30 px-2 py-2 text-xs text-white outline-none" /></label><button type="button" onClick={() => saveSlip(aiSlip.selections || [], 'ai')} disabled={saving} className="bg-white px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">{saving ? 'Saving...' : 'Save ticket'}</button><button type="button" onClick={bookSlip} disabled={booking} className="bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">{booking ? 'Preparing...' : 'Book with SportyBet'}</button></div>
+                <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-[10px] text-slate-500">Stake<input value={stake} onChange={e => setStake(e.target.value)} type="number" min="1" className="ml-2 w-20 border border-white/[0.12] bg-black/30 px-2 py-2 text-xs text-white outline-none" /></label><button type="button" onClick={() => saveSlip(aiSlip.selections || [], 'ai')} disabled={saving} className="bg-white px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">{saving ? 'Saving...' : 'Save ticket'}</button><button type="button" onClick={bookSlip} disabled={booking} className="bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">{booking ? <span className="flex items-center gap-1.5"><LoaderCircle size={13} className="animate-spin" />Checking markets…</span> : 'Book with SportyBet'}</button></div>
+                {bookResult?.dropped?.length > 0 && <div className="mt-3 space-y-1">{bookResult.dropped.map((d: any, i: number) => <div key={i} className="flex items-start gap-2 border-l-2 border-rose-400 bg-rose-400/[0.07] px-2 py-1.5 text-[10px] text-rose-200"><X size={11} className="mt-0.5 shrink-0" /><span><span className="font-bold">{d.match || d.match_id}</span> — {d.selection} removed: market unavailable</span></div>)}</div>}
+                {bookResult?.replaced?.length > 0 && <div className="mt-2 space-y-1">{bookResult.replaced.map((r: any, i: number) => <div key={i} className="flex items-start gap-2 border-l-2 border-cyan-400 bg-cyan-400/[0.07] px-2 py-1.5 text-[10px] text-cyan-200"><Bot size={11} className="mt-0.5 shrink-0" /><span><span className="font-bold">{r.original?.match || r.original?.match_id}</span> — Maya replaced <em>{r.original?.selection}</em> → <strong>{r.replacement?.selection}</strong></span></div>)}</div>}
               </div>}
             </section>}
 

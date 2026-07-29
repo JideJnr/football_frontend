@@ -4,26 +4,20 @@ import { useParams } from 'react-router';
 import { usePredictionStore } from '../../../../prediction/usePredictionStore';
 import { MatchSignal } from '../../../../prediction/engine';
 import { refreshPredictions } from '../../../../services/apis/footballApi';
-import { getValueHunterContext as getLocalValueHunterContext, getEngineLearningData } from '../../../../prediction/engineLearning';
+import { getValueHunterContext as getLocalValueHunterContext } from '../../../../prediction/engineLearning';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const fmtTime = (ms: number) =>
-  ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
-
-const edgeColor = (edge: number) =>
-  edge > 0.1 ? 'text-emerald-400' : edge > 0 ? 'text-yellow-400' : 'text-red-400';
 
 const confidenceDot = (c: MatchSignal['confidence']) =>
   c === 'high' ? 'bg-emerald-500' : c === 'medium' ? 'bg-yellow-500' : 'bg-gray-500';
 
-const signalTypeBadge = (type: MatchSignal['signalType']) => {
+const tipBadge = (type: MatchSignal['signalType']) => {
   switch (type) {
-    case 'value_bet':       return { label: '💰 VALUE',     cls: 'text-yellow-400 border-yellow-700' };
-    case 'high_confidence': return { label: '🔥 HIGH CONF', cls: 'text-emerald-400 border-emerald-700' };
-    case 'form_signal':     return { label: '📈 FORM',      cls: 'text-purple-400 border-purple-700' };
-    case 'sharp_move':      return { label: '🔪 SHARP',     cls: 'text-red-400 border-red-700' };
-    default:                return { label: '📡 SIGNAL',    cls: 'text-blue-400 border-blue-700' };
+    case 'value_bet':       return { label: '💰 Value Tip',    cls: 'text-yellow-400 border-yellow-700' };
+    case 'high_confidence': return { label: '🔥 Strong Pick',  cls: 'text-emerald-400 border-emerald-700' };
+    case 'form_signal':     return { label: '📈 Form Pick',    cls: 'text-purple-400 border-purple-700' };
+    case 'sharp_move':      return { label: '📊 Market Move',  cls: 'text-red-400 border-red-700' };
+    default:                return { label: '💡 Suggestion',   cls: 'text-blue-400 border-blue-700' };
   }
 };
 
@@ -33,7 +27,6 @@ const statusStyle = (s: MatchSignal['status']) => {
   return 'border-white/[0.07]';
 };
 
-// Map backend pick type → engine category
 const ENGINE_PICK_TYPES: Record<string, string[]> = {
   value_hunter:       ['value_bet'],
   away_value:         ['value_bet'],
@@ -51,10 +44,8 @@ const ENGINE_PICK_TYPES: Record<string, string[]> = {
   drift_fader:        ['sharp_move'],
 };
 
-// Engines that should only show pre-match (not-started) signals
 const PRE_MATCH_ONLY_ENGINES = new Set(['value_hunter', 'away_value']);
 
-// Convert a backend prediction pick into a MatchSignal-like object
 const backendPickToSignal = (pred: any, pick: any, engineId: string, engineName: string, engineIcon: string): MatchSignal & { correlated?: boolean; correlationReason?: string } => {
   const conf = parseInt(pick.confidence || 50) / 100;
   const signalType: MatchSignal['signalType'] =
@@ -87,20 +78,32 @@ const backendPickToSignal = (pred: any, pick: any, engineId: string, engineName:
   };
 };
 
-// ─── Signal card ──────────────────────────────────────────────────────────────
+// ─── Tip card ─────────────────────────────────────────────────────────────────
 
-function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; correlationReason?: string } }) {
+function TipCard({ signal }: { signal: MatchSignal & { correlated?: boolean; correlationReason?: string } }) {
   const router = useIonRouter();
   const { acceptSignal, rejectSignal, undoReject } = usePredictionStore();
   const [expanded, setExpanded] = useState(false);
-  const badge = signalTypeBadge(signal.signalType);
+  const badge = tipBadge(signal.signalType);
   const cardStyle = signal.correlated ? 'opacity-60 border-orange-500/20' : statusStyle(signal.status);
+  const confPct = Math.round(signal.modelProbability * 100);
+
+  // Human-readable reasoning per tip type
+  const reasoning = () => {
+    if (signal.signalType === 'value_bet')
+      return `Our analysts rate this at ${confPct}% — the odds on offer look better than the true chance suggests.`;
+    if (signal.signalType === 'high_confidence')
+      return `Strong agreement across multiple indicators puts this at ${confPct}% confidence.`;
+    if (signal.signalType === 'form_signal')
+      return `Recent form and momentum point in this direction.`;
+    return `This pick matches the ${signal.engineName} criteria based on current match data.`;
+  };
 
   return (
     <div className={`border rounded-xl overflow-hidden mb-2.5 bg-[#161616] transition-all ${cardStyle}`}>
       {signal.correlated && (
         <div className="px-3 py-1 bg-orange-900/30 border-b border-orange-500/20 flex items-center gap-1.5">
-          <span className="text-[9px] font-bold text-orange-400 uppercase tracking-wide">Correlated</span>
+          <span className="text-[9px] font-bold text-orange-400 uppercase tracking-wide">Similar tip already added</span>
           {signal.correlationReason && (
             <span className="text-[9px] text-orange-500/70 truncate">{signal.correlationReason}</span>
           )}
@@ -112,96 +115,96 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badge.cls}`}>{badge.label}</span>
-              <span className="text-[10px] text-gray-600">{signal.tournament}</span>
+              <span className="text-[10px] text-gray-500">{signal.tournament}</span>
             </div>
             <div className="text-sm font-semibold text-white truncate">{signal.homeTeam} vs {signal.awayTeam}</div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[11px] text-gray-500">{signal.market}</span>
-              <span className="text-[11px] text-white font-bold">Pick: {signal.pick}</span>
+              <span className="text-[11px] text-gray-500">{String(signal.market).replace(/_/g, ' ')}</span>
+              <span className="text-[11px] text-white font-bold">→ {signal.pick}</span>
             </div>
             {signal.note && (
-              <div className="text-[10px] text-purple-400 mt-0.5">{signal.note}</div>
+              <div className="text-[10px] text-slate-400 mt-0.5 italic">"{signal.note}"</div>
             )}
           </div>
 
           <div className="text-right shrink-0">
-            <div className="text-white font-bold text-lg tabular-nums">{signal.odds.toFixed(2)}</div>
             <div className="flex items-center justify-end gap-1 mt-0.5">
               <div className={`w-2 h-2 rounded-full ${confidenceDot(signal.confidence)}`} />
-              <span className="text-[10px] text-gray-500">{(signal.modelProbability * 100).toFixed(0)}%</span>
+              <span className="text-sm font-bold text-white">{confPct}%</span>
             </div>
-            <div className={`text-[10px] font-mono mt-0.5 ${edgeColor(signal.valueEdge)}`}>
-              {signal.valueEdge > 0 ? '+' : ''}{(signal.valueEdge * 100).toFixed(1)}%
-            </div>
+            <div className="text-[10px] text-gray-500 mt-0.5">confidence</div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-gray-600">{fmtTime(signal.startTime)}</span>
-          <span className="text-[10px] text-gray-600">{expanded ? 'Less' : 'More'}</span>
+        <div className="flex items-center justify-end mt-2">
+          <span className="text-[10px] text-gray-600">{expanded ? 'Less ▲' : 'Why? ▼'}</span>
         </div>
       </div>
 
       {expanded && (
         <div className="border-t border-white/[0.06] px-3 py-3 space-y-3">
-          <div className="grid grid-cols-3 gap-2 text-center">
-            {[
-              { label: 'Backend', value: `${(signal.modelProbability * 100).toFixed(1)}%`, color: 'text-white' },
-              { label: 'Market', value: `${(signal.impliedProbability * 100).toFixed(1)}%`, color: 'text-gray-400' },
-              { label: 'Edge', value: `${signal.valueEdge > 0 ? '+' : ''}${(signal.valueEdge * 100).toFixed(1)}%`, color: edgeColor(signal.valueEdge) },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="bg-black/30 rounded-lg p-2">
-                <div className="text-[10px] text-gray-500">{label}</div>
-                <div className={`text-sm font-bold ${color}`}>{value}</div>
+          {/* Human reasoning */}
+          <div className="bg-black/20 rounded-lg p-3 text-xs text-slate-300 leading-5">
+            {reasoning()}
+          </div>
+
+          {/* Confidence breakdown */}
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="bg-black/30 rounded-lg p-2">
+              <div className="text-[10px] text-gray-500">Our Rating</div>
+              <div className="text-sm font-bold text-white">{confPct}%</div>
+            </div>
+            <div className="bg-black/30 rounded-lg p-2">
+              <div className="text-[10px] text-gray-500">Strength</div>
+              <div className={`text-sm font-bold ${signal.confidence === 'high' ? 'text-emerald-400' : signal.confidence === 'medium' ? 'text-yellow-400' : 'text-gray-400'}`}>
+                {signal.confidence === 'high' ? 'Strong' : signal.confidence === 'medium' ? 'Moderate' : 'Speculative'}
               </div>
-            ))}
+            </div>
           </div>
 
-          <div className="bg-black/20 rounded-lg p-2 text-xs text-gray-400">
-            {signal.signalType === 'value_bet' && (
-              <span>Backend-approved probability is <span className="text-white">{(signal.modelProbability * 100).toFixed(0)}%</span>; market implied is <span className="text-white">{(signal.impliedProbability * 100).toFixed(0)}%</span>, leaving <span className="text-yellow-400">{((signal.modelProbability - signal.impliedProbability) * 100).toFixed(1)}% edge</span>.</span>
-            )}
-            {signal.signalType === 'high_confidence' && (
-              <span>Backend confidence score is <span className="text-emerald-400">{(signal.modelProbability * 100).toFixed(0)}%</span> for this outcome.</span>
-            )}
-            {signal.signalType === 'form_signal' && (
-              <span>Recent form supports this side, marked as a <span className="text-purple-400">momentum pick</span>.</span>
-            )}
-            {signal.signalType === 'rule_match' && (
-              <span>Matches the <span className="text-blue-400">{signal.engineName}</span> rule criteria.</span>
-            )}
-          </div>
-
+          {/* Actions */}
           {signal.status === 'pending' && (
             <div className="flex gap-2">
-              <button onClick={() => rejectSignal(signal.matchId, signal.engineId, signal.market)}
-                className="flex-1 py-2 rounded-lg border border-red-800 text-red-400 text-xs font-semibold hover:bg-red-900/30 transition">
+              <button
+                onClick={() => rejectSignal(signal.matchId, signal.engineId, signal.market)}
+                className="flex-1 py-2 rounded-lg border border-red-800 text-red-400 text-xs font-semibold hover:bg-red-900/30 transition"
+              >
                 Skip
               </button>
-              <button onClick={() => router.push(`/match/${signal.matchId}`, 'forward', 'push')}
-                className="flex-1 py-2 rounded-lg border border-white/[0.1] text-gray-400 text-xs hover:bg-white/5 transition">
-                Details
+              <button
+                onClick={() => router.push(`/match/${signal.matchId}`, 'forward', 'push')}
+                className="flex-1 py-2 rounded-lg border border-white/[0.1] text-gray-400 text-xs hover:bg-white/5 transition"
+              >
+                View Match
               </button>
-              <button onClick={() => acceptSignal(signal.matchId, signal.engineId, signal.market)}
-                className="flex-1 py-2 rounded-lg border border-emerald-700 text-emerald-400 text-xs font-semibold hover:bg-emerald-900/30 transition">
-                Add Pick
+              <button
+                onClick={() => acceptSignal(signal.matchId, signal.engineId, signal.market)}
+                className="flex-1 py-2 rounded-lg border border-emerald-700 text-emerald-400 text-xs font-semibold hover:bg-emerald-900/30 transition"
+              >
+                Add Tip
               </button>
             </div>
           )}
           {signal.status === 'accepted' && (
             <div className="flex gap-2">
-              <div className="flex-1 py-2 rounded-lg bg-emerald-900/30 border border-emerald-700 text-emerald-400 text-xs text-center font-semibold">In Your Picks</div>
-              <button onClick={() => router.push(`/match/${signal.matchId}`, 'forward', 'push')}
-                className="flex-1 py-2 rounded-lg border border-white/[0.1] text-gray-400 text-xs hover:bg-white/5 transition">
-                Details
+              <div className="flex-1 py-2 rounded-lg bg-emerald-900/30 border border-emerald-700 text-emerald-400 text-xs text-center font-semibold">
+                ✓ Added to your tips
+              </div>
+              <button
+                onClick={() => router.push(`/match/${signal.matchId}`, 'forward', 'push')}
+                className="flex-1 py-2 rounded-lg border border-white/[0.1] text-gray-400 text-xs hover:bg-white/5 transition"
+              >
+                View Match
               </button>
             </div>
           )}
           {signal.status === 'rejected' && (
             <div className="flex gap-2">
               <div className="flex-1 py-2 rounded-lg border border-white/[0.06] text-gray-600 text-xs text-center">Skipped</div>
-              <button onClick={() => undoReject(signal.matchId, signal.engineId, signal.market)}
-                className="flex-1 py-2 rounded-lg border border-yellow-700 text-yellow-400 text-xs font-semibold hover:bg-yellow-900/30 transition">
+              <button
+                onClick={() => undoReject(signal.matchId, signal.engineId, signal.market)}
+                className="flex-1 py-2 rounded-lg border border-yellow-700 text-yellow-400 text-xs font-semibold hover:bg-yellow-900/30 transition"
+              >
                 Restore
               </button>
             </div>
@@ -211,9 +214,10 @@ function SignalCard({ signal }: { signal: MatchSignal & { correlated?: boolean; 
     </div>
   );
 }
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type SortMode = 'edge' | 'odds' | 'time' | 'confidence';
+type SortMode = 'confidence' | 'odds' | 'time';
 type StatusFilter = 'all' | 'pending' | 'accepted' | 'rejected';
 
 function EngineSignals() {
@@ -222,83 +226,36 @@ function EngineSignals() {
   const { engines, refreshEngineLearning, loadBackendPredictions, backendPredictions } = usePredictionStore();
 
   const [sort, setSort] = useState<SortMode>('confidence');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [portfolio, setPortfolio] = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [valueHunterContexts, setValueHunterContexts] = useState<Record<string, any>>({});
 
   const engine = useMemo(() => engines.find(e => e.id === engineId), [engines, engineId]);
 
-  // Refresh learning data on mount
-  useEffect(() => {
-    refreshEngineLearning();
-  }, [refreshEngineLearning]);
+  useEffect(() => { refreshEngineLearning(); }, [refreshEngineLearning]);
 
   const fetchPreds = async () => {
     setLoading(true);
-    try {
-      await loadBackendPredictions();
-    } catch {
-      // Backend predictions unavailable — keep existing data
-    } finally {
-      setLoading(false);
-    }
+    try { await loadBackendPredictions(); } catch {} finally { setLoading(false); }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try {
-      await refreshPredictions();
-      await loadBackendPredictions();
-    } catch {
-    } finally {
-      setRefreshing(false);
-    }
+    try { await refreshPredictions(); await loadBackendPredictions(); } catch {} finally { setRefreshing(false); }
   };
 
   useEffect(() => { fetchPreds(); }, []);
 
-  // Build value hunter contexts for all matches
-  useEffect(() => {
-    if (!backendPredictions.length) return;
-    const contexts: Record<string, any> = {};
-    for (const pred of backendPredictions) {
-      const matchId = String(pred.match_id || pred.sportybet_id || '');
-      if (matchId) {
-        const matchData = {
-          id: matchId,
-          name: pred.match_name,
-          home_team: pred.match_name?.split(' vs ')[0],
-          away_team: pred.match_name?.split(' vs ')[1],
-          tournament: pred.league_name,
-          start_time: pred.start_time,
-        };
-        const vhContext = getLocalValueHunterContext(matchId, matchData);
-        if (vhContext) {
-          contexts[matchId] = vhContext;
-        }
-      }
-    }
-    setValueHunterContexts(contexts);
-  }, [backendPredictions]);
-
-  // Convert backend predictions to signals for this engine
   const engineSignals = useMemo(() => {
     if (!engine) return [];
     const allowedTypes = ENGINE_PICK_TYPES[engineId] || [];
     const preMatchOnly = PRE_MATCH_ONLY_ENGINES.has(engineId);
     const signals: MatchSignal[] = [];
     for (const pred of backendPredictions) {
-      // For value_hunter (and similar engines), skip matches that have already kicked off
       if (preMatchOnly && (pred.is_live || pred.is_finished)) continue;
-
-      const picks: any[] = pred.picks || [];
-      for (const pick of picks) {
-        // For 'all' engines show all picks; for specific engines filter by pick type
+      for (const pick of (pred.picks || [])) {
         const matchesEngine = allowedTypes.length === 0 || allowedTypes.includes(pick.type);
-        if (!matchesEngine) continue;
-        if (pick.type === 'no_bet') continue;
+        if (!matchesEngine || pick.type === 'no_bet') continue;
         signals.push(backendPickToSignal(pred, pick, engineId, engine.name, engine.icon));
       }
     }
@@ -309,15 +266,13 @@ function EngineSignals() {
     let list = engineSignals;
     if (statusFilter !== 'all') list = list.filter(s => s.status === statusFilter);
     switch (sort) {
-      case 'edge':       return [...list].sort((a, b) => b.valueEdge - a.valueEdge);
+      case 'confidence': return [...list].sort((a, b) => b.modelProbability - a.modelProbability);
       case 'odds':       return [...list].sort((a, b) => b.odds - a.odds);
       case 'time':       return [...list].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
-      case 'confidence': return [...list].sort((a, b) => b.modelProbability - a.modelProbability);
       default:           return list;
     }
   }, [engineSignals, sort, statusFilter]);
 
-  // Group by tournament
   const grouped = useMemo(() => {
     const map: Record<string, MatchSignal[]> = {};
     for (const s of filtered) {
@@ -327,31 +282,29 @@ function EngineSignals() {
     return map;
   }, [filtered]);
 
-  const pendingCount   = engineSignals.filter(s => s.status === 'pending').length;
-  const acceptedCount  = engineSignals.filter(s => s.status === 'accepted').length;
-  const rejectedCount  = engineSignals.filter(s => s.status === 'rejected').length;
-  const valueCount     = engineSignals.filter(s => s.signalType === 'value_bet').length;
-  const highConfCount  = engineSignals.filter(s => s.signalType === 'high_confidence').length;
+  const pendingCount  = engineSignals.filter(s => s.status === 'pending').length;
+  const acceptedCount = engineSignals.filter(s => s.status === 'accepted').length;
+  const highConfCount = engineSignals.filter(s => s.signalType === 'high_confidence').length;
+  const valueCount    = engineSignals.filter(s => s.signalType === 'value_bet').length;
 
   const statusTabs: { id: StatusFilter; label: string; count: number }[] = [
-    { id: 'pending',  label: 'Pending',  count: pendingCount },
-    { id: 'accepted', label: '✓ Added',  count: acceptedCount },
-    { id: 'rejected', label: '↩ Skipped', count: rejectedCount },
-    { id: 'all',      label: 'All',      count: engineSignals.length },
+    { id: 'pending',  label: 'New Tips',    count: pendingCount },
+    { id: 'accepted', label: '✓ Added',     count: acceptedCount },
+    { id: 'rejected', label: 'Skipped',     count: engineSignals.filter(s => s.status === 'rejected').length },
+    { id: 'all',      label: 'All',         count: engineSignals.length },
   ];
 
   const sortOptions: { id: SortMode; label: string }[] = [
-    { id: 'edge',       label: 'Edge' },
-    { id: 'confidence', label: 'Prob' },
+    { id: 'confidence', label: 'Confidence' },
     { id: 'odds',       label: 'Odds' },
-    { id: 'time',       label: 'Time' },
+    { id: 'time',       label: 'Kick-off' },
   ];
 
   if (!engine) {
     return (
       <IonPage>
         <IonContent>
-          <div className="flex items-center justify-center h-full text-sm text-gray-500 bg-[#0f0f0f]">Engine not found</div>
+          <div className="flex items-center justify-center h-full text-sm text-gray-500 bg-[#0f0f0f]">Tipster not found</div>
         </IonContent>
       </IonPage>
     );
@@ -361,49 +314,47 @@ function EngineSignals() {
     <IonPage>
       <IonContent style={{ '--background': '#0f0f0f' } as any} fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={async e => {
-           try {
-             await loadBackendPredictions();
-           } catch {} finally { e.detail.complete(); }
-         }}>
+          try { await loadBackendPredictions(); } catch {} finally { e.detail.complete(); }
+        }}>
           <IonRefresherContent />
         </IonRefresher>
 
         <div className="min-h-full bg-[#0f0f0f] text-white pb-8">
-          {/* Back bar */}
+          {/* Header */}
           <div className="sticky top-0 z-20 bg-[#0f0f0f]/95 border-b border-white/[0.06] px-4 py-3 backdrop-blur flex items-center gap-3">
             <button onClick={() => router.goBack()} className="text-xs font-semibold text-gray-400 hover:text-white shrink-0">← Back</button>
             <span className="text-sm font-bold text-white truncate flex-1">{engine.icon} {engine.name}</span>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="shrink-0 px-2.5 py-1 rounded-lg border border-white/[0.1] text-[10px] font-semibold text-gray-400 hover:text-white hover:border-emerald-500/40 transition disabled:opacity-40"
+              className="shrink-0 px-2.5 py-1 rounded-lg border border-white/[0.1] text-[10px] font-semibold text-gray-400 hover:text-white transition disabled:opacity-40"
             >
-              {refreshing ? '⏳ Running...' : '🔄 Re-run'}
+              {refreshing ? 'Refreshing...' : '↻ Refresh'}
             </button>
             <button
               onClick={() => router.push(`/engine/${engine.id}/details`, 'forward', 'push')}
-              className="shrink-0 px-2.5 py-1 rounded-lg border border-emerald-500/30 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/10 transition"
+              className="shrink-0 px-2.5 py-1 rounded-lg border border-white/10 text-[10px] font-semibold text-gray-400 hover:text-white transition"
             >
-              📊 Learning
+              Track Record
             </button>
           </div>
 
           <div className="px-3 pt-4">
-            {/* Engine summary */}
+            {/* Tipster summary card */}
             <div className="bg-[#161616] border border-white/[0.07] rounded-xl p-3 mb-4">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-3">
                 <span className="text-2xl">{engine.icon}</span>
                 <div>
+                  <div className="text-sm font-bold text-white">{engine.name}</div>
                   <div className="text-xs text-gray-400">{engine.description}</div>
-                  <div className="text-[10px] text-emerald-500 font-semibold">Always On — AI Learning Active</div>
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 text-center">
                 {[
-                  { label: 'Total',    value: engineSignals.length,                                    color: 'text-white' },
-                  { label: '💰 Value', value: valueCount,                                              color: 'text-yellow-400' },
-                  { label: '🔥 High',  value: highConfCount,                                           color: 'text-emerald-400' },
-                  { label: '✓ Added',  value: acceptedCount,                                           color: 'text-emerald-400' },
+                  { label: 'Tips Today', value: engineSignals.length,  color: 'text-white' },
+                  { label: '💰 Value',   value: valueCount,            color: 'text-yellow-400' },
+                  { label: '🔥 Strong',  value: highConfCount,         color: 'text-emerald-400' },
+                  { label: '✓ Added',    value: acceptedCount,         color: 'text-emerald-400' },
                 ].map(({ label, value, color }) => (
                   <div key={label}>
                     <div className={`text-lg font-bold ${color}`}>{value}</div>
@@ -411,42 +362,9 @@ function EngineSignals() {
                   </div>
                 ))}
               </div>
-              {/* AI Learning stats */}
-              {engine.learning && engine.learning.totalPredictions > 0 && (
-                <div className="mt-2.5 pt-2.5 border-t border-white/[0.06]">
-                  <div className="text-[10px] text-emerald-400 font-semibold mb-1">AI Learning Stats</div>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                      <div className="text-sm font-bold text-white">{(engine.learning.winRate * 100).toFixed(0)}%</div>
-                      <div className="text-[9px] text-gray-600">Win Rate</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-white">{engine.learning.totalPredictions}</div>
-                      <div className="text-[9px] text-gray-600">Predictions</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-white">{engine.learning.topRules.length}</div>
-                      <div className="text-[9px] text-gray-600">Top Rules</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Portfolio diversity strip */}
-              {portfolio && portfolio.filtered_out > 0 && (
-                <div className="mt-2.5 pt-2.5 border-t border-white/[0.06] flex items-center justify-between">
-                  <span className="text-[10px] text-gray-500">
-                    Portfolio: <span className="text-white font-semibold">{portfolio.accepted}</span> active
-                    <span className="text-orange-400 ml-1">· {portfolio.filtered_out} correlated</span>
-                  </span>
-                  <span className="text-[10px] text-gray-600">
-                    {Object.keys(portfolio.by_direction || {}).length} directions
-                    · {Object.keys(portfolio.by_league || {}).length} leagues
-                  </span>
-                </div>
-              )}
             </div>
 
-            {/* Status filter + sort */}
+            {/* Filters + sort */}
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex gap-1 overflow-x-auto scrollbar-hide">
                 {statusTabs.map(tab => (
@@ -456,7 +374,7 @@ function EngineSignals() {
                         ? 'bg-white text-black border-white font-semibold'
                         : 'border-white/[0.1] text-gray-500'
                     }`}>
-                    {tab.label} {tab.count > 0 && <span className="opacity-60">({tab.count})</span>}
+                    {tab.label}{tab.count > 0 && <span className="opacity-60 ml-1">({tab.count})</span>}
                   </button>
                 ))}
               </div>
@@ -475,28 +393,28 @@ function EngineSignals() {
             {/* Content */}
             {loading ? (
               <div className="text-center text-gray-500 text-xs mt-16">
-                <div className="text-2xl mb-2">⚙️</div>
-                Loading predictions...
+                <div className="text-2xl mb-2">{engine.icon}</div>
+                Loading tips...
               </div>
             ) : filtered.length === 0 ? (
               <div className="text-center text-gray-600 text-xs mt-16">
                 <div className="text-3xl mb-2">{engine.icon}</div>
-                <div className="text-sm text-gray-500 mb-1">No signals found</div>
+                <div className="text-sm text-gray-500 mb-1">No tips right now</div>
                 <div className="text-xs text-gray-600">
                   {statusFilter !== 'all'
-                    ? `No ${statusFilter} signals. Try "All" filter.`
-                    : 'No matches met this engine\'s criteria today. The engine is always on and learning from every match.'}
+                    ? `No ${statusFilter === 'pending' ? 'new' : statusFilter} tips. Try "All".`
+                    : "This tipster hasn't found any qualifying matches today. Check back later."}
                 </div>
               </div>
             ) : (
-              Object.entries(grouped).map(([tournament, tournamentSignals]) => (
+              Object.entries(grouped).map(([tournament, tips]) => (
                 <div key={tournament} className="mb-4">
                   <div className="flex items-center gap-2 mb-2 px-1">
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide truncate">🏆 {tournament}</span>
-                    <span className="text-xs text-gray-600 shrink-0">({tournamentSignals.length})</span>
+                    <span className="text-xs text-gray-600 shrink-0">({tips.length})</span>
                   </div>
-                  {tournamentSignals.map((signal, i) => (
-                    <SignalCard key={`${signal.matchId}-${signal.market}-${i}`} signal={signal} />
+                  {tips.map((signal, i) => (
+                    <TipCard key={`${signal.matchId}-${signal.market}-${i}`} signal={signal} />
                   ))}
                 </div>
               ))
@@ -509,4 +427,3 @@ function EngineSignals() {
 }
 
 export default EngineSignals;
-
