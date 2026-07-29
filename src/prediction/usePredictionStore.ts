@@ -2,10 +2,13 @@
 //  Prediction Store — persists engines config + accepted picks
 //  Backend predictions are the source of truth. The client-side
 //  engine is kept as a fallback for matches without backend data.
+//  Engines are always on — no toggle needed.
+//  Match grading automatically assigns engines and records results.
 // ─────────────────────────────────────────────────────────────
 import { create } from 'zustand';
-import { DEFAULT_ENGINES, PredictionEngine, MatchSignal, runEngines } from './engine';
+import { DEFAULT_ENGINES, PredictionEngine, MatchSignal, runEngines, assignEnginesToMatch } from './engine';
 import { getPredictionsToday, getUpcomingEnrichedPredicted } from '../services/apis/footballApi';
+import { learningStore, recordEngineResult, getMatchEngineAssignments, MatchEngineAssignment } from './engineLearning';
 
 interface PredictionState {
   engines: PredictionEngine[];
@@ -14,18 +17,21 @@ interface PredictionState {
   lastRun: number | null;
   running: boolean;
   backendPredictionsLoaded: boolean;
+  matchAssignments: Record<string, MatchEngineAssignment[]>;
 
   // actions
   runPredictions: (matches: any[]) => void;
   loadBackendPredictions: () => Promise<void>;
   initBackendPredictions: () => Promise<void>;
-  toggleEngine: (id: string) => void;
   updateEngineRule: (engineId: string, ruleIndex: number, patch: Partial<PredictionEngine['rules'][0]>) => void;
   acceptSignal: (matchId: string, engineId: string, market: string) => void;
   rejectSignal: (matchId: string, engineId: string, market: string) => void;
   undoReject: (matchId: string, engineId: string, market: string) => void;
   markResult: (matchId: string, engineId: string, market: string, result: 'won' | 'lost') => void;
+  gradeMatch: (matchId: string, result: 'won' | 'lost', matchData?: any) => void;
+  assignEnginesToMatch: (matchId: string, matchData: any) => void;
   clearAccepted: () => void;
+  refreshEngineLearning: () => void;
 }
 
 /** Convert a backend prediction into a MatchSignal for the store. */
@@ -57,12 +63,16 @@ function backendPredictionToSignal(prediction: any): MatchSignal {
 }
 
 export const usePredictionStore = create<PredictionState>((set, get) => ({
-  engines: DEFAULT_ENGINES,
+  engines: DEFAULT_ENGINES.map(e => ({
+    ...e,
+    alwaysOn: true,  // All engines are always on
+  })),
   signals: [],
   acceptedPicks: [],
   lastRun: null,
   running: false,
   backendPredictionsLoaded: false,
+  matchAssignments: {},
 
   /** Fetch backend predictions and merge them into the store as the primary signals. */
   loadBackendPredictions: async () => {
@@ -89,14 +99,6 @@ export const usePredictionStore = create<PredictionState>((set, get) => ({
     // kept as a fallback for matches without backend data.
     const signals = runEngines(matches, get().engines);
     set({ signals, running: false, lastRun: Date.now() });
-  },
-
-  toggleEngine: (id: string) => {
-    set((state) => ({
-      engines: state.engines.map((e) =>
-        e.id === id ? { ...e, enabled: !e.enabled } : e
-      ),
-    }));
   },
 
   updateEngineRule: (engineId, ruleIndex, patch) => {
@@ -177,5 +179,76 @@ export const usePredictionStore = create<PredictionState>((set, get) => ({
     });
   },
 
+  gradeMatch: (matchId, result, matchData) => {
+    // Grade all pending signals for this match
+    const { signals, engines } = get();
+    const matchSignals = signals.filter(s => s.matchId === matchId && s.status === 'pending');
+
+    for (const signal of matchSignals) {
+      const won = result === 'won';
+      recordEngineResult(matchId, signal.engineId, won);
+
+      // Update local stats
+      get().markResult(matchId, signal.engineId, signal.market, result);
+    }
+
+    // Also grade any engine assignments from the learning store
+    const assignments = getMatchEngineAssignments(matchId);
+    for (const assignment of assignments) {
+      if (assignment.result === 'pending') {
+        const won = result === 'won';
+        recordEngineResult(matchId, assignment.engineId, won);
+      }
+    }
+  },
+
+  assignEnginesToMatch: (matchId, matchData) => {
+    const { engines } = get();
+    const assignments = assignEnginesToMatch(matchData, engines);
+
+    set((state) => ({
+      matchAssignments: {
+        ...state.matchAssignments,
+        [matchId]: assignments,
+      },
+    }));
+
+    // Also record in learning store
+    for (const assignment of assignments) {
+      learningStore.recordPrediction(
+        assignment.engineId,
+        assignment.ruleIndex,
+        matchId,
+        assignment.prediction.market,
+        assignment.prediction.pick,
+        assignment.prediction.odds,
+        assignment.prediction.probability,
+        assignment.prediction.valueEdge,
+        assignment.context
+      );
+    }
+  },
+
   clearAccepted: () => set({ acceptedPicks: [] }),
+
+  refreshEngineLearning: () => {
+    // Refresh engine learning data from the store
+    const { engines } = get();
+    const updatedEngines = engines.map(e => {
+      const learning = learningStore.getEngineLearning(e.id);
+      if (!learning) return e;
+      return {
+        ...e,
+        learning: {
+          winRate: learning.winRate,
+          totalPredictions: learning.totalPredictions,
+          topRules: learning.rulePerformance
+            .sort((a, b) => b.winRate - a.winRate)
+            .slice(0, 3)
+            .map(r => ({ ruleIndex: r.ruleIndex, winRate: r.winRate, fires: r.totalFires })),
+        },
+      };
+    });
+    set({ engines: updatedEngines });
+  },
 }));

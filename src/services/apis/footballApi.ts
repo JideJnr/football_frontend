@@ -59,6 +59,9 @@ export const analyzeMatchWithAi = (id: string) =>
 export const analyzeMatchSnapshot = (id: string) =>
   api.post(`/matches/${id}/ai-analysis-match`).then(r => r.data);
 
+export const getAllAiAnalyses = (id: string) =>
+  api.get(`/matches/${id}/ai-analysis-all`).then(r => r.data);
+
 export const analyzeGradedMatch = (id: string) =>
   api.post(`/matches/${id}/ai-analyze-graded`).then(r => r.data);
 
@@ -208,6 +211,9 @@ export const enrichPredictCompetitionSpecial = (key: string, limit = 8) =>
   api.post(`/competition-special/${encodeURIComponent(key)}/enrich-predict`, null, {
     params: { limit },
   }).then(r => r.data);
+
+export const triggerCompetitionAnalysis = (key: string) =>
+  api.post(`/competition-special/${encodeURIComponent(key)}/analysis/trigger`).then(r => r.data);
 
 export const getCompetitionSpecialDashboard = (bufferLimit = 50) =>
   api.get('/composite/competition-special/dashboard', { params: { buffer_limit: bufferLimit } }).then(r => r.data);

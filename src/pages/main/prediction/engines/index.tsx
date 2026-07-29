@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { IonContent, IonPage, IonRefresher, IonRefresherContent, useIonRouter } from '@ionic/react';
 import { usePredictionStore } from '../../../../prediction/usePredictionStore';
 import { PredictionEngine, EngineRule } from '../../../../prediction/engine';
+import { learningStore, getEngineLearningData } from '../../../../prediction/engineLearning';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,8 +21,13 @@ const categoryMeta: Record<string, { label: string; color: string; border: strin
   sharp:   { label: 'Sharp',   color: 'text-red-400',     border: 'border-red-800' },
 };
 
-const winRate = (e: PredictionEngine) =>
-  e.stats.total === 0 ? null : ((e.stats.wins / e.stats.total) * 100).toFixed(0);
+const winRate = (e: PredictionEngine) => {
+  const learning = e.learning;
+  if (learning && learning.totalPredictions > 0) {
+    return (learning.winRate * 100).toFixed(0);
+  }
+  return e.stats.total === 0 ? null : ((e.stats.wins / e.stats.total) * 100).toFixed(0);
+};
 
 const winRateColor = (rate: string | null) => {
   if (!rate) return 'text-gray-600';
@@ -132,7 +138,6 @@ function RuleRow({ rule, index, engineId }: { rule: EngineRule; index: number; e
 // ─── Engine card ──────────────────────────────────────────────────────────────
 
 function EngineCard({ engine }: { engine: PredictionEngine }) {
-  const { toggleEngine } = usePredictionStore();
   const { signals } = usePredictionStore();
   const router = useIonRouter();
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -141,34 +146,53 @@ function EngineCard({ engine }: { engine: PredictionEngine }) {
   const cat = categoryMeta[engine.category] || categoryMeta.value;
   const engineSignals = signals.filter(s => s.engineId === engine.id && s.status !== 'rejected');
 
+  // Get learning data
+  const learningData = getEngineLearningData(engine.id);
+  const topRule = learningData?.rulePerformance
+    .filter(r => r.totalFires >= 3)
+    .sort((a, b) => b.winRate - a.winRate)[0];
+
   return (
     <div className={`border rounded-xl overflow-hidden mb-3 transition-all ${
-      engine.enabled ? cat.border : 'border-white/[0.05]'
+      engine.alwaysOn ? cat.border : 'border-white/[0.05]'
     } bg-[#161616]`}>
       {/* Header row */}
       <div className="p-3">
         <div className="flex items-start gap-3">
-          {/* Icon + toggle */}
+          {/* Icon + always-on indicator */}
           <div className="flex flex-col items-center gap-2 shrink-0">
             <span className="text-2xl">{engine.icon}</span>
-            <button
-              onClick={() => toggleEngine(engine.id)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${engine.enabled ? 'bg-emerald-600' : 'bg-[#333]'}`}
-            >
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${engine.enabled ? 'left-5' : 'left-1'}`} />
-            </button>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Always On" />
+              <span className="text-[8px] text-emerald-500 font-bold uppercase">ON</span>
+            </div>
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-sm font-bold ${engine.enabled ? 'text-white' : 'text-gray-500'}`}>{engine.name}</span>
+              <span className="text-sm font-bold text-white">{engine.name}</span>
               <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cat.color} ${cat.border} bg-transparent`}>
                 {cat.label}
               </span>
               {rate && <span className={`text-xs font-mono ${winRateColor(rate)}`}>{rate}% win</span>}
+              {learningData && learningData.totalPredictions > 0 && (
+                <span className="text-[10px] text-gray-500">
+                  {learningData.totalPredictions} predictions
+                </span>
+              )}
             </div>
             <div className="text-[11px] text-gray-500 mt-0.5">{engine.description}</div>
+
+            {/* AI Learning indicator */}
+            {topRule && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-[9px] text-emerald-400 font-semibold uppercase tracking-wide">AI Learning</span>
+                <span className="text-[10px] text-gray-500">
+                  Top rule: {(topRule.winRate * 100).toFixed(0)}% win rate ({topRule.totalFires} fires)
+                </span>
+              </div>
+            )}
 
             {/* Stats row */}
             <div className="flex gap-3 mt-1.5 text-[10px] text-gray-600 flex-wrap">
@@ -198,7 +222,7 @@ function EngineCard({ engine }: { engine: PredictionEngine }) {
           <button
             onClick={() => router.push(`/engine/${engine.id}`, 'forward', 'push')}
             className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold border transition ${
-              engine.enabled
+              engine.alwaysOn
                 ? `${cat.border} ${cat.color} hover:bg-white/5`
                 : 'border-white/[0.06] text-gray-600'
             }`}
@@ -226,13 +250,18 @@ function EngineCard({ engine }: { engine: PredictionEngine }) {
 type CategoryFilter = 'all' | 'value' | 'goals' | 'result' | 'special' | 'sharp';
 
 function Engines() {
-  const { engines, signals } = usePredictionStore();
+  const { engines, signals, refreshEngineLearning } = usePredictionStore();
   const [catFilter, setCatFilter] = useState<CategoryFilter>('all');
+
+  // Refresh learning data on mount
+  useState(() => {
+    refreshEngineLearning();
+  });
 
   const totalWins = engines.reduce((a, e) => a + e.stats.wins, 0);
   const totalTotal = engines.reduce((a, e) => a + e.stats.total, 0);
   const overallRate = totalTotal > 0 ? ((totalWins / totalTotal) * 100).toFixed(0) : null;
-  const activeCount = engines.filter(e => e.enabled).length;
+  const activeCount = engines.filter(e => e.alwaysOn).length;
   const totalSignals = signals.filter(s => s.status !== 'rejected').length;
 
   const categories: { id: CategoryFilter; label: string }[] = [
@@ -302,8 +331,8 @@ function Engines() {
 
           {/* How it works */}
           <div className="mt-2 bg-[#0d0d0d] border border-white/[0.06] rounded-xl p-3 text-xs text-gray-600">
-            <div className="font-semibold text-gray-400 mb-1">💡 How engines work</div>
-            <p>Each engine scans today's matches against its rules. Tap "View Signals" to see every match that fired. Value edge = (model probability × odds) − 1. Positive edge means the bookmaker is underpricing the outcome.</p>
+            <div className="font-semibold text-gray-400 mb-1">🤖 AI-Powered Prediction Engines</div>
+            <p>All engines are <span className="text-emerald-400 font-semibold">always on</span> — they continuously scan matches and learn from results. Each engine has strict rules and a dedicated page. When a match is graded, engines that satisfied their rules are automatically assigned and learn from the outcome. Value hunters use all engine context to provide the best predictions.</p>
           </div>
         </div>
       </IonContent>

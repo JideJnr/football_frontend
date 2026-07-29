@@ -15,10 +15,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import {
-  enrichPredictCompetitionSpecial,
   getCompetitionPage,
   setCompetitionSpecialSettings,
-  syncCompetitionSpecial,
 } from '../../../services/apis/footballApi';
 import type { CompetitionAnalysis } from '../../../interfaces/interface';
 
@@ -94,13 +92,11 @@ export default function CompetitionDetail() {
 
   const [pageData, setPageData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState('');
+  const [toggling, setToggling] = useState(false);
   const [msg, setMsg] = useState('');
   const [mode, setMode] = useState<FilterMode>('all');
   const [group, setGroup] = useState('all');
   const [query, setQuery] = useState('');
-  const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [analysisMsg, setAnalysisMsg] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -117,37 +113,15 @@ export default function CompetitionDetail() {
 
   useEffect(() => { load(); }, [key]);
 
-  const act = async (id: string, fn: () => Promise<any>, ok: (r: any) => string) => {
-    setBusy(id);
-    setMsg('');
+  const parseAnalysis = (text?: string) => {
+    if (!text) return null;
     try {
-      const r = await fn();
-      setMsg(ok(r));
-      await load();
-    } catch (e: any) {
-      setMsg(e?.response?.data?.detail || e?.message || 'Failed');
-    } finally {
-      setBusy('');
+      const parsed = JSON.parse(text);
+      if (typeof parsed === 'object' && parsed !== null) return parsed;
+    } catch {
+      // plain text fallback
     }
-  };
-
-  const triggerAnalysis = async () => {
-    setAnalysisLoading(true);
-    setAnalysisMsg('');
-    try {
-      const res = await fetch(`/api/competition-special/${encodeURIComponent(key)}/analysis/trigger`, { method: 'POST' });
-      const data = await res.json();
-      if (data.status === 'ok') {
-        setAnalysisMsg(`Analysis generated for ${data.round_name}`);
-      } else {
-        setAnalysisMsg(data.status === 'ollama_unavailable' ? 'Ollama unavailable — analysis skipped' : data.status === 'no_completed_rounds' ? 'No completed rounds to analyse' : data.error || 'Analysis failed');
-      }
-      await load();
-    } catch (e: any) {
-      setAnalysisMsg(e?.message || 'Failed to trigger analysis');
-    } finally {
-      setAnalysisLoading(false);
-    }
+    return { analysis: text };
   };
 
   // derived
@@ -210,8 +184,19 @@ export default function CompetitionDetail() {
             <button
               role="switch"
               aria-checked={enabled}
-              onClick={() => act('toggle', () => setCompetitionSpecialSettings(key, { enabled: !enabled }), () => 'Updated')}
-              disabled={busy === 'toggle'}
+              onClick={async () => {
+                setToggling(true);
+                try {
+                  await setCompetitionSpecialSettings(key, { enabled: !enabled });
+                  setMsg('Updated');
+                  await load();
+                } catch (e: any) {
+                  setMsg(e?.response?.data?.detail || e?.message || 'Failed');
+                } finally {
+                  setToggling(false);
+                }
+              }}
+              disabled={toggling}
               className={`relative h-6 w-11 rounded-full border transition-all disabled:opacity-40 ${
                 enabled ? 'border-emerald-400 bg-emerald-500/30' : 'border-white/10 bg-white/[0.05]'
               }`}
@@ -220,7 +205,7 @@ export default function CompetitionDetail() {
             </button>
             <button
               onClick={load}
-              disabled={loading || !!busy}
+              disabled={loading}
               className="rounded-md border border-white/[0.08] bg-white/[0.04] p-1.5 text-gray-400 disabled:opacity-40"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -263,68 +248,71 @@ export default function CompetitionDetail() {
           </div>
         )}
 
-        {/* actions */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            onClick={() => act('sync', () => syncCompetitionSpecial(key, 7), (r) => `Synced ${r?.stored ?? 0} fixtures`)}
-            disabled={!!busy || !key}
-            className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-[11px] font-bold text-sky-300 disabled:opacity-40"
-          >
-            <Database className="h-3.5 w-3.5" />
-            {busy === 'sync' ? 'Syncing…' : 'Sync'}
-          </button>
-          <button
-            onClick={() => act('enrich', () => enrichPredictCompetitionSpecial(key, 20), (r) => `Enriched ${r?.enriched ?? 0}, predicted ${r?.predicted ?? 0}`)}
-            disabled={!!busy || !key}
-            className="inline-flex items-center gap-1.5 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-[11px] font-bold text-yellow-200 disabled:opacity-40"
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            {busy === 'enrich' ? 'Enriching…' : 'Enrich & predict'}
-          </button>
-          <button
-            onClick={() => act('enrich-all', () => enrichPredictCompetitionSpecial(key, 80), (r) => `Batch: ${r?.enriched ?? 0} enriched, ${r?.predicted ?? 0} predicted`)}
-            disabled={!!busy || !key}
-            className="inline-flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-[11px] font-bold text-purple-300 disabled:opacity-40"
-          >
-            <Activity className="h-3.5 w-3.5" />
-            {busy === 'enrich-all' ? 'Running…' : 'Enrich all'}
-          </button>
-        </div>
-
-        {msg && (
-          <p className={`mt-2 text-[11px] ${msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-300'}`}>
-            {msg}
-          </p>
-        )}
-
         {/* ── analysis section ─────────────────────────────────── */}
         {(() => {
           const latestAnalysis = pageData?.latest_analysis as CompetitionAnalysis | null | undefined;
           const analysisHistory = (pageData?.analysis_history as CompetitionAnalysis[] | undefined) ?? [];
+          const latestParsed = parseAnalysis(latestAnalysis?.analysis_text);
 
           return (
             <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-purple-400" />
-                  <span className="text-[12px] font-bold text-white">AI Analysis</span>
-                </div>
-                <button
-                  onClick={triggerAnalysis}
-                  disabled={analysisLoading || !!busy}
-                  className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[10px] font-bold text-purple-300 disabled:opacity-40"
-                >
-                  {analysisLoading ? 'Analysing…' : 'Trigger analysis'}
-                </button>
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-purple-400" />
+                <span className="text-[12px] font-bold text-white">Weekly AI Review</span>
+                {latestAnalysis && (
+                  <span className="ml-auto text-[9px] text-gray-600">
+                    {latestAnalysis.round_name} · {fmtShort(latestAnalysis.generated_at)}
+                  </span>
+                )}
               </div>
 
-              {analysisMsg && (
-                <p className={`mt-1.5 text-[10px] ${analysisMsg.toLowerCase().includes('fail') || analysisMsg.toLowerCase().includes('error') ? 'text-red-400' : 'text-emerald-300'}`}>
-                  {analysisMsg}
-                </p>
-              )}
+              {latestParsed ? (
+                <div className="mt-3 space-y-3">
+                  {/* Main analysis text */}
+                  {latestParsed.analysis && (
+                    <p className="text-[11px] leading-relaxed text-gray-300">{latestParsed.analysis}</p>
+                  )}
 
-              {latestAnalysis ? (
+                  {/* Top Table */}
+                  {latestParsed.top_table && Array.isArray(latestParsed.top_table) && latestParsed.top_table.length > 0 && (
+                    <div className="rounded-md bg-emerald-500/[0.06] border border-emerald-500/10 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-2">Top Table</div>
+                      <div className="space-y-1">
+                        {latestParsed.top_table.map((row: any, i: number) => (
+                          <div key={i} className="flex items-center gap-2 text-[11px]">
+                            <span className="w-5 text-right font-bold text-emerald-300">{row.pos ?? i + 1}</span>
+                            <span className="flex-1 text-white">{row.team}</span>
+                            <span className="text-gray-400">{row.pts ?? row.points ?? 0} pts</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Disappointments */}
+                  {latestParsed.disappointments && Array.isArray(latestParsed.disappointments) && latestParsed.disappointments.length > 0 && (
+                    <div className="rounded-md bg-red-500/[0.06] border border-red-500/10 p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-red-400 mb-2">Disappointments This Week</div>
+                      <div className="space-y-1">
+                        {latestParsed.disappointments.map((item: string, i: number) => (
+                          <div key={i} className="flex items-center gap-2 text-[11px] text-red-200">
+                            <span className="text-red-500">•</span>
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Standings Impact */}
+                  {latestParsed.standings_impact && (
+                    <div className="rounded-md bg-white/[0.02] border border-white/[0.06] p-2.5">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1">Standings Impact</div>
+                      <p className="text-[11px] text-gray-400">{latestParsed.standings_impact}</p>
+                    </div>
+                  )}
+                </div>
+              ) : latestAnalysis ? (
                 <div className="mt-2 rounded-md bg-black/20 p-2.5">
                   <div className="flex items-center gap-2 text-[10px] text-gray-500">
                     <span className="rounded bg-purple-500/10 px-1.5 py-0.5 font-bold text-purple-300">{latestAnalysis.round_name}</span>
@@ -337,26 +325,34 @@ export default function CompetitionDetail() {
                   <p className="mt-1.5 text-[11px] leading-relaxed text-gray-300">{latestAnalysis.analysis_text}</p>
                 </div>
               ) : (
-                <p className="mt-2 text-[10px] text-gray-600">No analysis yet. Complete a round and click Trigger analysis.</p>
+                <p className="mt-2 text-[10px] text-gray-600">No analysis yet. The pipeline will generate one after matches complete.</p>
               )}
 
               {analysisHistory.length > 1 && (
-                <details className="mt-2">
+                <details className="mt-3">
                   <summary className="cursor-pointer text-[10px] font-bold text-gray-500 hover:text-gray-300">
                     {analysisHistory.length - 1} earlier analyses
                   </summary>
                   <div className="mt-1.5 space-y-1.5">
-                    {analysisHistory.slice(1).map((a) => (
-                      <div key={a.id} className="rounded-md bg-black/10 p-2">
-                        <div className="flex items-center gap-2 text-[9px] text-gray-600">
-                          <span className="font-bold text-gray-500">{a.round_name}</span>
-                          <span>{a.match_count} matches</span>
-                          <span>·</span>
-                          <span>{fmtShort(a.generated_at)}</span>
+                    {analysisHistory.slice(1).map((a) => {
+                      const parsed = parseAnalysis(a.analysis_text);
+                      return (
+                        <div key={a.id} className="rounded-md bg-black/10 p-2">
+                          <div className="flex items-center gap-2 text-[9px] text-gray-600">
+                            <span className="font-bold text-gray-500">{a.round_name}</span>
+                            <span>{a.match_count} matches</span>
+                            <span>·</span>
+                            <span>{fmtShort(a.generated_at)}</span>
+                          </div>
+                          {parsed?.analysis && (
+                            <p className="mt-0.5 text-[10px] leading-relaxed text-gray-500">{parsed.analysis}</p>
+                          )}
+                          {!parsed?.analysis && (
+                            <p className="mt-0.5 text-[10px] leading-relaxed text-gray-500" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.analysis_text}</p>
+                          )}
                         </div>
-                        <p className="mt-0.5 text-[10px] leading-relaxed text-gray-500" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.analysis_text}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </details>
               )}

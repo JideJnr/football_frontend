@@ -4,6 +4,7 @@ import { useParams } from 'react-router';
 import { usePredictionStore } from '../../../../prediction/usePredictionStore';
 import { MatchSignal } from '../../../../prediction/engine';
 import { getPredictionsToday, refreshPredictions } from '../../../../services/apis/footballApi';
+import { getValueHunterContext as getLocalValueHunterContext, getEngineLearningData } from '../../../../prediction/engineLearning';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -218,7 +219,7 @@ type StatusFilter = 'all' | 'pending' | 'accepted' | 'rejected';
 function EngineSignals() {
   const { id: engineId } = useParams<{ id: string }>();
   const router = useIonRouter();
-  const { engines } = usePredictionStore();
+  const { engines, refreshEngineLearning } = usePredictionStore();
 
   const [sort, setSort] = useState<SortMode>('confidence');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -226,8 +227,14 @@ function EngineSignals() {
   const [portfolio, setPortfolio] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [valueHunterContexts, setValueHunterContexts] = useState<Record<string, any>>({});
 
   const engine = useMemo(() => engines.find(e => e.id === engineId), [engines, engineId]);
+
+  // Refresh learning data on mount
+  useEffect(() => {
+    refreshEngineLearning();
+  }, [refreshEngineLearning]);
 
   const fetchPreds = async () => {
     setLoading(true);
@@ -255,6 +262,30 @@ function EngineSignals() {
   };
 
   useEffect(() => { fetchPreds(); }, []);
+
+  // Build value hunter contexts for all matches
+  useEffect(() => {
+    if (!backendPreds.length) return;
+    const contexts: Record<string, any> = {};
+    for (const pred of backendPreds) {
+      const matchId = String(pred.match_id || pred.sportybet_id || '');
+      if (matchId) {
+        const matchData = {
+          id: matchId,
+          name: pred.match_name,
+          home_team: pred.match_name?.split(' vs ')[0],
+          away_team: pred.match_name?.split(' vs ')[1],
+          tournament: pred.league_name,
+          start_time: pred.start_time,
+        };
+        const vhContext = getLocalValueHunterContext(matchId, matchData);
+        if (vhContext) {
+          contexts[matchId] = vhContext;
+        }
+      }
+    }
+    setValueHunterContexts(contexts);
+  }, [backendPreds]);
 
   // Convert backend predictions to signals for this engine
   const engineSignals = useMemo(() => {
@@ -354,12 +385,24 @@ function EngineSignals() {
             >
               {refreshing ? '⏳ Running...' : '🔄 Re-run'}
             </button>
+            <button
+              onClick={() => router.push(`/engine/${engine.id}/details`, 'forward', 'push')}
+              className="shrink-0 px-2.5 py-1 rounded-lg border border-emerald-500/30 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/10 transition"
+            >
+              📊 Learning
+            </button>
           </div>
 
           <div className="px-3 pt-4">
             {/* Engine summary */}
             <div className="bg-[#161616] border border-white/[0.07] rounded-xl p-3 mb-4">
-              <div className="text-xs text-gray-400 mb-2">{engine.description}</div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">{engine.icon}</span>
+                <div>
+                  <div className="text-xs text-gray-400">{engine.description}</div>
+                  <div className="text-[10px] text-emerald-500 font-semibold">Always On — AI Learning Active</div>
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-2 text-center">
                 {[
                   { label: 'Total',    value: engineSignals.length,                                    color: 'text-white' },
@@ -373,6 +416,26 @@ function EngineSignals() {
                   </div>
                 ))}
               </div>
+              {/* AI Learning stats */}
+              {engine.learning && engine.learning.totalPredictions > 0 && (
+                <div className="mt-2.5 pt-2.5 border-t border-white/[0.06]">
+                  <div className="text-[10px] text-emerald-400 font-semibold mb-1">AI Learning Stats</div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <div className="text-sm font-bold text-white">{(engine.learning.winRate * 100).toFixed(0)}%</div>
+                      <div className="text-[9px] text-gray-600">Win Rate</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">{engine.learning.totalPredictions}</div>
+                      <div className="text-[9px] text-gray-600">Predictions</div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">{engine.learning.topRules.length}</div>
+                      <div className="text-[9px] text-gray-600">Top Rules</div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Portfolio diversity strip */}
               {portfolio && portfolio.filtered_out > 0 && (
                 <div className="mt-2.5 pt-2.5 border-t border-white/[0.06] flex items-center justify-between">
@@ -425,11 +488,9 @@ function EngineSignals() {
                 <div className="text-3xl mb-2">{engine.icon}</div>
                 <div className="text-sm text-gray-500 mb-1">No signals found</div>
                 <div className="text-xs text-gray-600">
-                  {!engine.enabled
-                    ? 'This engine is disabled — enable it on the engines page'
-                    : statusFilter !== 'all'
+                  {statusFilter !== 'all'
                     ? `No ${statusFilter} signals. Try "All" filter.`
-                    : 'No matches met this engine\'s criteria today. Try loosening the rules.'}
+                    : 'No matches met this engine\'s criteria today. The engine is always on and learning from every match.'}
                 </div>
               </div>
             ) : (

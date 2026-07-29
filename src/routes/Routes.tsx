@@ -9,6 +9,7 @@ const PredictionDashboard = React.lazy(() => import("../pages/main/prediction/da
 const ModelExplorer = React.lazy(() => import("../pages/main/prediction/model-explorer"));
 const Builder = React.lazy(() => import("../pages/main/prediction/betbuilder/index"));
 const Engine = React.lazy(() => import("../pages/main/prediction/engines/index"));
+const EngineDetails = React.lazy(() => import("../pages/main/prediction/engines/details/index"));
 const ValueBets = React.lazy(() => import("../pages/main/prediction/value-bets/index"));
 const Suggestions = React.lazy(() => import("../pages/main/prediction/suggestion/index"));
 const Rating = React.lazy(() => import("../pages/main/prediction/rating/index"));
@@ -58,6 +59,7 @@ const Routes: React.FC = () => {
       <Route path="/team/:id" exact component={TeamDetails} />
       <Route path="/league/:id" exact component={LeagueDetails} />
       <Route path="/engine/:id" exact component={React.lazy(() => import('../pages/main/prediction/engines/signals'))} />
+      <Route path="/engine/:id/details" exact component={EngineDetails} />
 
       {/*
         Match routes — odds detail MUST come before the base match route.

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BJ Hotel</string>
+    <string name="title_activity_main">BJ Hotel</string>
+    <string name="package_name">com.bj.hotel</string>
+    <string name="custom_url_scheme">com.bj.hotel</string>
+</resources>

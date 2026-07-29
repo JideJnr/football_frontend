@@ -12,6 +12,8 @@ import {
   analyzeGradedMatch,
   trackUserBehavior,
 } from '../../../../services/apis/footballApi';
+import { usePredictionStore } from '../../../../prediction/usePredictionStore';
+import { assignEnginesToMatch } from '../../../../prediction/engine';
 
 import { TABS, Tab } from './shared';
 import MatchHero from './MatchHero';
@@ -52,17 +54,19 @@ const Match = () => {
 
   const router = useIonRouter();
   const { getMatchDetail, matchDetail, loading, error } = useFootballContext();
+  const { assignEnginesToMatch: assignEngines, gradeMatch, engines } = usePredictionStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('Home');
-  const [enriching, setEnriching]     = useState(false);
-  const [predicting, setPredicting]   = useState(false);
-  const [analyzing, setAnalyzing]     = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [predicting, setPredicting] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [analyzingSnapshot, setAnalyzingSnapshot] = useState(false);
   const [candidateLoading, setCandidateLoading] = useState(false);
-  const [candidates, setCandidates]   = useState<any[]>([]);
-  const [matching, setMatching]       = useState<string | null>(null);
-  const [actionMsg, setActionMsg]     = useState('');
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [matching, setMatching] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState('');
   const [actionError, setActionError] = useState('');
+  const [grading, setGrading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -76,7 +80,39 @@ const Match = () => {
     trackUserBehavior({ match_id: id, action: 'viewed' });
   }, [id]);
 
+  // Auto-assign engines when match detail loads
+  useEffect(() => {
+    if (!matchDetail || !id) return;
+    assignEngines(id, matchDetail);
+  }, [matchDetail, id, assignEngines]);
+
   const refresh = async () => { if (id) await getMatchDetail(id); };
+
+  const handleGradeMatch = async () => {
+    if (!id || !matchDetail) return;
+    setGrading(true);
+    setActionMsg('');
+    setActionError('');
+    try {
+      // Determine result from match data
+      const score = matchDetail?.score || {};
+      const homeScore = Number(score.home ?? matchDetail?.homeScore?.current ?? 0);
+      const awayScore = Number(score.away ?? matchDetail?.awayScore?.current ?? 0);
+
+      let result: 'won' | 'lost' | 'draw' = 'draw';
+      if (homeScore > awayScore) result = 'won';
+      else if (homeScore < awayScore) result = 'lost';
+
+      // Grade the match - this assigns engines and records results
+      gradeMatch(id, result, matchDetail);
+      setActionMsg(`Match graded: ${result.toUpperCase()}. Engines have learned from this outcome.`);
+      await refresh();
+    } catch (err: any) {
+      setActionError(err?.response?.data?.detail || err?.message || 'Grading failed');
+    } finally {
+      setGrading(false);
+    }
+  };
 
   const handleEnrich = async () => {
     if (!id) return;
@@ -190,6 +226,32 @@ const Match = () => {
         return (
           <>
             <div className="px-4 pt-4">
+              {/* Engine Assignment Status */}
+              {id && (
+                <div className="bg-[#161616] border border-emerald-500/20 rounded-xl p-3 mb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">Engine Assignment</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {matchDetail?.is_finished
+                          ? 'Match graded — engines have learned'
+                          : matchDetail?.is_live
+                          ? 'Live match — engines actively monitoring'
+                          : 'Engines assigned and monitoring'}
+                      </div>
+                    </div>
+                    {!matchDetail?.is_finished && (
+                      <button
+                        onClick={handleGradeMatch}
+                        disabled={grading}
+                        className="px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-40"
+                      >
+                        {grading ? 'Grading...' : 'Grade Match'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               <MatchingPanel
                 m={m}
                 candidates={candidates}

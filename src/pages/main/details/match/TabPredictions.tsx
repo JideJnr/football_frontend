@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Target, Brain, RefreshCw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { Sec, Empty, ActionButton } from './shared';
 import { trackUserBehavior, getUserPickForMatch } from '../../../../services/apis/footballApi';
@@ -581,11 +581,11 @@ const AiAnalysisCard = ({
     : isOllamaFallback
       ? 'Ollama (Qwen3 + DeepSeek-R1)'
       : 'AI Analysis';
-  const providerEmoji = isGroq ? '⚡' : isOllamaFallback ? '🥇' : '🤖';
+  const providerEmoji = isGroq ? 'âš¡' : isOllamaFallback ? 'ðŸ¥‡' : 'ðŸ¤–';
   const providerRole = isGroq
-    ? 'Cloud LLM — fast, high-quality reasoning'
+    ? 'Cloud LLM â€” fast, high-quality reasoning'
     : isOllamaFallback
-      ? 'Local LLM — fallback after Groq unavailable'
+      ? 'Local LLM â€” fallback after Groq unavailable'
       : 'AI analysis';
 
   const rec = analysis?.recommendation || analysis?.consensus || 'No analysis yet';
@@ -611,13 +611,13 @@ const AiAnalysisCard = ({
             <div className="mb-3 space-y-1.5">
               <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">Key factors</div>
               {analysis.key_factors.slice(0, 4).map((f: string, i: number) => (
-                <div key={String(f) + i} className="text-xs leading-relaxed text-emerald-200">• {f}</div>
+                <div key={String(f) + i} className="text-xs leading-relaxed text-emerald-200">â€¢ {f}</div>
               ))}
             </div>
           )}
           {isOllamaFallback && (
             <div className="mb-3 rounded-lg border border-yellow-500/20 bg-yellow-500/[0.06] px-3 py-2 text-xs text-yellow-300">
-              Groq was unavailable — Ollama local models were used as fallback.
+              Groq was unavailable â€” Ollama local models were used as fallback.
             </div>
           )}
           <AiReasoningBlock reasoning={analysis?.reasoning} />
@@ -782,10 +782,9 @@ const UserPickPanel = ({ matchId, modelSelection }: { matchId: string; modelSele
   const submit = async (option: typeof USER_PICK_OPTIONS[0]) => {
     setSubmitting(true);
     try {
-      // Detect agreement: normalise both sides to lowercase for comparison
       const userSel = option.value.toLowerCase();
       const modelSel = (modelSelection || '').toLowerCase();
-      const agrees = modelSel && userSel.includes(modelSel.split(' ')[0]);
+      const agrees = !!(modelSel && userSel.includes(modelSel.split(' ')[0]));
       await trackUserBehavior({
         match_id: matchId,
         action: 'user_pick',
@@ -812,62 +811,57 @@ const UserPickPanel = ({ matchId, modelSelection }: { matchId: string; modelSele
     } catch {}
   };
 
-  // Highlight options that match the model pick
   const normModel = (modelSelection || '').toLowerCase();
+  const userAgreesWithModel = !!(saved && normModel && saved.selection.toLowerCase().includes(normModel.split(' ')[0]));
 
   return (
     <Sec title="Your Pick">
       <div className="space-y-3">
-        {/* Model feedback — accept / reject */}
         {modelSelection && (
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500 flex-1">Model says: <span className="text-white font-semibold">{modelSelection}</span></span>
+            <span className="flex-1 text-[10px] text-gray-500">Model: <span className="font-semibold text-white">{modelSelection}</span></span>
             <button
               onClick={() => sendFeedback('accepted')}
-              className={`px-3 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+              className={`rounded-lg border px-3 py-1 text-[11px] font-semibold transition-colors ${
                 feedback === 'accepted'
                   ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
                   : 'border-white/10 text-gray-500 hover:border-emerald-500/40 hover:text-emerald-400'
               }`}
             >
-              ✓ Agree
+              &#10003; Agree
             </button>
             <button
               onClick={() => sendFeedback('rejected')}
-              className={`px-3 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+              className={`rounded-lg border px-3 py-1 text-[11px] font-semibold transition-colors ${
                 feedback === 'rejected'
                   ? 'border-red-500 bg-red-500/20 text-red-300'
                   : 'border-white/10 text-gray-500 hover:border-red-500/40 hover:text-red-400'
               }`}
             >
-              ✗ Disagree
+              &#10007; Disagree
             </button>
           </div>
         )}
-
-        {/* Agreement badge when user pick matches model */}
-        {saved && normModel && saved.selection.toLowerCase().includes(normModel.split(' ')[0]) && (
+        {userAgreesWithModel && (
           <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.08] px-3 py-1.5">
-            <span className="text-emerald-400 text-xs">⚡ Your pick matches the model — signals reinforced</span>
+            <span className="text-xs text-emerald-400">&#9889; Your pick matches the model &mdash; signals reinforced</span>
           </div>
         )}
-
         {saved && (
           <div className="flex items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/[0.08] px-3 py-2">
             <span className="text-[10px] uppercase tracking-widest text-violet-400">Your pick</span>
             <span className="text-sm font-semibold text-white">{saved.selection}</span>
           </div>
         )}
-
         <div className="grid grid-cols-3 gap-2">
           {USER_PICK_OPTIONS.map(opt => {
-            const matchesModel = normModel && opt.value.toLowerCase().includes(normModel.split(' ')[0]);
+            const matchesModel = !!(normModel && opt.value.toLowerCase().includes(normModel.split(' ')[0]));
             return (
               <button
                 key={opt.value}
                 disabled={submitting}
                 onClick={() => submit(opt)}
-                className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors relative ${
+                className={`relative rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
                   saved?.selection === opt.value
                     ? 'border-violet-500 bg-violet-500/20 text-violet-200'
                     : matchesModel
@@ -876,7 +870,7 @@ const UserPickPanel = ({ matchId, modelSelection }: { matchId: string; modelSele
                 }`}
               >
                 {opt.label}
-                {matchesModel && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />}
+                {matchesModel && <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-emerald-500" />}
               </button>
             );
           })}
@@ -992,7 +986,7 @@ const PredictionActions = ({
         <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2">
           <CheckCircle size={14} className="text-emerald-400" />
           <span className="text-xs text-emerald-400">
-            Prediction available — {hasPrediction.status || 'completed'}
+            Prediction available â€” {hasPrediction.status || 'completed'}
           </span>
         </div>
       )}
@@ -1002,7 +996,7 @@ const PredictionActions = ({
         <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/[0.06] px-3 py-2">
           <Brain size={14} className="text-violet-400" />
           <span className="text-xs text-violet-400">
-            AI analysis available — {hasAiAnalysis.provider || 'completed'}
+            AI analysis available â€” {hasAiAnalysis.provider || 'completed'}
           </span>
         </div>
       )}
@@ -1039,7 +1033,7 @@ const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting
 
       {!prediction ? (
         <div className="rounded-xl border border-white/[0.07] bg-[#161616] p-6 text-center space-y-4">
-          <div className="text-3xl">🔮</div>
+          <div className="text-3xl">ðŸ”®</div>
           <div>
             <div className="text-sm font-semibold text-white">No prediction yet</div>
             <div className="text-xs text-gray-500 mt-1">{predictionError || 'The system hasn\'t run a prediction for this match. You can trigger one now.'}</div>
@@ -1064,7 +1058,7 @@ const TabPredictions = ({ m, onPredict, onAnalyze, onAnalyzeSnapshot, predicting
           <LiveGoalPanel picks={picks} m={m} prediction={prediction} />
           <PortfolioBadge prediction={prediction} />
           <DecisionCard pick={primary} />
-          <UserPickPanel matchId={m?.id || m?.sportybet_id || m?.match_id || ''} />
+          <UserPickPanel matchId={m?.id || m?.sportybet_id || m?.match_id || ''} modelSelection={primary?.selection} />
           <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
           <StakeCard pick={primary} />
           <AlternativePicks picks={alternatives} />

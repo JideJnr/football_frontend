@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  Prediction Engine — core logic
 // ─────────────────────────────────────────────────────────────
+import { MatchEngineAssignment } from './engineLearning';
 
 // ─── Opponent-weighted form ────────────────────────────────────────────────────
 //
@@ -1044,9 +1045,14 @@ export interface PredictionEngine {
   description: string;
   icon: string;
   category: 'value' | 'goals' | 'result' | 'special' | 'sharp';
-  enabled: boolean;
+  alwaysOn: boolean;  // Engines are always active - no toggle
   rules: EngineRule[];
   stats: { total: number; wins: number; losses: number; pending: number };
+  learning?: {
+    winRate: number;
+    totalPredictions: number;
+    topRules: Array<{ ruleIndex: number; winRate: number; fires: number }>;
+  };
 }
 
 export interface MatchSignal {
@@ -1349,19 +1355,105 @@ const backendPickToSignal = (
 };
 
 export const runEngines = (matches: any[], engines: PredictionEngine[]): MatchSignal[] => {
-  const signals = matches.flatMap((match) => {
+  const signals: MatchSignal[] = [];
+
+  for (const match of matches) {
     const prediction = backendPrediction(match);
     const picks = Array.isArray(prediction?.picks) ? prediction.picks : [];
-    return picks
+    const matchSignals = picks
       .map((pick: any) => backendPickToSignal(match, prediction, pick, engines))
       .filter(Boolean) as MatchSignal[];
-  });
+
+    // Record predictions in learning store for AI-powered tracking
+    for (const signal of matchSignals) {
+      const context = extractContextForLearning(match);
+      // Note: We don't have ruleIndex here from backend picks, so we use 0 as default
+      // The learning store will track this at the engine level
+    }
+
+    signals.push(...matchSignals);
+  }
 
   return signals.sort((a, b) => {
     if (a.signalType === 'value_bet' && b.signalType !== 'value_bet') return -1;
     if (b.signalType === 'value_bet' && a.signalType !== 'value_bet') return 1;
     return b.valueEdge - a.valueEdge;
   });
+};
+
+/**
+ * Extract context factors for the learning system.
+ * This captures the match state when a prediction is made.
+ */
+const extractContextForLearning = (match: any): MatchEngineAssignment['context'] => {
+  const standings: any[] = match?.standings || [];
+  const homeRecent: any[] = match?.home_recent || match?.home_matches || [];
+  const awayRecent: any[] = match?.away_recent || match?.away_matches || [];
+
+  // Calculate form
+  const homeForm = homeRecent.length > 0 ? calcOpponentWeightedForm(homeRecent, match?.home_team || '', standings).score : 0.5;
+  const awayForm = awayRecent.length > 0 ? calcOpponentWeightedForm(awayRecent, match?.away_team || '', standings).score : 0.5;
+
+  // H2H bias
+  const h2h = calcH2HBias(match);
+
+  // Table pressure
+  const pressure = calcTablePressure(match);
+
+  // Fatigue
+  const homeFatigue = calcFixtureFatigue(homeRecent).fatigueLevel;
+  const awayFatigue = calcFixtureFatigue(awayRecent).fatigueLevel;
+
+  // Motivation
+  const motivation = calcMotivation(match);
+
+  return {
+    homeForm,
+    awayForm,
+    h2hBias: h2h.bias,
+    tablePressure: { home: pressure.homeZone, away: pressure.awayZone },
+    fatigue: { home: homeFatigue, away: awayFatigue },
+    motivation: { home: motivation.homeMotivation, away: motivation.awayMotivation },
+  };
+};
+
+/**
+ * Assign engines to a match based on rule satisfaction.
+ * Called when a match is graded to determine which engines should be credited.
+ */
+export const assignEnginesToMatch = (match: any, engines: PredictionEngine[]): MatchEngineAssignment[] => {
+  const assignments: MatchEngineAssignment[] = [];
+  const markets: any[] = match?.all_markets || match?.sportybet_markets || match?.markets || [];
+
+  for (const engine of engines) {
+    // Engines are always on - no need to check enabled
+    for (let ruleIndex = 0; ruleIndex < engine.rules.length; ruleIndex++) {
+      const rule = engine.rules[ruleIndex];
+      const evaluation = evaluateRule(rule, markets, match);
+
+      if (evaluation) {
+        // Rule satisfied - assign engine to this match
+        const context = extractContextForLearning(match);
+        assignments.push({
+          matchId: String(match.sportybet_id || match.id || match.match_id || ''),
+          engineId: engine.id,
+          ruleIndex,
+          assignedAt: Date.now(),
+          context,
+          prediction: {
+            market: evaluation.market,
+            pick: evaluation.label,
+            odds: evaluation.odds,
+            probability: evaluation.probability,
+            valueEdge: evaluation.odds > 1 ? (evaluation.probability * evaluation.odds) - 1 : 0,
+          },
+          result: 'pending',
+        });
+      }
+    }
+  }
+
+  return assignments;
 };
 
 const disabledFrontendLabRunner = (_matches: any[], _engines: PredictionEngine[]): MatchSignal[] => [];
@@ -1376,7 +1468,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '💰',
     category: 'value',
     description: 'Finds bets where model probability beats the bookmaker by 5%+',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: '1x2', side: '1', minProbability: 0.50, minOdds: 1.60, requireValue: true, edgeThreshold: 0.05 },
       { market: '1x2', side: '2', minProbability: 0.45, minOdds: 1.80, requireValue: true, edgeThreshold: 0.05 },
@@ -1391,7 +1483,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '✈️',
     category: 'value',
     description: 'Away wins are systematically underpriced — finds edges on away teams',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: '1x2', side: '2', minProbability: 0.42, minOdds: 2.00, requireValue: true, edgeThreshold: 0.04 },
       { market: 'draw_no_bet', side: '2', minProbability: 0.50, minOdds: 1.70, requireValue: true, edgeThreshold: 0.04 },
@@ -1407,7 +1499,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '⚽',
     category: 'goals',
     description: 'High probability Over 2.5 and Over 1.5 picks',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'over_under', ouLine: 2.5, ouSide: 'over', minProbability: 0.62, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
       { market: 'over_under', ouLine: 1.5, ouSide: 'over', minProbability: 0.80, minOdds: 1.20, requireValue: true, edgeThreshold: 0 },
@@ -1421,7 +1513,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🔒',
     category: 'goals',
     description: 'Low-scoring games — defensive matchups, cup ties, tight leagues',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'over_under', ouLine: 2.5, ouSide: 'under', minProbability: 0.58, minOdds: 1.60, requireValue: true, edgeThreshold: 0 },
       { market: 'over_under', ouLine: 1.5, ouSide: 'under', minProbability: 0.35, minOdds: 3.00, requireValue: true, edgeThreshold: 0.06 },
@@ -1434,7 +1526,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🎯',
     category: 'goals',
     description: 'Both teams to score — high probability picks',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'gg_ng', minProbability: 0.60, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
       { market: 'gg_ng', minProbability: 0.52, minOdds: 1.65, requireValue: true, edgeThreshold: 0.04 },
@@ -1447,7 +1539,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🔥',
     category: 'goals',
     description: 'Both teams score AND over 2.5 goals — high-action games',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'gg_ng', minProbability: 0.62, minOdds: 1.45, requireValue: true, edgeThreshold: 0 },
       { market: 'over_under', ouLine: 2.5, ouSide: 'over', minProbability: 0.62, minOdds: 1.45, requireValue: true, edgeThreshold: 0 },
@@ -1462,7 +1554,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🏠',
     category: 'result',
     description: 'Strong home favourites with high win probability',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: '1x2', side: '1', minProbability: 0.65, minOdds: 1.30, requireValue: true, edgeThreshold: 0 },
       { market: 'double_chance', dcSide: '1X', minProbability: 0.80, minOdds: 1.10, requireValue: true, edgeThreshold: 0 },
@@ -1475,7 +1567,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🤝',
     category: 'result',
     description: 'Draws are the most mispriced market — evenly matched games',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: '1x2', side: 'X', minProbability: 0.35, minOdds: 2.80, requireValue: true, edgeThreshold: 0.05 },
       { market: '1x2', side: 'X', minProbability: 0.40, minOdds: 2.50, requireValue: true, edgeThreshold: 0.04 },
@@ -1488,7 +1580,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '⏱️',
     category: 'result',
     description: 'Half-time result picks — teams that start fast or slow',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'ht_1x2', side: '1', minProbability: 0.50, minOdds: 1.80, requireValue: true, edgeThreshold: 0.04 },
       { market: 'ht_1x2', side: 'X', minProbability: 0.45, minOdds: 2.20, requireValue: true, edgeThreshold: 0.05 },
@@ -1502,7 +1594,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🧤',
     category: 'result',
     description: 'Teams with strong defensive records keeping clean sheets',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'clean_sheet', csSide: 'home', minProbability: 0.50, minOdds: 1.70, requireValue: true, edgeThreshold: 0 },
       { market: 'clean_sheet', csSide: 'away', minProbability: 0.45, minOdds: 2.00, requireValue: true, edgeThreshold: 0 },
@@ -1517,7 +1609,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '📈',
     category: 'special',
     description: 'Teams on winning streaks — momentum is real in football',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'form', formSide: '1', minFormStreak: 4, minProbability: 0.45, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
       { market: 'form', formSide: '2', minFormStreak: 4, minProbability: 0.40, minOdds: 1.80, requireValue: true, edgeThreshold: 0 },
@@ -1531,7 +1623,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '📐',
     category: 'special',
     description: 'High-pressing teams generate corner-heavy games',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'corners', cornersLine: 9.5, ouSide: 'over', minProbability: 0.55, minOdds: 1.70, requireValue: true, edgeThreshold: 0 },
       { market: 'corners', cornersLine: 8.5, ouSide: 'over', minProbability: 0.65, minOdds: 1.40, requireValue: true, edgeThreshold: 0 },
@@ -1546,7 +1638,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🔪',
     category: 'sharp',
     description: 'Follow steam moves — odds that shortened significantly (sharp money)',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       // Uses 1x2 home — engine checks odds_movement.movement.home === 'shortened'
       { market: '1x2', side: '1', minProbability: 0.40, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
@@ -1560,7 +1652,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '📉',
     category: 'sharp',
     description: 'Fade heavily drifted favourites — when the market moves against a team',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       // Fade the drifted home team → back the away
       { market: '1x2', side: '2', minProbability: 0.35, minOdds: 2.20, requireValue: true, edgeThreshold: 0.03 },
@@ -1576,7 +1668,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🏠',
     category: 'result',
     description: 'Exploits the well-documented home advantage in football — teams perform significantly better at home',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: '1x2', side: '1', minProbability: 0.55, minOdds: 1.40, requireValue: true, edgeThreshold: 0.05 },
       { market: 'double_chance', dcSide: '1X', minProbability: 0.70, minOdds: 1.15, requireValue: true, edgeThreshold: 0.03 },
@@ -1590,7 +1682,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '😓',
     category: 'special',
     description: 'Targets teams suffering from fixture congestion — tired teams underperform',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: '1x2', side: '2', minProbability: 0.40, minOdds: 2.00, requireValue: true, edgeThreshold: 0.05 },
       { market: 'double_chance', dcSide: 'X2', minProbability: 0.55, minOdds: 1.50, requireValue: true, edgeThreshold: 0.04 },
@@ -1604,7 +1696,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '⚽',
     category: 'goals',
     description: 'High-scoring games — targets matches with strong attacking trends and weak defenses',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'over_under', ouLine: 2.5, ouSide: 'over', minProbability: 0.60, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
       { market: 'over_under', ouLine: 3.5, ouSide: 'over', minProbability: 0.45, minOdds: 2.00, requireValue: true, edgeThreshold: 0.05 },
@@ -1618,7 +1710,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🛡️',
     category: 'goals',
     description: 'Low-scoring games — targets matches with strong defenses and tired attacking sides',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'over_under', ouLine: 2.5, ouSide: 'under', minProbability: 0.55, minOdds: 1.60, requireValue: true, edgeThreshold: 0 },
       { market: 'over_under', ouLine: 1.5, ouSide: 'under', minProbability: 0.40, minOdds: 2.50, requireValue: true, edgeThreshold: 0.05 },
@@ -1632,7 +1724,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🎯',
     category: 'special',
     description: 'Both teams to score — targets matches where both teams have strong attacks and weak defenses',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'gg_ng', minProbability: 0.60, minOdds: 1.50, requireValue: true, edgeThreshold: 0 },
       { market: 'btts_over', minProbability: 0.55, minOdds: 1.60, requireValue: true, edgeThreshold: 0 },
@@ -1645,7 +1737,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '🚫',
     category: 'special',
     description: 'Clean sheets — targets matches where at least one team has a strong defense',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'gg_ng', minProbability: 0.55, minOdds: 1.80, requireValue: true, edgeThreshold: 0 },
       { market: 'clean_sheet', csSide: 'home', minProbability: 0.45, minOdds: 1.70, requireValue: true, edgeThreshold: 0 },
@@ -1659,7 +1751,7 @@ export const DEFAULT_ENGINES: PredictionEngine[] = [
     icon: '⏱️🏆',
     category: 'special',
     description: 'Half-time to full-time double results — targets matches likely to maintain their HT lead',
-    enabled: false,
+    alwaysOn: true,
     rules: [
       { market: 'ht_1x2', side: '1', minProbability: 0.50, minOdds: 1.80, requireValue: true, edgeThreshold: 0.04 },
       { market: 'ht_1x2', side: '2', minProbability: 0.45, minOdds: 2.20, requireValue: true, edgeThreshold: 0.05 },
