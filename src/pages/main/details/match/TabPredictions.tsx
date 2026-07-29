@@ -597,6 +597,12 @@ const AiReasoningBlock = ({ reasoning }: { reasoning: any }) => {
   );
 };
 
+const analystHasNoEvidence = (analyst: any) => {
+  if (analyst?.evidence_status === 'unavailable') return true;
+  const finding = String(analyst?.finding || '').toLowerCase();
+  return ['no h2h history', 'no common opponents', 'unavailable', 'not present', '0 previous finished matches'].some(marker => finding.includes(marker));
+};
+
 const AiAnalystBlock = ({ analysts }: { analysts: any[] }) => {
   if (!Array.isArray(analysts) || analysts.length === 0) return null;
   return (
@@ -605,6 +611,9 @@ const AiAnalystBlock = ({ analysts }: { analysts: any[] }) => {
       {analysts.slice(0, 6).map((analyst: any, index: number) => (
         <div key={`${analyst?.name || 'analyst'}-${index}`} className="rounded-lg bg-black/20 px-3 py-2">
           <div className="text-[10px] font-semibold text-violet-200">{analyst?.name || `Analyst ${index + 1}`}</div>
+          {analystHasNoEvidence(analyst) && (
+            <div className="mt-1 inline-flex rounded border border-amber-300/20 bg-amber-300/[0.08] px-1.5 py-0.5 text-[8px] font-bold uppercase text-amber-200">No source evidence</div>
+          )}
           {analyst?.trained_knowledge && (
             <div className="mt-0.5 text-[9px] text-gray-600">{analyst.trained_knowledge}</div>
           )}
@@ -668,6 +677,7 @@ const CompactAiAnalysisCard = ({ analysis }: { analysis: any }) => {
   const rec = analysis?.recommendation || analysis?.consensus || 'No analysis yet';
   const confidence = analysis?.confidence;
   const analysts = analysis?.analysts || analysis?.reasoning_context?.analysts || [];
+  const unavailableAnalysts = analysts.filter(analystHasNoEvidence).length;
 
   return (
     <>
@@ -682,7 +692,7 @@ const CompactAiAnalysisCard = ({ analysis }: { analysis: any }) => {
               <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">{providerLabel}</div>
               <div className="text-[9px] text-gray-600">Specialist analysis room</div>
               <div className="mt-1 text-sm font-semibold text-white">{rec}</div>
-              {analysts.length > 0 && <div className="mt-2 text-[10px] text-violet-200">{analysts.length} specialist views ready</div>}
+              {analysts.length > 0 && <div className="mt-2 text-[10px] text-violet-200">{analysts.length} specialist views ready{unavailableAnalysts ? ` · ${unavailableAnalysts} with no source evidence` : ''}</div>}
             </div>
             {confidence != null && (
               <div className={'rounded-lg bg-black/20 px-2 py-1 text-sm font-bold ' + confidenceTone(num(confidence))}>
@@ -736,6 +746,7 @@ const CompactAiAnalysisCard = ({ analysis }: { analysis: any }) => {
                     </div>
                     <div className="rounded-2xl rounded-tl-sm bg-white/[0.055] px-3 py-2">
                       <div className="text-xs font-semibold text-white">{analyst?.name || `Specialist ${index + 1}`}</div>
+                      {analystHasNoEvidence(analyst) && <div className="mt-1 inline-flex rounded border border-amber-300/20 bg-amber-300/[0.08] px-1.5 py-0.5 text-[8px] font-bold uppercase text-amber-200">No source evidence</div>}
                       {analyst?.trained_knowledge && <div className="mt-0.5 text-[9px] text-gray-500">{analyst.trained_knowledge}</div>}
                       <div className="mt-1 text-xs leading-relaxed text-gray-300">{analyst?.finding || 'No finding returned.'}</div>
                     </div>

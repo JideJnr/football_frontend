@@ -1,929 +1,165 @@
-import { useEffect, useState, useMemo } from 'react';
-import { IonPage, useIonRouter } from '@ionic/react';
-import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, gradeBetbuilderHistory, saveBetbuilder, getAutoBetSuggestions, autoBetPlace } from '../../../../services/apis/footballApi';
-import { useAuth } from '../../../../contexts/useAuthContext';
+import { useEffect, useMemo, useState } from 'react';
+import { IonContent, IonPage, useIonRouter } from '@ionic/react';
+import { ArrowLeft, Bot, Check, ChevronRight, ClipboardCheck, History, LoaderCircle, Sparkles, Ticket, X } from 'lucide-react';
+import { bookBetbuilder, buildAutoBetbuilder, getBetbuilderHistory, getPredictionHistory, saveBetbuilder } from '../../../../services/apis/footballApi';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+type Mode = 'ai' | 'manual' | 'results';
 
-interface Pick {
-  type: string;
-  selection: string;
-  confidence: number;
-  reason: string;
-}
+const confidenceTone = (value: number) => value >= 70 ? 'text-emerald-300' : value >= 58 ? 'text-amber-200' : 'text-rose-300';
+const resultTone = (value?: string) => value === 'win' ? 'bg-emerald-300/10 text-emerald-200' : value === 'loss' ? 'bg-rose-300/10 text-rose-200' : 'bg-amber-300/10 text-amber-100';
+const pretty = (value?: string) => String(value || '').replace(/_/g, ' ');
 
-interface Signal {
-  name: string;
-  value: any;
-  impact: number;
-}
-
-interface Prediction {
-  id: number;
-  match_id: string;
-  match_name: string;
-  league_name: string;
-  source: string;
-  best_pick: Pick;
-  picks: Pick[];
-  signals: Signal[];
-  created_at: string;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const confidenceColor = (c: number) =>
-  c >= 70 ? 'text-green-400' : c >= 58 ? 'text-yellow-400' : 'text-red-400';
-
-const confidenceBg = (c: number) =>
-  c >= 70 ? 'bg-green-500' : c >= 58 ? 'bg-yellow-500' : 'bg-red-500';
-
-const estimateOdds = (confidence: number) =>
-  confidence > 0 ? Math.max(1.01, 1 / (confidence / 100)).toFixed(2) : '—';
-
-const h2hFromSignals = (signals: Signal[]) =>
-  signals.find(s => s.name === 'h2h_edge');
-
-const formatTime = (iso: string) => {
-  try {
-    return new Date(iso).toLocaleString([], {
-      month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
-  } catch { return iso; }
-};
-
-const matchPath = (id?: string) => id ? `/match/${encodeURIComponent(id)}` : '';
-
-const resultTone = (result?: string) => {
-  if (result === 'win') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300';
-  if (result === 'loss') return 'border-red-500/40 bg-red-500/10 text-red-300';
-  if (result === 'void') return 'border-gray-500/40 bg-gray-500/10 text-gray-300';
-  return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300';
-};
-
-const resultLabel = (result?: string) => result ? result.toUpperCase() : 'PENDING';
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-const ConfidenceBar: React.FC<{ value: number }> = ({ value }) => (
-  <div className="flex items-center gap-2 mt-1">
-    <div className="flex-1 h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
-      <div
-        className={`h-full rounded-full transition-all ${confidenceBg(value)}`}
-        style={{ width: `${value}%` }}
-      />
-    </div>
-    <span className={`text-xs font-bold w-8 text-right ${confidenceColor(value)}`}>{value}%</span>
-  </div>
-);
-
-const H2HBadge: React.FC<{ signal: Signal | undefined }> = ({ signal }) => {
-  if (!signal) return null;
-  const v = signal.value;
-  if (typeof v !== 'object' || !v) return null;
-  const { home_wins = 0, away_wins = 0, draws = 0, sample_size = 0 } = v;
-  if (!sample_size) return null;
-  return (
-    <div className="flex items-center gap-1 mt-2 px-2 py-1 rounded bg-[#1a1a1a] border border-[#2a2a2a]">
-      <span className="text-[10px] text-gray-500 mr-1">H2H</span>
-      <span className="text-xs text-green-400 font-bold">{home_wins}W</span>
-      <span className="text-[10px] text-gray-500">·</span>
-      <span className="text-xs text-gray-400">{draws}D</span>
-      <span className="text-[10px] text-gray-500">·</span>
-      <span className="text-xs text-red-400 font-bold">{away_wins}L</span>
-      <span className="text-[10px] text-gray-500 ml-1">({sample_size} games)</span>
-    </div>
-  );
-};
-
-const SignalRow: React.FC<{ signal: Signal }> = ({ signal }) => {
-  const impact = signal.impact ?? 0;
-  return (
-    <div className="flex items-center gap-2 text-[11px]">
-      <span className="text-gray-500 truncate flex-1">{signal.name.replace(/_/g, ' ')}</span>
-      <span className={`font-bold shrink-0 ${impact > 0 ? 'text-green-400' : impact < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-        {impact > 0 ? `+${impact}` : impact}
-      </span>
-    </div>
-  );
-};
-
-// ── Match Card ────────────────────────────────────────────────────────────────
-
-const MatchCard: React.FC<{
-  pred: Prediction;
-  accepted: boolean | null;
-  onAccept: () => void;
-  onReject: () => void;
-}> = ({ pred, accepted, onAccept, onReject }) => {
-  const [expanded, setExpanded] = useState(false);
-  const pick = pred.best_pick;
-  const h2h = h2hFromSignals(pred.signals || []);
-  const topSignals = (pred.signals || [])
-    .filter(s => s.name !== 'ai_brain_review')
-    .slice(0, 4);
-
-  const decided = accepted !== null;
-
-  return (
-    <div
-      className={`rounded-xl border transition-all mb-3 overflow-hidden ${
-        accepted === true
-          ? 'border-green-600 bg-green-950/30'
-          : accepted === false
-          ? 'border-[#2a2a2a] bg-[#111] opacity-50'
-          : 'border-[#2a2a2a] bg-[#161616]'
-      }`}
-    >
-      {/* Header */}
-      <div
-        className="px-4 pt-3 pb-2 cursor-pointer"
-        onClick={() => setExpanded(e => !e)}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="text-xs text-gray-500 truncate">{pred.league_name || '—'}</div>
-            <div className="text-sm font-semibold text-white truncate mt-0.5">{pred.match_name || '—'}</div>
-          </div>
-          <div className="text-[10px] text-gray-600 shrink-0 mt-0.5">{formatTime(pred.created_at)}</div>
-        </div>
-
-        {/* Best pick */}
-        {pick && (
-          <div className="mt-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-gray-500 uppercase">{pick.type?.replace(/_/g, ' ')}</span>
-              <span className="text-xs font-bold text-white flex-1 truncate">{pick.selection}</span>
-              <span className="text-xs text-gray-400 shrink-0">~{estimateOdds(pick.confidence)}</span>
-            </div>
-            <ConfidenceBar value={pick.confidence} />
-            <div className="text-[11px] text-gray-500 mt-1 line-clamp-2">{pick.reason}</div>
-          </div>
-        )}
-
-        <H2HBadge signal={h2h} />
-
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[10px] text-gray-600">{expanded ? '▲ less' : '▼ signals'}</span>
-          {accepted === true && <span className="text-[10px] text-green-400 font-bold">✓ Added</span>}
-        </div>
-      </div>
-
-      {/* Expanded signals */}
-      {expanded && (
-        <div className="px-4 pb-3 border-t border-[#2a2a2a] pt-2 space-y-1">
-          {topSignals.length > 0
-            ? topSignals.map((s, i) => <SignalRow key={i} signal={s} />)
-            : <div className="text-[11px] text-gray-600">No signals available</div>
-          }
-          {(pred.picks || []).length > 1 && (
-            <div className="mt-2 pt-2 border-t border-[#2a2a2a]">
-              <div className="text-[10px] text-gray-500 mb-1">Other picks</div>
-              {pred.picks.slice(1).map((p, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px] mb-0.5">
-                  <span className="text-gray-600 w-20 shrink-0 truncate">{p.type?.replace(/_/g, ' ')}</span>
-                  <span className="flex-1 text-gray-400 truncate">{p.selection}</span>
-                  <span className={`shrink-0 font-bold ${confidenceColor(p.confidence)}`}>{p.confidence}%</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      {!decided && (
-        <div className="flex border-t border-[#2a2a2a]">
-          <button
-            onClick={onReject}
-            className="flex-1 py-2.5 text-xs text-red-400 hover:bg-red-950 transition font-semibold"
-          >
-            ✕ Skip
-          </button>
-          <div className="w-px bg-[#2a2a2a]" />
-          <button
-            onClick={onAccept}
-            className="flex-1 py-2.5 text-xs text-green-400 hover:bg-green-950 transition font-semibold"
-          >
-            ✓ Add to Slip
-          </button>
-        </div>
-      )}
-      {decided && accepted && (
-        <button
-          onClick={onReject}
-          className="w-full py-2 text-[11px] text-gray-500 hover:text-red-400 border-t border-[#2a2a2a] transition"
-        >
-          Remove from slip
-        </button>
-      )}
-    </div>
-  );
-};
-
-// ── Bet Slip ──────────────────────────────────────────────────────────────────
-
-const BetSlip: React.FC<{
-  accepted: Prediction[];
-  onEnd: () => void;
-  saving: boolean;
-}> = ({ accepted, onEnd, saving }) => {
-  const combinedOdds = accepted.reduce((acc, p) => {
-    const odds = parseFloat(estimateOdds(p.best_pick?.confidence ?? 50));
-    return acc * (isNaN(odds) ? 1 : odds);
-  }, 1);
-
-  const avgConf = accepted.length
-    ? Math.round(accepted.reduce((a, p) => a + (p.best_pick?.confidence ?? 50), 0) / accepted.length)
-    : 0;
-
-  return (
-    <div className="border-t border-[#2a2a2a] bg-[#0d0d0d] px-4 py-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-400 font-semibold">
-          Bet Slip ({accepted.length} {accepted.length === 1 ? 'pick' : 'picks'})
-        </span>
-        {accepted.length > 0 && (
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-gray-500">Combined odds</span>
-            <span className="text-white font-bold">{combinedOdds.toFixed(2)}</span>
-            <span className={`font-bold ${confidenceColor(avgConf)}`}>{avgConf}% avg</span>
-          </div>
-        )}
-      </div>
-
-      {accepted.length === 0 ? (
-        <div className="text-[11px] text-gray-600 text-center py-1">Add picks to build your slip</div>
-      ) : (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {accepted.map(p => (
-            <span key={p.id} className="text-[10px] bg-green-900 text-green-300 px-2 py-0.5 rounded-full truncate max-w-[140px]">
-              {p.match_name?.split(' vs ')[0] || p.match_id} — {p.best_pick?.selection}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <button
-        onClick={onEnd}
-        disabled={accepted.length === 0 || saving}
-        className="w-full py-3 rounded-xl text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed bg-green-600 hover:bg-green-500 text-white"
-      >
-        {saving ? 'Saving…' : accepted.length === 0 ? 'Add picks first' : `End & Save Slip (${accepted.length})`}
-      </button>
-    </div>
-  );
-};
-
-// ── Saved Slip View ───────────────────────────────────────────────────────────
-
-const pickTypeOptions = [
-  { label: 'Goals', value: 'goals' },
-  { label: 'Double chance', value: 'double_chance' },
-  { label: 'Match result', value: 'match_result' },
-  { label: 'Market value', value: 'market_value' },
-  { label: 'Value bet', value: 'value_bet' },
-  { label: 'Live next goal', value: 'live_next_goal' },
-  { label: 'Live total goals', value: 'live_total_goals' },
-  { label: 'Live winner', value: 'live_match_winner' },
-  { label: 'Live team score', value: 'live_team_to_score' },
-];
-
-const upcomingPickTypes = ['goals', 'double_chance', 'match_result', 'market_value'];
-const livePickTypes = ['live_next_goal', 'live_total_goals', 'live_match_winner', 'live_team_to_score'];
-
-const BuilderTabs = ({ active, onChange }: { active: string; onChange: (value: any) => void }) => (
-  <div className="grid grid-cols-3 gap-1 border-b border-[#1e1e1e] bg-[#0d0d0d] px-3 py-2">
-    {[
-      ['auto', 'Auto Builder'],
-      ['manual', 'Manual Picks'],
-      ['history', 'Bet History'],
-    ].map(([value, label]) => (
-      <button
-        key={value}
-        onClick={() => onChange(value)}
-        className={`rounded-lg px-2 py-2 text-xs font-semibold ${active === value ? 'bg-white text-black' : 'border border-[#2a2a2a] text-gray-500'}`}
-      >
-        {label}
-      </button>
-    ))}
-  </div>
-);
-
-const AutoBuilderPanel = ({ form, setForm, result, building, saving, booking, onBuild, onSave, onBook }: any) => {
-  const toggleType = (value: string) => {
-    setForm((current: any) => {
-      const set = new Set(current.pick_types || []);
-      set.has(value) ? set.delete(value) : set.add(value);
-      return { ...current, pick_types: Array.from(set) };
-    });
-  };
-  const fieldConfig: Array<[string, string, string, string?, string?]> = [
-    ['target_odds', 'Target odds', '1', '1'],
-    ['max_total_odds', 'Odds ceiling', '1', '1'],
-    ['min_confidence', 'Min confidence', '1', '40', '99'],
-    ['min_leg_odds', 'Min leg odds', '0.01', '1.01'],
-    ['max_leg_odds', 'Max leg odds', '0.01', '1.05'],
-    ['max_legs', 'Max picks', '1', '1', '30'],
-    ['stake', 'Stake (smallest unit)', '1', '1'],
-  ];
-  const setScope = (scope: 'upcoming' | 'live') => {
-    setForm((current: any) => ({
-      ...current,
-      scope,
-      pick_types: scope === 'live' ? livePickTypes : upcomingPickTypes,
-      date: '',
-      start_time: '',
-      end_time: '',
-    }));
-  };
-
-  return (
-    <div className="px-3 py-3 pb-24">
-      <div className="rounded-xl border border-[#2a2a2a] bg-[#151515] p-3">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <div>
-            <div className="text-sm font-bold text-white">Request</div>
-            <div className="text-[11px] text-gray-500">Tell the app the odds shape you want.</div>
-          </div>
-          <button onClick={onBuild} disabled={building} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
-            {building ? 'Building...' : 'Generate bet'}
-          </button>
-        </div>
-
-        <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-black/40 p-1">
-          {[
-            ['upcoming', 'Upcoming'],
-            ['live', 'Live'],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setScope(value as 'upcoming' | 'live')}
-              className={`rounded-md px-3 py-2 text-xs font-bold ${form.scope === value ? 'bg-white text-black' : 'text-gray-500'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          {fieldConfig.map(([key, label, step, min, max]) => (
-            <label key={key} className="text-[10px] text-gray-500">
-              {label}
-              <input type="number" step={step} min={min} max={max} value={form[key]} onChange={e => setForm((current: any) => ({ ...current, [key]: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" />
-            </label>
-          ))}
-        </div>
-
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          <label className="text-[10px] text-gray-500">Date<input type="date" value={form.date} onChange={e => setForm((current: any) => ({ ...current, date: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
-          <label className="text-[10px] text-gray-500">From<input type="time" value={form.start_time} onChange={e => setForm((current: any) => ({ ...current, start_time: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
-          <label className="text-[10px] text-gray-500">To<input type="time" value={form.end_time} onChange={e => setForm((current: any) => ({ ...current, end_time: e.target.value }))} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs text-white outline-none" /></label>
-        </div>
-        <label className="mt-2 block text-[10px] text-gray-500">Loading share code<input value={form.loadingShareCode} onChange={e => setForm((current: any) => ({ ...current, loadingShareCode: e.target.value.toUpperCase() }))} maxLength={32} className="mt-1 w-full rounded border border-[#2a2a2a] bg-black px-2 py-1.5 text-xs font-mono text-white outline-none" /></label>
-
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {pickTypeOptions.map(option => {
-            const active = (form.pick_types || []).includes(option.value);
-            return <button key={option.value} onClick={() => toggleType(option.value)} className={`rounded-full border px-2.5 py-1 text-[10px] ${active ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300' : 'border-[#333] text-gray-500'}`}>{option.label}</button>;
-          })}
-        </div>
-      </div>
-
-      {result && (
-        <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-bold text-white">Generated Bet</div>
-              <div className="text-[11px] text-gray-500">
-                {result.selections?.length || 0} picks · {result.combined_odds || 0} odds · {result.confidence || 0}% average
-                <span className={`ml-2 ${result.target_met ? 'text-emerald-400' : 'text-yellow-400'}`}>{result.target_met ? 'target met' : 'closest fit'}</span>
-              </div>
-              {!result.target_met && (
-                <div className="mt-1 text-[10px] text-yellow-400">
-                  {result.constraint_warning || `Short by ${result.target_gap || 0} odds. Raise max picks or max leg odds.`}
-                </div>
-              )}
-              {result.max_possible_odds ? (
-                <div className="mt-1 text-[10px] text-gray-600">
-                  Constraint ceiling: {result.max_possible_odds}
-                  {result.request?.max_legs < 30 && !result.target_met ? ' - try 30 max picks for very high targets.' : ''}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={onBook} disabled={!result.selections?.length || booking} className="rounded-lg bg-emerald-600 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-40">{booking ? 'Creating code...' : 'Get share code'}</button>
-              <button onClick={onSave} disabled={!result.selections?.length || saving} className="rounded-lg bg-white px-3 py-2 text-[10px] font-bold text-black disabled:opacity-40">{saving ? 'Saving...' : 'Save bet'}</button>
-            </div>
-          </div>
-          <div className="mt-2 space-y-1.5">
-            {(result.selections || []).map((item: any) => (
-              <div key={`${item.match_id}-${item.type}-${item.selection}`} className="rounded-lg border border-white/[0.06] bg-[#151515] px-2.5 py-2">
-                <div className="truncate text-xs font-semibold text-white">{item.match}</div>
-                <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-gray-500">
-                  {item.country && <span>{item.country}</span>}
-                  {(item.league || item.tournament) && <span>{item.league || item.tournament}</span>}
-                  {item.status && <span className={item.scope === 'live' ? 'text-red-300' : 'text-blue-300'}>{item.status}</span>}
-                  {item.local_time && <span>{item.local_time}</span>}
-                  <span>{item.type?.replace(/_/g, ' ')}</span>
-                  <span className="text-emerald-300">{item.selection}</span>
-                  <span>odds {item.odds}</span>
-                  <span>{item.confidence}%</span>
-                </div>
-                {item.reason && <div className="mt-1 line-clamp-2 text-[10px] text-gray-600">{item.reason}</div>}
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 text-[10px] text-gray-600">{result.learning_note}</div>
-          {result.booking && (
-            <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[11px] ${result.booking.share_code ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200' : 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200'}`}>
-              {result.booking.share_code ? <>SportyBet share code: <span className="font-mono font-bold">{result.booking.share_code}</span></> : result.booking.message || 'Booking payload is ready.'}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const SavedSlipView: React.FC<{
-  slip: any;
-  user: any;
-  onReset: () => void;
-}> = ({ slip, user, onReset }) => {
-  const router = useIonRouter();
-  return (
-    <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-      <div className="text-4xl mb-3">🎯</div>
-      <div className="text-lg font-bold text-white mb-1">Slip Saved!</div>
-      {user && (
-        <div className="text-xs text-gray-500 mb-4">
-          Saved for <span className="text-white">{user.firstName || user.email}</span>
-        </div>
-      )}
-      <div className="w-full bg-[#161616] border border-[#2a2a2a] rounded-xl p-4 mb-4 text-left">
-        <div className="flex justify-between text-xs mb-3">
-          <span className="text-gray-500">Slip ID</span>
-          <span className="text-white font-mono">#{slip?.bet?.id ?? '—'}</span>
-        </div>
-        <div className="flex justify-between text-xs mb-3">
-          <span className="text-gray-500">Picks</span>
-          <span className="text-white">{slip?.bet?.selections?.length ?? 0}</span>
-        </div>
-        <div className="flex justify-between text-xs mb-3">
-          <span className="text-gray-500">Combined Odds</span>
-          <span className="text-white font-bold">{slip?.bet?.combined_odds ?? '—'}</span>
-        </div>
-        <div className="flex justify-between text-xs mb-4">
-          <span className="text-gray-500">Avg Confidence</span>
-          <span className={`font-bold ${confidenceColor(slip?.bet?.confidence ?? 0)}`}>
-            {slip?.bet?.confidence ?? 0}%
-          </span>
-        </div>
-        <div className="border-t border-[#2a2a2a] pt-3 space-y-2">
-          {(slip?.bet?.selections || []).map((s: any, i: number) => (
-            <div key={i} className="text-xs">
-              <div className="text-white font-semibold">{s.match}</div>
-              <div className="text-gray-400">{s.selection} · odds {s.odds}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex gap-3 w-full">
-        <button
-          onClick={onReset}
-          className="flex-1 py-2.5 rounded-xl border border-[#2a2a2a] text-xs text-gray-400 hover:text-white transition"
-        >
-          Build Another
-        </button>
-        <button
-          onClick={() => router.push('/home', 'back', 'pop')}
-          className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-xs text-white font-bold transition"
-        >
-          Go Home
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
-const BetHistoryPanel = ({ history, loading, grading, onRefresh, onGrade, onOpenMatch }: any) => {
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-24">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-bold text-white">Saved Bets</div>
-            <div className="text-[11px] text-gray-500">Graded slips, signal traces, and match drill-down.</div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onGrade} disabled={grading} className="rounded-lg border border-emerald-500/40 px-3 py-2 text-xs text-emerald-300 disabled:opacity-50">
-              {grading ? 'Grading...' : 'Grade now'}
-            </button>
-            <button onClick={onRefresh} className="rounded-lg border border-[#2a2a2a] px-3 py-2 text-xs text-gray-300">Refresh</button>
-          </div>
-        </div>
-        {loading && <div className="mt-12 text-center text-xs text-gray-500">Loading saved bets...</div>}
-        {!loading && !history.length && <div className="mt-12 text-center text-xs text-gray-600">No saved bets yet.</div>}
-        <div className="space-y-3">
-          {history.map((bet: any) => (
-            <div key={bet.id} className="rounded-xl border border-[#2a2a2a] bg-[#161616] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-xs font-bold text-white">Bet #{bet.id}</div>
-                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${resultTone(bet.result)}`}>{resultLabel(bet.result)}</span>
-                  </div>
-                  <div className="mt-1 text-[10px] text-gray-500">{formatTime(bet.created_at)}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-emerald-300">{Number(bet.combined_odds || 0).toFixed(2)}</div>
-                  <div className="text-[10px] text-gray-500">{bet.confidence || 0}% avg - {(bet.selections || []).length} picks</div>
-                </div>
-              </div>
-              {bet.learning && Object.keys(bet.learning).length > 0 && (
-                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-lg bg-black/25 px-2 py-1.5">
-                    <div className="text-[10px] text-gray-500">Won legs</div>
-                    <div className="text-xs font-bold text-emerald-300">{bet.learning.wins ?? 0}</div>
-                  </div>
-                  <div className="rounded-lg bg-black/25 px-2 py-1.5">
-                    <div className="text-[10px] text-gray-500">Lost legs</div>
-                    <div className="text-xs font-bold text-red-300">{bet.learning.losses ?? 0}</div>
-                  </div>
-                  <div className="rounded-lg bg-black/25 px-2 py-1.5">
-                    <div className="text-[10px] text-gray-500">Voids</div>
-                    <div className="text-xs font-bold text-gray-300">{bet.learning.voids ?? 0}</div>
-                  </div>
-                </div>
-              )}
-              {bet.request && Object.keys(bet.request).length > 0 && (
-                <div className="mt-2 rounded-lg bg-black/25 px-2 py-1.5 text-[10px] text-gray-500">
-                  Request: {bet.request.scope || 'upcoming'} - target {bet.request.target_odds || '-'} - max {bet.request.max_total_odds || '-'} - confidence {bet.request.min_confidence || '-'}+
-                </div>
-              )}
-              <div className="mt-3 space-y-1.5">
-                {(bet.selections || []).map((item: any, index: number) => (
-                  <div key={`${bet.id}-${index}`} className="rounded-lg border border-white/[0.05] bg-black/20 px-2.5 py-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        onClick={() => onOpenMatch(item.match_id)}
-                        disabled={!item.match_id}
-                        className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-white hover:text-emerald-300 disabled:hover:text-white"
-                      >
-                        {item.match || item.match_name || item.match_id}
-                      </button>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold ${resultTone(item.leg_result)}`}>{resultLabel(item.leg_result)}</span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-gray-500">
-                      {item.country && <span>{item.country}</span>}
-                      {(item.league || item.tournament) && <span>{item.league || item.tournament}</span>}
-                      <span>{item.type?.replace?.(/_/g, ' ') || item.pick_type || 'pick'}</span>
-                      <span className="text-emerald-300">{item.selection}</span>
-                      <span>odds {item.odds || '-'}</span>
-                      <span>{item.confidence || '-'}%</span>
-                      {item.odds_band && <span>{item.odds_band}</span>}
-                    </div>
-                    {item.reason && <div className="mt-1 line-clamp-2 text-[10px] text-gray-600">{item.reason}</div>}
-                    {item.grading_reason?.reason && <div className="mt-1 text-[10px] text-gray-400">{item.grading_reason.reason}</div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-    </div>
-  );
-};
+const combinedOdds = (picks: any[]) => picks.reduce((total, pick) => total * Number(pick.odds || pick.estimated_odds || 1), 1);
 
 const Builder = () => {
   const router = useIonRouter();
-  const { user } = useAuth();
-
-  const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [decisions, setDecisions] = useState<Record<number, boolean>>({});
-  const [saving, setSaving] = useState(false);
-  const [savedSlip, setSavedSlip] = useState<any>(null);
-  const [filter, setFilter] = useState<'all' | 'high' | 'medium'>('all');
-  const [mode, setMode] = useState<'auto' | 'manual' | 'history'>('auto');
+  const [mode, setMode] = useState<Mode>('ai');
+  const [predictions, setPredictions] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyGrading, setHistoryGrading] = useState(false);
-  const [buildingAuto, setBuildingAuto] = useState(false);
-  const [bookingAuto, setBookingAuto] = useState(false);
-  const [autoResult, setAutoResult] = useState<any>(null);
-  const [autoSuggestions, setAutoSuggestions] = useState<any[]>([]);
-  const [autoBetting, setAutoBetting] = useState(false);
-  const [autoForm, setAutoForm] = useState<any>({
-    scope: 'upcoming',
-    target_odds: '5000',
-    max_total_odds: '6500',
-    min_leg_odds: '1.10',
-    max_leg_odds: '2.50',
-    min_confidence: '70',
-    max_legs: '30',
-    stake: '1000000',
-    loadingShareCode: 'RC2DR7',
-    date: '',
-    start_time: '',
-    end_time: '',
-    pick_types: upcomingPickTypes,
-  });
+  const [aiSlip, setAiSlip] = useState<any>(null);
+  const [manualPicks, setManualPicks] = useState<any[]>([]);
+  const [targetOdds, setTargetOdds] = useState('3.0');
+  const [stake, setStake] = useState('100');
+  const [building, setBuilding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    setLoading(true);
-    getPredictionHistory(200)
-      .then(res => {
-        const list: Prediction[] = res?.predictions ?? [];
-        // deduplicate by match_id, keep latest
-        const seen = new Set<string>();
-        const deduped = list.filter(p => {
-          if (seen.has(p.match_id)) return false;
-          seen.add(p.match_id);
-          return true;
-        });
-        setPredictions(deduped);
-      })
-      .catch(e => setError(e?.response?.data?.detail || 'Failed to load predictions'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const loadHistory = async () => {
-    setHistoryLoading(true);
+  const load = async () => {
     try {
-      const res = await getBetbuilderHistory(100);
-      setHistory(res?.bets || []);
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Failed to load bet history');
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  const handleGradeHistory = async () => {
-    setHistoryGrading(true);
-    setError(null);
-    try {
-      await gradeBetbuilderHistory(300);
-      await loadHistory();
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Failed to grade bet history');
-    } finally {
-      setHistoryGrading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (mode === 'history') loadHistory();
-  }, [mode]);
-
-  const filtered = useMemo(() => {
-    return predictions.filter(p => {
-      const c = p.best_pick?.confidence ?? 0;
-      if (filter === 'high') return c >= 70;
-      if (filter === 'medium') return c >= 58 && c < 70;
-      return p.best_pick?.type !== 'no_bet';
-    });
-  }, [predictions, filter]);
-
-  const accepted = useMemo(
-    () => filtered.filter(p => decisions[p.id] === true),
-    [filtered, decisions]
-  );
-
-  const handleAccept = (id: number) =>
-    setDecisions(d => ({ ...d, [id]: true }));
-
-  const handleReject = (id: number) =>
-    setDecisions(d => ({ ...d, [id]: false }));
-
-  const handleEnd = async () => {
-    if (!accepted.length) return;
-    setSaving(true);
-    try {
-      const selections = accepted.map(p => ({
-        match_id: p.match_id,
-        match: p.match_name,
-        league: p.league_name,
-        type: p.best_pick?.type,
-        selection: p.best_pick?.selection,
-        odds: parseFloat(estimateOdds(p.best_pick?.confidence ?? 50)),
-        confidence: p.best_pick?.confidence,
-        reason: p.best_pick?.reason,
-        signals: p.signals || [],
+      const [predictionResponse, historyResponse] = await Promise.all([getPredictionHistory(150), getBetbuilderHistory(100)]);
+      const seen = new Set<string>();
+      setPredictions((predictionResponse?.predictions || []).filter((item: any) => {
+        const matchId = String(item.match_id || '');
+        if (!matchId || seen.has(matchId) || item.best_pick?.type === 'no_bet') return false;
+        seen.add(matchId);
+        return true;
       }));
-      const res = await saveBetbuilder({ selections });
-      setSavedSlip(res);
-      loadHistory();
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Failed to save slip');
-    } finally {
-      setSaving(false);
+      setHistory(historyResponse?.bets || []);
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Could not load the betting workspace.');
     }
   };
 
-  const handleAutoBuild = async () => {
-    setBuildingAuto(true);
-    setError(null);
+  useEffect(() => { load(); }, []);
+
+  const learning = useMemo(() => {
+    const settled = history.filter(item => item.result === 'win' || item.result === 'loss');
+    const wins = settled.filter(item => item.result === 'win').length;
+    const losses = settled.filter(item => item.result === 'loss').length;
+    return { settled: settled.length, wins, losses, rate: settled.length ? Math.round((wins / settled.length) * 100) : null };
+  }, [history]);
+
+  const buildAiSlip = async () => {
+    setBuilding(true); setError(''); setNotice('');
     try {
-      const res = await buildAutoBetbuilder({
-        ...autoForm,
-        target_odds: Number(autoForm.target_odds),
-        max_total_odds: Number(autoForm.max_total_odds),
-        min_leg_odds: Number(autoForm.min_leg_odds),
-        max_leg_odds: Number(autoForm.max_leg_odds),
-        min_confidence: Number(autoForm.min_confidence),
-        max_legs: Number(autoForm.max_legs),
+      const target = Math.max(1.5, Number(targetOdds) || 3);
+      const result = await buildAutoBetbuilder({
+        target_odds: target,
+        max_total_odds: Number((target * 1.25).toFixed(2)),
+        candidate_limit: 10,
       });
-      setAutoResult(res);
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Failed to build auto slip');
-    } finally {
-      setBuildingAuto(false);
-    }
+      setAiSlip(result);
+      setNotice('I reviewed the strongest current matches and kept the ticket within the odds ceiling.');
+    } catch (err: any) {
+      setError(err?.response?.data?.detail?.message || err?.response?.data?.detail || 'The AI analyst could not build a ticket right now.');
+    } finally { setBuilding(false); }
   };
 
-  const handleSaveAuto = async () => {
-    if (!autoResult?.selections?.length) return;
-    setSaving(true);
-    setError(null);
+  const saveSlip = async (selections: any[], source: 'ai' | 'manual') => {
+    if (!selections.length) return;
+    setSaving(true); setError('');
     try {
-      const res = await saveBetbuilder({
-        selections: autoResult.selections,
-        request: autoResult.request,
-      } as any);
-      setSavedSlip(res);
-      loadHistory();
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Failed to save auto slip');
-    } finally {
-      setSaving(false);
-    }
+      await saveBetbuilder({ selections, request: { builder: source, target_odds: source === 'ai' ? Number(targetOdds) : null } });
+      setNotice(source === 'ai' ? 'AI ticket saved. Its legs will be graded as matches finish.' : 'Manual ticket saved. Its legs will be graded as matches finish.');
+      await load();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Could not save this ticket.');
+    } finally { setSaving(false); }
   };
 
-   const handleBookAuto = async () => {
-     if (!autoResult?.selections?.length) return;
-     setBookingAuto(true);
-     setError(null);
-     try {
-       const booking = await bookBetbuilder({
-         selections: autoResult.selections,
-         stake: Number(autoForm.stake),
-         loadingShareCode: autoForm.loadingShareCode || null,
-       });
-       setAutoResult((current: any) => ({ ...current, booking }));
-     } catch (e: any) {
-       setError(e?.response?.data?.detail || 'Unable to create a SportyBet share code');
-     } finally {
-       setBookingAuto(false);
-     }
-   };
-
-   const handleFetchAutoSuggestions = async () => {
-     setError(null);
-     try {
-       const res = await getAutoBetSuggestions(5, 65);
-       setAutoSuggestions(res?.suggestions || []);
-     } catch (e: any) {
-       setError(e?.response?.data?.detail || 'Failed to fetch auto suggestions');
-     }
-   };
-
-   const handleAutoBetPlace = async (stake: number) => {
-     if (!autoSuggestions.length) return;
-     setAutoBetting(true);
-     setError(null);
-     try {
-       const res = await autoBetPlace({
-         selections: autoSuggestions.map((s: any) => ({
-           match_id: s.match_id,
-           pick_type: s.pick_type,
-           selection: s.selection,
-           confidence: s.confidence,
-         })),
-         stake,
-       });
-       setAutoResult(res);
-       loadHistory();
-     } catch (e: any) {
-       setError(e?.response?.data?.detail || 'Auto-bet placement failed');
-     } finally {
-       setAutoBetting(false);
-     }
-   };
-
-   const handleReset = () => {
-    setDecisions({});
-    setSavedSlip(null);
+  const bookSlip = async () => {
+    const selections = aiSlip?.selections || [];
+    if (!selections.length) return;
+    setBooking(true); setError('');
+    try {
+      const result = await bookBetbuilder({ selections, stake: Number(stake) || 0 });
+      setAiSlip((current: any) => ({ ...current, booking: result }));
+      setNotice(result?.share_code ? `Booking ready: ${result.share_code}` : 'The booking payload is ready for SportyBet.');
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'SportyBet booking could not be prepared.');
+    } finally { setBooking(false); }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const toggleManual = (prediction: any) => {
+    const pick = prediction.best_pick || {};
+    const item = {
+      match_id: prediction.match_id,
+      match: prediction.match_name,
+      league: prediction.league_name,
+      country: prediction.country_name,
+      type: pick.type || pick.pick_type,
+      pick_type: pick.type || pick.pick_type,
+      selection: pick.selection,
+      odds: Number(pick.odds || (pick.confidence ? (1 / (pick.confidence / 100)).toFixed(2) : 1.5)),
+      confidence: Number(pick.confidence || 0),
+      reason: pick.reason,
+      signals: prediction.signals || [],
+    };
+    setManualPicks(current => current.some(p => p.match_id === item.match_id) ? current.filter(p => p.match_id !== item.match_id) : [...current, item]);
+  };
 
   return (
     <IonPage>
-      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#111] text-white">
-
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1e1e1e] shrink-0">
-          <button onClick={() => router.goBack()} className="text-gray-400 text-lg">←</button>
-          <div className="flex-1">
-            <div className="text-sm font-bold text-white">Bet Builder</div>
-            {user && (
-              <div className="text-[11px] text-gray-500">
-                {user.firstName || user.email} · {accepted.length} selected
-              </div>
-            )}
-          </div>
-          <div className="text-xs text-gray-600">{filtered.length} matches</div>
-        </div>
-
-        <BuilderTabs active={mode} onChange={setMode} />
-
-        {error && mode === 'history' && (
-          <div className="shrink-0 px-4 py-2 text-center text-xs text-red-400">{error}</div>
-        )}
-
-        {mode === 'manual' && (
-          <div className="flex gap-1 px-3 py-2 border-b border-[#1e1e1e] shrink-0">
-          {(['all', 'high', 'medium'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1 rounded-full text-xs border transition ${
-                filter === f
-                  ? 'border-white bg-white text-black font-semibold'
-                  : 'border-[#333] text-gray-500 hover:text-white'
-              }`}
-            >
-              {f === 'all' ? 'All' : f === 'high' ? '🔥 High (70%+)' : '⚡ Medium (58%+)'}
-            </button>
-          ))}
-          </div>
-        )}
-
-        {/* Content */}
-        {savedSlip ? (
-          <SavedSlipView slip={savedSlip} user={user} onReset={handleReset} />
-        ) : mode === 'history' ? (
-          <BetHistoryPanel
-            history={history}
-            loading={historyLoading}
-            grading={historyGrading}
-            onRefresh={loadHistory}
-            onGrade={handleGradeHistory}
-            onOpenMatch={(id: string) => id && router.push(matchPath(id), 'forward', 'push')}
-          />
-        ) : mode === 'auto' ? (
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {error && <div className="px-4 pt-4 text-center text-xs text-red-400">{error}</div>}
-            <AutoBuilderPanel
-              form={autoForm}
-              setForm={setAutoForm}
-              result={autoResult}
-              building={buildingAuto}
-              saving={saving}
-              booking={bookingAuto}
-              onBuild={handleAutoBuild}
-              onSave={handleSaveAuto}
-              onBook={handleBookAuto}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div className="px-3 py-3">
-                {loading && (
-                  <div className="text-center text-gray-500 text-xs mt-16">Loading predictions…</div>
-                )}
-                {error && (
-                  <div className="text-center text-red-400 text-xs mt-10 px-4">{error}</div>
-                )}
-                {!loading && !error && filtered.length === 0 && (
-                  <div className="text-center text-gray-600 text-xs mt-16">
-                    No predictions found. Run predictions from the match detail page first.
-                  </div>
-                )}
-                {!loading && filtered.map(pred => (
-                  <MatchCard
-                    key={pred.id}
-                    pred={pred}
-                    accepted={decisions[pred.id] ?? null}
-                    onAccept={() => handleAccept(pred.id)}
-                    onReject={() => handleReject(pred.id)}
-                  />
-                ))}
-              </div>
+      <IonContent fullscreen style={{ '--background': '#101318' } as any}>
+        <div className="min-h-full bg-[#101318] pb-10 text-white">
+          <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#101318]/95 px-4 py-3 backdrop-blur">
+            <div className="mx-auto flex max-w-4xl items-center gap-3">
+              <button type="button" onClick={() => router.goBack()} aria-label="Back" className="grid h-8 w-8 place-items-center rounded-md text-slate-400 hover:bg-white/[0.06] hover:text-white"><ArrowLeft size={17} /></button>
+              <div className="min-w-0 flex-1"><div className="text-sm font-bold">Bet Builder</div><div className="text-[10px] text-slate-500">Build, book, and learn from every ticket</div></div>
+              <Ticket size={19} className="text-cyan-300" />
             </div>
+          </header>
 
-            {/* Sticky bet slip */}
-            <BetSlip accepted={accepted} onEnd={handleEnd} saving={saving} />
-          </>
-        )}
-      </div>
+          <main className="mx-auto max-w-4xl px-3 pt-4">
+            <nav className="mb-4 grid grid-cols-3 gap-1 border-b border-white/[0.08] pb-2">
+              {([
+                ['ai', 'AI Builder', Bot], ['manual', 'Manual Builder', Ticket], ['results', 'Results', History],
+              ] as const).map(([value, label, Icon]) => <button key={value} type="button" onClick={() => setMode(value)} className={`flex items-center justify-center gap-1.5 px-2 py-2 text-[11px] font-bold ${mode === value ? 'border-b-2 border-cyan-300 text-cyan-200' : 'text-slate-500'}`}><Icon size={14} />{label}</button>)}
+            </nav>
+
+            {error && <div className="mb-3 border-l-2 border-rose-300 bg-rose-300/[0.07] px-3 py-2 text-xs text-rose-100">{error}</div>}
+            {notice && <div className="mb-3 border-l-2 border-emerald-300 bg-emerald-300/[0.07] px-3 py-2 text-xs text-emerald-100">{notice}</div>}
+
+            {mode === 'ai' && <section>
+              <div className="border border-cyan-300/20 bg-cyan-300/[0.05] p-4">
+                <div className="flex gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-cyan-300 text-slate-950"><Bot size={19} /></div><div><div className="text-xs font-bold text-cyan-100">Maya, AI ticket analyst</div><p className="mt-1 text-xs leading-5 text-slate-300">I compare the engine pick, match-specific AI view, similar finished matches, and what previous ticket legs have taught us. I only suggest a ticket when the evidence has a coherent shape.</p></div></div>
+                <div className="mt-4 flex flex-wrap items-end gap-3"><label className="text-[10px] font-semibold uppercase text-slate-500">Target odds<input value={targetOdds} onChange={e => setTargetOdds(e.target.value)} type="number" min="1.5" step="0.1" className="mt-1 block w-24 border border-white/[0.12] bg-black/30 px-2 py-2 text-sm text-white outline-none" /></label><button type="button" onClick={buildAiSlip} disabled={building} className="flex items-center gap-2 bg-cyan-300 px-3 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50">{building ? <LoaderCircle size={15} className="animate-spin" /> : <Sparkles size={15} />}{building ? 'Maya is reviewing matches' : 'Ask Maya to build a ticket'}</button></div>
+              </div>
+
+              {aiSlip && <div className="mt-4">
+                <div className="border-b border-white/[0.08] pb-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="text-sm font-bold">Suggested ticket</div><p className="mt-1 text-xs text-slate-400">{aiSlip.synthesis_reasoning || 'This ticket favours the best aligned current analyses.'}</p></div><div className="text-right"><div className="text-lg font-bold text-cyan-200">{Number(aiSlip.combined_odds || combinedOdds(aiSlip.selections || [])).toFixed(2)}</div><div className="text-[9px] uppercase text-slate-500">combined odds</div></div></div></div>
+                <div className="divide-y divide-white/[0.07] border-x border-b border-white/[0.08]">
+                  {(aiSlip.selections || []).map((pick: any) => <div key={`${pick.match_id}-${pick.selection}`} className="p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-xs font-bold">{pick.match || pick.match_name}</div><div className="mt-0.5 text-[10px] text-slate-500">{pick.league || 'Match analysis'}</div></div><div className={`text-sm font-bold ${confidenceTone(Number(pick.confidence || pick.groq_confidence || 0))}`}>{pick.confidence || pick.groq_confidence}%</div></div><div className="mt-2 flex items-center justify-between gap-2"><span className="text-sm font-semibold text-cyan-100">{pick.selection}</span><span className="text-xs text-slate-400">{Number(pick.odds || pick.estimated_odds || 0).toFixed(2)}</span></div><p className="mt-2 text-[11px] leading-4 text-slate-400">{pick.synthesis_reasoning || 'Included for its current AI conviction.'}</p>{pick.learning?.samples > 0 && <div className="mt-2 text-[10px] text-violet-200">Past legs: {Math.round(Number(pick.learning.win_rate || 0) * 100)}% win rate across {pick.learning.samples} comparable selections</div>}</div>)}
+                </div>
+                <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-[10px] text-slate-500">Stake<input value={stake} onChange={e => setStake(e.target.value)} type="number" min="1" className="ml-2 w-20 border border-white/[0.12] bg-black/30 px-2 py-2 text-xs text-white outline-none" /></label><button type="button" onClick={() => saveSlip(aiSlip.selections || [], 'ai')} disabled={saving} className="bg-white px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">{saving ? 'Saving...' : 'Save ticket'}</button><button type="button" onClick={bookSlip} disabled={booking} className="bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">{booking ? 'Preparing...' : 'Book with SportyBet'}</button></div>
+              </div>}
+            </section>}
+
+            {mode === 'manual' && <section>
+              <div className="mb-3 border-l-2 border-amber-300 bg-amber-300/[0.06] px-3 py-2 text-xs text-slate-300">Your ticket, your decisions. Choose from the current engine predictions and we will still grade every leg after the match.</div>
+              <div className="space-y-2">{predictions.map((prediction: any) => { const pick = prediction.best_pick || {}; const selected = manualPicks.some(item => item.match_id === prediction.match_id); return <div key={prediction.id || prediction.match_id} className="border border-white/[0.08] bg-white/[0.025] p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate text-xs font-bold">{prediction.match_name}</div><div className="mt-0.5 text-[10px] text-slate-500">{prediction.league_name || 'Competition unavailable'}</div></div><button type="button" onClick={() => toggleManual(prediction)} className={`grid h-7 w-7 place-items-center border ${selected ? 'border-emerald-300 bg-emerald-300 text-slate-950' : 'border-white/[0.18] text-slate-500'}`}>{selected ? <Check size={15} /> : <ChevronRight size={15} />}</button></div><div className="mt-3 flex items-center justify-between gap-2"><div><div className="text-sm font-semibold text-white">{pick.selection || 'No selection'}</div><div className="mt-1 text-[10px] text-slate-500">{pretty(pick.type || pick.pick_type)}</div></div><div className={`text-sm font-bold ${confidenceTone(Number(pick.confidence || 0))}`}>{pick.confidence || 0}%</div></div>{pick.reason && <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-slate-400">{pick.reason}</p>}</div>})}</div>
+              <div className="sticky bottom-0 mt-4 border border-white/[0.1] bg-[#161b22] p-3"><div className="flex items-center justify-between text-xs"><span className="text-slate-400">{manualPicks.length} legs selected</span><span className="font-bold text-white">{combinedOdds(manualPicks).toFixed(2)} odds</span></div><button type="button" onClick={() => saveSlip(manualPicks, 'manual')} disabled={!manualPicks.length || saving} className="mt-3 w-full bg-amber-300 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-50">{saving ? 'Saving...' : 'Save manual ticket'}</button></div>
+            </section>}
+
+            {mode === 'results' && <section>
+              <div className="grid grid-cols-4 border-y border-white/[0.08] py-3 text-center"><div><div className="text-lg font-bold">{learning.settled}</div><div className="text-[9px] uppercase text-slate-500">Settled</div></div><div><div className="text-lg font-bold text-emerald-300">{learning.wins}</div><div className="text-[9px] uppercase text-slate-500">Won</div></div><div><div className="text-lg font-bold text-rose-300">{learning.losses}</div><div className="text-[9px] uppercase text-slate-500">Lost</div></div><div><div className="text-lg font-bold text-cyan-200">{learning.rate == null ? '--' : `${learning.rate}%`}</div><div className="text-[9px] uppercase text-slate-500">Win rate</div></div></div>
+              <div className="mt-4 space-y-2">{history.length === 0 ? <div className="py-12 text-center text-xs text-slate-500">Saved tickets will appear here as their legs are graded.</div> : history.map((ticket: any) => <div key={ticket.id} className="border border-white/[0.08] bg-white/[0.025] p-3"><div className="flex items-center justify-between"><div><div className="text-xs font-bold">Ticket #{ticket.id}</div><div className="mt-1 text-[10px] text-slate-500">{ticket.selections?.length || 0} legs · {Number(ticket.combined_odds || 0).toFixed(2)} odds</div></div><span className={`px-2 py-1 text-[9px] font-bold uppercase ${resultTone(ticket.result)}`}>{ticket.result || 'pending'}</span></div>{ticket.learning?.failure_points?.length > 0 && <div className="mt-2 text-[10px] text-rose-200">What missed: {ticket.learning.failure_points.map((point: any) => point.selection).filter(Boolean).join(', ')}</div>}{ticket.learning?.by_market && <div className="mt-2 text-[10px] text-slate-400">Learning saved by market and league for future AI ranking.</div>}</div>)}</div>
+            </section>}
+          </main>
+        </div>
+      </IonContent>
     </IonPage>
   );
 };

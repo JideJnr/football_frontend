@@ -311,6 +311,21 @@ export const getEnginesDashboard = (limit = 3000) =>
 export const getEngineWork = (engineId: string, limit = 3000) =>
   api.get(`/engines/${encodeURIComponent(engineId)}/work`, { params: { limit } }).then(r => r.data);
 
+export const getBrainSpecialists = (league = '', pickType = '') =>
+  api.get('/analytics/brain/specialists', { params: { league, pick_type: pickType } }).then(r => r.data);
+
+export const getBrainSummary = () =>
+  api.get('/analytics/brain/summary').then(r => r.data);
+
+export const getBrainModelWeights = () =>
+  api.get('/analytics/brain/model-weights').then(r => r.data);
+
+export const getBrainSignalWeights = (league = '') =>
+  api.get('/analytics/brain/signals', { params: { league } }).then(r => r.data);
+
+export const triggerBrainLearn = () =>
+  api.post('/analytics/brain/learn').then(r => r.data);
+
 export const getModelExplorer = (params: { preset?: string; model?: string; pickType?: string; selectionKey?: string; minSamples?: number; limit?: number }) =>
   api.get('/analytics/model-explorer', {
     params: {
