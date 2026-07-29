@@ -3,7 +3,7 @@ import { IonContent, IonPage, IonRefresher, IonRefresherContent, useIonRouter } 
 import { useParams } from 'react-router';
 import { usePredictionStore } from '../../../../prediction/usePredictionStore';
 import { MatchSignal } from '../../../../prediction/engine';
-import { getPredictionsToday, refreshPredictions } from '../../../../services/apis/footballApi';
+import { refreshPredictions } from '../../../../services/apis/footballApi';
 import { getValueHunterContext as getLocalValueHunterContext, getEngineLearningData } from '../../../../prediction/engineLearning';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -219,11 +219,10 @@ type StatusFilter = 'all' | 'pending' | 'accepted' | 'rejected';
 function EngineSignals() {
   const { id: engineId } = useParams<{ id: string }>();
   const router = useIonRouter();
-  const { engines, refreshEngineLearning } = usePredictionStore();
+  const { engines, refreshEngineLearning, loadBackendPredictions, backendPredictions } = usePredictionStore();
 
   const [sort, setSort] = useState<SortMode>('confidence');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [backendPreds, setBackendPreds] = useState<any[]>([]);
   const [portfolio, setPortfolio] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -239,12 +238,9 @@ function EngineSignals() {
   const fetchPreds = async () => {
     setLoading(true);
     try {
-      const res = await getPredictionsToday();
-      setBackendPreds(res.predictions || []);
-      setPortfolio(res.portfolio || null);
+      await loadBackendPredictions();
     } catch {
-      setBackendPreds([]);
-      setPortfolio(null);
+      // Backend predictions unavailable — keep existing data
     } finally {
       setLoading(false);
     }
@@ -254,7 +250,7 @@ function EngineSignals() {
     setRefreshing(true);
     try {
       await refreshPredictions();
-      await fetchPreds();
+      await loadBackendPredictions();
     } catch {
     } finally {
       setRefreshing(false);
@@ -265,9 +261,9 @@ function EngineSignals() {
 
   // Build value hunter contexts for all matches
   useEffect(() => {
-    if (!backendPreds.length) return;
+    if (!backendPredictions.length) return;
     const contexts: Record<string, any> = {};
-    for (const pred of backendPreds) {
+    for (const pred of backendPredictions) {
       const matchId = String(pred.match_id || pred.sportybet_id || '');
       if (matchId) {
         const matchData = {
@@ -285,7 +281,7 @@ function EngineSignals() {
       }
     }
     setValueHunterContexts(contexts);
-  }, [backendPreds]);
+  }, [backendPredictions]);
 
   // Convert backend predictions to signals for this engine
   const engineSignals = useMemo(() => {
@@ -293,7 +289,7 @@ function EngineSignals() {
     const allowedTypes = ENGINE_PICK_TYPES[engineId] || [];
     const preMatchOnly = PRE_MATCH_ONLY_ENGINES.has(engineId);
     const signals: MatchSignal[] = [];
-    for (const pred of backendPreds) {
+    for (const pred of backendPredictions) {
       // For value_hunter (and similar engines), skip matches that have already kicked off
       if (preMatchOnly && (pred.is_live || pred.is_finished)) continue;
 
@@ -307,7 +303,7 @@ function EngineSignals() {
       }
     }
     return signals;
-  }, [backendPreds, engineId, engine]);
+  }, [backendPredictions, engineId, engine]);
 
   const filtered = useMemo(() => {
     let list = engineSignals;
@@ -365,11 +361,10 @@ function EngineSignals() {
     <IonPage>
       <IonContent style={{ '--background': '#0f0f0f' } as any} fullscreen>
         <IonRefresher slot="fixed" onIonRefresh={async e => {
-          try {
-            const res = await getPredictionsToday();
-            setBackendPreds(res.predictions || []);
-          } catch {} finally { e.detail.complete(); }
-        }}>
+           try {
+             await loadBackendPredictions();
+           } catch {} finally { e.detail.complete(); }
+         }}>
           <IonRefresherContent />
         </IonRefresher>
 

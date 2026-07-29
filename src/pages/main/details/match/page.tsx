@@ -51,7 +51,7 @@ const Match = () => {
 
   const router = useIonRouter();
   const { getMatchDetail, matchDetail, loading, error } = useFootballContext();
-  const { assignEnginesToMatch: assignEngines } = usePredictionStore();
+  const { assignEnginesToMatch: assignEngines, gradeMatch } = usePredictionStore();
 
   const [activeTab, setActiveTab] = useState<Tab>('Home');
   const [enriching, setEnriching] = useState(false);
@@ -81,6 +81,15 @@ const Match = () => {
     assignEngines(id, matchDetail);
   }, [matchDetail, id, assignEngines]);
 
+  // Grade match when result is known (finished match)
+  useEffect(() => {
+    if (!matchDetail || !id) return;
+    if (matchDetail.is_finished && matchDetail.result) {
+      const result = matchDetail.result;
+      gradeMatch(id, result === 'won' ? 'won' : 'lost', matchDetail);
+    }
+  }, [matchDetail?.is_finished, matchDetail?.result, id, gradeMatch]);
+
   const refresh = async () => { if (id) await getMatchDetail(id); };
 
   const handleEnrich = async () => {
@@ -109,8 +118,12 @@ const Match = () => {
     setActionMsg('');
     setActionError('');
     try {
-      await predictMatch(id);
-      setActionMsg('Prediction complete');
+      const res = await predictMatch(id);
+      if (res?.deferred || !res?.prediction) {
+        setActionMsg(res?.message || res?.skip_reason || 'Manual prediction returned no pick. See the reason below.');
+      } else {
+        setActionMsg(res?.message || 'Prediction complete');
+      }
       await refresh();
     } catch (err: any) {
       setActionError(formatActionError(err, 'Prediction failed'));

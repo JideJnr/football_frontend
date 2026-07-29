@@ -21,6 +21,7 @@ const Splash = React.lazy(() => import("../pages/splash/splash"));
 const Home = React.lazy(() => import("../pages/main/main"));
 const Loading = React.lazy(() => import("../components/loading/Loading"));
 const MatchDetails = React.lazy(() => import("../pages/main/details/match/page"));
+const PredictionPage = React.lazy(() => import("../pages/main/details/match/PredictionPage"));
 const OddsMovementDetail = React.lazy(() => import("../pages/main/details/match/OddsMovementDetail"));
 const CountryDetails = React.lazy(() => import("../pages/main/details/country/page"));
 const TeamDetails = React.lazy(() => import("../pages/main/details/team/page"));
@@ -77,6 +78,11 @@ const Routes: React.FC = () => {
         path="/match/:matchId"
         exact
         component={MatchDetails}
+      />
+      <Route
+        path="/match/:matchId/prediction"
+        exact
+        component={PredictionPage}
       />
 
       <Route path="/home" exact component={Home} />

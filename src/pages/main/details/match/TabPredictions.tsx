@@ -1,7 +1,8 @@
-﻿import { useState, useEffect } from 'react';
-import { Target, Brain, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Target, Brain, CheckCircle, AlertCircle, Clock, X } from 'lucide-react';
 import { Sec, Empty } from './shared';
 import { trackUserBehavior, getUserPickForMatch } from '../../../../services/apis/footballApi';
+import { getValueHunterContext } from '../../../../prediction/engineLearning';
 
 const num = (v: any, fb = 0) => {
   const n = Number(v);
@@ -464,6 +465,35 @@ const DecisionCard = ({ pick }: { pick: any }) => {
   );
 };
 
+const GradedResultCard = ({ prediction, pick }: { prediction: any; pick: any }) => {
+  const result = prediction?.result || pick?.result;
+  const gradedAt = prediction?.graded_at || pick?.gradedAt || pick?.graded_at;
+  if (!result && !gradedAt) return null;
+  const normalized = String(result || 'graded').toLowerCase();
+  const tone = normalized === 'win' || normalized === 'won'
+    ? 'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-300'
+    : normalized === 'loss' || normalized === 'lost'
+      ? 'border-red-500/25 bg-red-500/[0.06] text-red-300'
+      : 'border-yellow-500/25 bg-yellow-500/[0.06] text-yellow-300';
+  const finalHome = prediction?.final_home ?? prediction?.finalHome;
+  const finalAway = prediction?.final_away ?? prediction?.finalAway;
+  const finalScore = finalHome != null && finalAway != null ? `${finalHome}-${finalAway}` : null;
+
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${tone}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-widest opacity-80">Graded result</div>
+          <div className="mt-1 text-sm font-bold text-white">{normalized.toUpperCase()}</div>
+        </div>
+        {finalScore && (
+          <div className="rounded-lg bg-black/20 px-3 py-1 text-sm font-bold text-white">{finalScore}</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const IntelligencePanel = ({ intelligence, riskManagement }: { intelligence: any; riskManagement?: any }) => {
   if ((!intelligence || !Object.keys(intelligence).length) && (!riskManagement || !Object.keys(riskManagement).length)) return null;
   const contextTags = intelligence?.match_context?.tags || [];
@@ -626,6 +656,138 @@ const AiAnalysisCard = ({
         </div>
 
         <div className="text-[10px] leading-relaxed text-gray-600">AI analysis explains available evidence; it does not guarantee an outcome.</div>
+      </div>
+    </Sec>
+  );
+};
+
+const CompactAiAnalysisCard = ({ analysis }: { analysis: any }) => {
+  const [open, setOpen] = useState(false);
+  if (!analysis) return null;
+  const providerLabel = analysis?.provider || analysis?.source || 'AI Pipeline';
+  const rec = analysis?.recommendation || analysis?.consensus || 'No analysis yet';
+  const confidence = analysis?.confidence;
+  const analysts = analysis?.analysts || analysis?.reasoning_context?.analysts || [];
+
+  return (
+    <>
+      <Sec title="AI analysis">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full rounded-xl border border-violet-500/25 bg-violet-500/[0.06] p-3 text-left transition hover:bg-violet-500/[0.1] active:scale-[0.99]"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">{providerLabel}</div>
+              <div className="text-[9px] text-gray-600">Specialist analysis room</div>
+              <div className="mt-1 text-sm font-semibold text-white">{rec}</div>
+              {analysts.length > 0 && <div className="mt-2 text-[10px] text-violet-200">{analysts.length} specialist views ready</div>}
+            </div>
+            {confidence != null && (
+              <div className={'rounded-lg bg-black/20 px-2 py-1 text-sm font-bold ' + confidenceTone(num(confidence))}>
+                {pct(confidence)}
+              </div>
+            )}
+          </div>
+        </button>
+        <div className="text-[10px] leading-relaxed text-gray-600">Tap to open the specialist chat view.</div>
+      </Sec>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center">
+          <div className="max-h-[88vh] w-full overflow-hidden rounded-t-2xl border border-white/[0.08] bg-[#111] shadow-2xl sm:max-w-lg sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+              <div>
+                <div className="text-sm font-bold text-white">AI specialist room</div>
+                <div className="text-[10px] text-gray-500">{providerLabel}</div>
+              </div>
+              <button onClick={() => setOpen(false)} className="rounded-lg border border-white/10 p-2 text-gray-400 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-[72vh] space-y-3 overflow-y-auto px-4 py-4">
+              <div className="flex gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-xs font-black text-violet-200">AI</div>
+                <div className="rounded-2xl rounded-tl-sm bg-violet-500/[0.08] px-3 py-2">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">Lead analyst</div>
+                  <div className="mt-1 text-sm text-white">{rec}</div>
+                  {confidence != null && <div className="mt-1 text-xs text-gray-400">Confidence: {pct(confidence)}</div>}
+                </div>
+              </div>
+
+              {analysis?.key_factors?.slice(0, 4).map((factor: string, i: number) => (
+                <div key={`${factor}-${i}`} className="ml-12 rounded-2xl bg-white/[0.04] px-3 py-2 text-xs leading-relaxed text-emerald-100">
+                  {factor}
+                </div>
+              ))}
+
+              {analysts.slice(0, 8).map((analyst: any, index: number) => {
+                const initials = String(analyst?.name || `A${index + 1}`)
+                  .split(' ')
+                  .map(part => part[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase();
+                return (
+                  <div key={`${analyst?.name || 'analyst'}-${index}`} className="flex gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/30 to-blue-500/20 text-[10px] font-black text-white">
+                      {initials}
+                    </div>
+                    <div className="rounded-2xl rounded-tl-sm bg-white/[0.055] px-3 py-2">
+                      <div className="text-xs font-semibold text-white">{analyst?.name || `Specialist ${index + 1}`}</div>
+                      {analyst?.trained_knowledge && <div className="mt-0.5 text-[9px] text-gray-500">{analyst.trained_knowledge}</div>}
+                      <div className="mt-1 text-xs leading-relaxed text-gray-300">{analyst?.finding || 'No finding returned.'}</div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <AiReasoningBlock reasoning={analysis?.reasoning} />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+const EngineAgreementPanel = ({ m }: { m: any }) => {
+  const matchId = String(m?.id || m?.sportybet_id || m?.match_id || '');
+  const context = matchId ? getValueHunterContext(matchId, m) : null;
+  if (!context || context.consensus.confidence === 'low' || context.consensus.supportingEngines.length === 0) return null;
+  const supporters = context.assignedEngines.filter((engine: any) =>
+    context.consensus.supportingEngines.includes(engine.engineId)
+    || engine.prediction.pick === context.consensus.bestPick
+  );
+
+  return (
+    <Sec title="Engine agreement">
+      <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] p-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Engines agree on this match</div>
+            <div className="mt-1 text-base font-bold text-white">{context.consensus.bestPick}</div>
+            <div className="mt-0.5 text-xs text-gray-500">{context.consensus.bestMarket} @ {Number(context.consensus.bestOdds || 0).toFixed(2)}</div>
+          </div>
+          <div className="rounded-lg bg-black/20 px-2 py-1 text-xs font-bold text-emerald-300">{context.consensus.confidence.toUpperCase()}</div>
+        </div>
+        <div className="space-y-2">
+          {supporters.slice(0, 3).map((engine: any, index: number) => (
+            <div key={`${engine.engineId}-${index}`} className="rounded-lg bg-black/20 px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-white">{engine.engineIcon} {engine.engineName}</div>
+                  <div className="mt-0.5 text-[10px] text-gray-500">{engine.contextFactors.slice(0, 3).join(', ') || 'Matched its specialist rule set'}</div>
+                </div>
+                <div className="text-right text-[10px] text-emerald-300">{(engine.winRate * 100).toFixed(0)}% memory</div>
+              </div>
+              <div className="mt-1 text-xs leading-relaxed text-gray-300">
+                Picked {engine.prediction.pick} because this match fits {engine.prediction.market.replace(/_/g, ' ')} with {Math.round(engine.prediction.probability * 100)}% model probability.
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </Sec>
   );
@@ -987,6 +1149,116 @@ const PredictionActions = ({
   );
 };
 
+
+const NoPredictionPanel = ({ m, predictionError, onPredict, predicting }: { m: any; predictionError: string | null; onPredict: () => void; predicting: boolean }) => {
+  // Pull deferred reason from ai_prediction_state audit or intelligence
+  const state = m?.manual_prediction_state;
+  const audit = state?.prediction?.audit || m?.intelligence?.prediction?.audit || {};
+  const noPred = audit?.no_prediction || {};
+  const deferReason = noPred?.reason || state?.message || predictionError;
+  const missing = audit?.enrichment?.missing || [];
+  const signals = state?.prediction?.audit?.signals || {};
+  const supportSignals: any[] = signals?.support || [];
+  const riskSignals: any[] = signals?.risk || [];
+  const models = audit?.models || {};
+  const contextual = m?.intelligence?.prediction?.contextual || {};
+  const riskLevel = contextual?.risk?.level || m?.intelligence?.learning?.risk_management?.risk_level;
+  const confAdj = contextual?.confidence_adjustment;
+  const explainLines: string[] = contextual?.explain?.lines || [];
+
+  return (
+    <div className="space-y-3">
+      {/* Deferred / no pick card */}
+      <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/[0.05] p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">Manual Prediction — No Pick</div>
+            <div className="mt-1 text-sm font-semibold text-white">
+              {deferReason ? String(deferReason).replace(/_/g, ' ') : 'Prediction deferred — insufficient signal'}
+            </div>
+          </div>
+          {riskLevel && (
+            <div className={`rounded-lg px-2 py-1 text-xs font-bold ${riskLevel === 'high' ? 'bg-red-500/15 text-red-300' : riskLevel === 'medium' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/[0.06] text-gray-400'}`}>
+              {riskLevel} risk
+            </div>
+          )}
+        </div>
+
+        {/* Missing data */}
+        {missing.length > 0 && (
+          <div className="rounded-lg bg-black/20 px-3 py-2">
+            <div className="text-[9px] uppercase tracking-widest text-gray-500 mb-1">Missing data</div>
+            <div className="flex flex-wrap gap-1">
+              {missing.map((item: string) => (
+                <span key={item} className="rounded-full border border-red-500/20 px-2 py-0.5 text-[10px] text-red-400">{item.replace(/_/g, ' ')}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Confidence adjustment */}
+        {confAdj != null && confAdj !== 0 && (
+          <div className={`rounded-lg px-3 py-2 text-xs ${confAdj < 0 ? 'bg-red-500/[0.06] text-red-300' : 'bg-emerald-500/[0.06] text-emerald-300'}`}>
+            Confidence adjustment: {confAdj > 0 ? '+' : ''}{confAdj}%
+          </div>
+        )}
+
+        {/* Explain lines */}
+        {explainLines.length > 0 && (
+          <div className="space-y-1">
+            {explainLines.slice(0, 4).map((line: string, i: number) => (
+              <div key={i} className="text-xs leading-relaxed text-gray-400">• {line}</div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Support / risk signals if any were evaluated */}
+      {(supportSignals.length > 0 || riskSignals.length > 0) && (
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3 space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Evaluated Signals</div>
+          {supportSignals.slice(0, 3).map((s: any, i: number) => (
+            <div key={i} className="text-xs text-emerald-300">↑ {s.name?.replace(/_/g, ' ')} {s.impact != null ? `(${s.impact > 0 ? '+' : ''}${s.impact})` : ''}</div>
+          ))}
+          {riskSignals.slice(0, 3).map((s: any, i: number) => (
+            <div key={i} className="text-xs text-red-300">↓ {s.name?.replace(/_/g, ' ')} {s.impact != null ? `(${s.impact > 0 ? '+' : ''}${s.impact})` : ''}</div>
+          ))}
+        </div>
+      )}
+
+      {/* Model probabilities if available */}
+      {(models?.ensemble_prediction || models?.probabilities) && (
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Model Output</div>
+          {(() => {
+            const probs = models?.probabilities || {};
+            const h = Number(probs.home_win || 0);
+            const d = Number(probs.draw || 0);
+            const a = Number(probs.away_win || 0);
+            const total = h + d + a || 100;
+            if (!h && !d && !a) return null;
+            return (
+              <div className="flex h-5 overflow-hidden rounded-lg bg-white/5">
+                <div className="flex items-center justify-center bg-emerald-600/70 text-[10px] font-bold text-white" style={{ width: `${(h / total) * 100}%` }}>{h >= 8 ? `${Math.round(h)}%` : ''}</div>
+                <div className="flex items-center justify-center bg-gray-500/60 text-[10px] font-bold text-white" style={{ width: `${(d / total) * 100}%` }}>{d >= 8 ? `${Math.round(d)}%` : ''}</div>
+                <div className="flex items-center justify-center bg-blue-600/70 text-[10px] font-bold text-white" style={{ width: `${(a / total) * 100}%` }}>{a >= 8 ? `${Math.round(a)}%` : ''}</div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      <button
+        onClick={onPredict}
+        disabled={predicting}
+        className="w-full py-3 rounded-xl border border-purple-500/40 bg-purple-500/[0.08] text-sm font-semibold text-purple-300 hover:bg-purple-500/[0.15] transition disabled:opacity-40 active:scale-[0.98]"
+      >
+        {predicting ? 'Running prediction...' : 'Re-run Prediction'}
+      </button>
+    </div>
+  );
+};
+
 const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, actionMsg, actionError }: TabPredictionsProps) => {
   const prediction = m?.prediction;
   const predictionError = m?.prediction_error;
@@ -1000,6 +1272,8 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
   const contextualIntelligence = contextualFrom(prediction, m);
   const riskManagement = prediction?.risk_management || primary?.risk_management || m?.intelligence?.learning?.risk_management;
   const aiAnalysis = m?.ai_analysis || null;
+  // Has the manual engine run at all (even if deferred/no pick)?
+  const manualRan = !!(m?.manual_prediction_state || m?.prediction_error || m?.intelligence?.prediction?.audit);
 
   return (
     <div className="space-y-3 px-4 py-4">
@@ -1013,28 +1287,34 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
         actionError={actionError || ''}
       />
 
-      <AiAnalysisCard analysis={aiAnalysis} />
-
       {!prediction ? (
-        <div className="rounded-xl border border-white/[0.07] bg-[#161616] p-6 text-center space-y-4">
-          <div className="text-3xl">ðŸ”®</div>
-          <div>
-            <div className="text-sm font-semibold text-white">No prediction yet</div>
-            <div className="text-xs text-gray-500 mt-1">{predictionError || 'The system hasn\'t run a prediction for this match. You can trigger one now.'}</div>
-          </div>
-          <button
-            onClick={onPredict}
-            disabled={predicting}
-            className="w-full py-3 rounded-xl border border-purple-500/40 bg-purple-500/[0.08] text-sm font-semibold text-purple-300 hover:bg-purple-500/[0.15] transition disabled:opacity-40 active:scale-[0.98]"
-          >
-            {predicting ? 'Running prediction...' : 'Run Prediction Now'}
-          </button>
-        </div>
+        <>
+          {manualRan ? (
+            <NoPredictionPanel m={m} predictionError={predictionError} onPredict={onPredict} predicting={predicting} />
+          ) : (
+            <div className="rounded-xl border border-white/[0.07] bg-[#161616] p-6 text-center space-y-4">
+              <div className="text-3xl">🔮</div>
+              <div>
+                <div className="text-sm font-semibold text-white">No prediction yet</div>
+                <div className="text-xs text-gray-500 mt-1">{predictionError || "The system hasn't run a prediction for this match. You can trigger one now."}</div>
+              </div>
+              <button onClick={onPredict} disabled={predicting} className="w-full py-3 rounded-xl border border-purple-500/40 bg-purple-500/[0.08] text-sm font-semibold text-purple-300 hover:bg-purple-500/[0.15] transition disabled:opacity-40 active:scale-[0.98]">
+                {predicting ? 'Running prediction...' : 'Run Prediction Now'}
+              </button>
+            </div>
+          )}
+          <CompactAiAnalysisCard analysis={aiAnalysis} />
+          <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
+        </>
       ) : !primary ? (
         <>
-          <Empty msg="No confident pick from the current data." />
+          <NoPredictionPanel m={m} predictionError={predictionError} onPredict={onPredict} predicting={predicting} />
+          <CompactAiAnalysisCard analysis={aiAnalysis} />
+          <EngineAgreementPanel m={m} />
           <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
+          <EvidenceBoard signals={signals} pick={{}} m={m} />
           <ModelConsensus models={prediction.models} home={m?.home_team} away={m?.away_team} />
+          <MemoryWeights prediction={prediction} models={prediction.models} />
           <DataQuality q={prediction.data_quality} />
         </>
       ) : (
@@ -1042,6 +1322,9 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
           <LiveGoalPanel picks={picks} m={m} prediction={prediction} />
           <PortfolioBadge prediction={prediction} />
           <DecisionCard pick={primary} />
+          <GradedResultCard prediction={prediction} pick={primary} />
+          <CompactAiAnalysisCard analysis={aiAnalysis} />
+          <EngineAgreementPanel m={m} />
           <UserPickPanel matchId={m?.id || m?.sportybet_id || m?.match_id || ''} modelSelection={primary?.selection} />
           <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
           <StakeCard pick={primary} />

@@ -17,6 +17,8 @@ interface PredictionState {
   lastRun: number | null;
   running: boolean;
   backendPredictionsLoaded: boolean;
+  backendPredictions: any[];
+  backendPortfolio: any | null;
   matchAssignments: Record<string, MatchEngineAssignment[]>;
 
   // actions
@@ -72,6 +74,8 @@ export const usePredictionStore = create<PredictionState>((set, get) => ({
   lastRun: null,
   running: false,
   backendPredictionsLoaded: false,
+  backendPredictions: [],
+  backendPortfolio: null,
   matchAssignments: {},
 
   /** Fetch backend predictions and merge them into the store as the primary signals. */
@@ -80,7 +84,7 @@ export const usePredictionStore = create<PredictionState>((set, get) => ({
       const data = await getPredictionsToday();
       const predictions = data?.predictions ?? [];
       const signals: MatchSignal[] = predictions.map(backendPredictionToSignal);
-      set({ signals, backendPredictionsLoaded: true, lastRun: Date.now() });
+      set({ signals, backendPredictions: predictions, backendPortfolio: data?.portfolio ?? null, backendPredictionsLoaded: true, lastRun: Date.now() });
     } catch {
       // Backend predictions unavailable — keep existing signals
     }

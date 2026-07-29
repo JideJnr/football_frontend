@@ -305,6 +305,12 @@ export const getSignalMatches = (signalName = 'consensus_longshot_value', result
     params: { signal_name: signalName, result, limit },
   }).then(r => r.data);
 
+export const getEnginesDashboard = (limit = 3000) =>
+  api.get('/engines/dashboard', { params: { limit } }).then(r => r.data);
+
+export const getEngineWork = (engineId: string, limit = 3000) =>
+  api.get(`/engines/${encodeURIComponent(engineId)}/work`, { params: { limit } }).then(r => r.data);
+
 export const getModelExplorer = (params: { preset?: string; model?: string; pickType?: string; selectionKey?: string; minSamples?: number; limit?: number }) =>
   api.get('/analytics/model-explorer', {
     params: {

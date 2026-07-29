@@ -7,6 +7,7 @@ interface FootballContextType {
   getMatchDetail: (id: string) => Promise<void>;
   mergeLiveMatches: (liveMatches: any[]) => void;
   prefetchToday: () => Promise<void>;
+  updateMatchDetail: (patch: Record<string, any>) => void;
   matches: any[] | null;
   currentMatch: any | null;
   matchDetail: any | null;
@@ -65,6 +66,10 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
+  const updateMatchDetail = (patch: Record<string, any>) => {
+    setMatchDetail((prev: any | null) => (prev ? { ...prev, ...patch } : null));
+  };
+
   const getTeamById = async (_id: string) => undefined;
 
   const mergeLiveMatches = useCallback((liveMatches: any[]) => {
@@ -80,7 +85,7 @@ export const FootballProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   return (
     <FootballContext.Provider value={{
-      getTodayMatches, getMatchesByDate, getMatchDetail, mergeLiveMatches, prefetchToday,
+      getTodayMatches, getMatchesByDate, getMatchDetail, mergeLiveMatches, prefetchToday, updateMatchDetail,
       matches, matchDetail, currentMatch: matchDetail, team: matchDetail?.home_team || null, getTeamById,
       loading: store.loading,
       error: store.error,
