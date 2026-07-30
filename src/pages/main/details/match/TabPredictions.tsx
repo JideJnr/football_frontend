@@ -465,6 +465,23 @@ const DecisionCard = ({ pick }: { pick: any }) => {
   );
 };
 
+const NoPickDecisionCard = ({ reason }: { reason?: string | null }) => (
+  <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/[0.05] p-4">
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-widest text-yellow-400">Primary decision</div>
+        <div className="mt-1 text-xl font-bold leading-tight text-white">No pick</div>
+      </div>
+      <div className="shrink-0 rounded-lg bg-black/20 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-yellow-300">
+        Hold
+      </div>
+    </div>
+    <div className="text-xs leading-relaxed text-gray-400">
+      {reason ? String(reason).replace(/_/g, ' ') : 'No market reached the threshold for a confident selection.'}
+    </div>
+  </div>
+);
+
 const GradedResultCard = ({ prediction, pick }: { prediction: any; pick: any }) => {
   const result = prediction?.result || pick?.result;
   const gradedAt = prediction?.graded_at || pick?.gradedAt || pick?.graded_at;
@@ -672,7 +689,17 @@ const AiAnalysisCard = ({
 
 const CompactAiAnalysisCard = ({ analysis }: { analysis: any }) => {
   const [open, setOpen] = useState(false);
-  if (!analysis) return null;
+  if (!analysis) {
+    return (
+      <Sec title="AI analysis">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-violet-300">AI Pipeline</div>
+          <div className="mt-1 text-sm font-semibold text-white">No AI analysis yet</div>
+          <div className="mt-1 text-xs leading-relaxed text-gray-500">Run AI Prediction to generate specialist analysis for this match.</div>
+        </div>
+      </Sec>
+    );
+  }
   const providerLabel = analysis?.provider || analysis?.source || 'AI Pipeline';
   const rec = analysis?.recommendation || analysis?.consensus || 'No analysis yet';
   const confidence = analysis?.confidence;
@@ -805,11 +832,15 @@ const EngineAgreementPanel = ({ m }: { m: any }) => {
 };
 
 const AlternativePicks = ({ picks }: { picks: any[] }) => {
-  if (!picks.length) return null;
   return (
     <Sec title="Secondary leans">
       <div className="space-y-2">
-        {picks.map((pick: any, i: number) => {
+        {!picks.length ? (
+          <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
+            <div className="text-sm font-semibold text-white">No secondary lean</div>
+            <div className="mt-1 text-xs text-gray-500">The engine did not find another playable angle.</div>
+          </div>
+        ) : picks.map((pick: any, i: number) => {
           const p = cleanPick(pick);
           return (
             <div key={`${p.selection}-${i}`} className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5">
@@ -1285,6 +1316,10 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
   const aiAnalysis = m?.ai_analysis || null;
   // Has the manual engine run at all (even if deferred/no pick)?
   const manualRan = !!(m?.manual_prediction_state || m?.prediction_error || m?.intelligence?.prediction?.audit);
+  const state = m?.manual_prediction_state;
+  const audit = state?.prediction?.audit || m?.intelligence?.prediction?.audit || {};
+  const noPickReason = audit?.no_prediction?.reason || state?.message || predictionError;
+  const matchId = m?.id || m?.sportybet_id || m?.match_id || '';
 
   return (
     <div className="space-y-3 px-4 py-4">
@@ -1298,54 +1333,38 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
         actionError={actionError || ''}
       />
 
-      {!prediction ? (
-        <>
-          {manualRan ? (
-            <NoPredictionPanel m={m} predictionError={predictionError} onPredict={onPredict} predicting={predicting} />
-          ) : (
-            <div className="rounded-xl border border-white/[0.07] bg-[#161616] p-6 text-center space-y-4">
-              <div className="text-3xl">🔮</div>
-              <div>
-                <div className="text-sm font-semibold text-white">No prediction yet</div>
-                <div className="text-xs text-gray-500 mt-1">{predictionError || "The system hasn't run a prediction for this match. You can trigger one now."}</div>
-              </div>
-              <button onClick={onPredict} disabled={predicting} className="w-full py-3 rounded-xl border border-purple-500/40 bg-purple-500/[0.08] text-sm font-semibold text-purple-300 hover:bg-purple-500/[0.15] transition disabled:opacity-40 active:scale-[0.98]">
-                {predicting ? 'Running prediction...' : 'Run Prediction Now'}
-              </button>
-            </div>
-          )}
-          <CompactAiAnalysisCard analysis={aiAnalysis} />
-          <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
-        </>
-      ) : !primary ? (
-        <>
+
+      {!prediction && (
+        manualRan ? (
           <NoPredictionPanel m={m} predictionError={predictionError} onPredict={onPredict} predicting={predicting} />
-          <CompactAiAnalysisCard analysis={aiAnalysis} />
-          <EngineAgreementPanel m={m} />
-          <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
-          <EvidenceBoard signals={signals} pick={{}} m={m} />
-          <ModelConsensus models={prediction.models} home={m?.home_team} away={m?.away_team} />
-          <MemoryWeights prediction={prediction} models={prediction.models} />
-          <DataQuality q={prediction.data_quality} />
-        </>
-      ) : (
-        <>
-          <LiveGoalPanel picks={picks} m={m} prediction={prediction} />
-          <PortfolioBadge prediction={prediction} />
-          <DecisionCard pick={primary} />
-          <GradedResultCard prediction={prediction} pick={primary} />
-          <CompactAiAnalysisCard analysis={aiAnalysis} />
-          <EngineAgreementPanel m={m} />
-          <UserPickPanel matchId={m?.id || m?.sportybet_id || m?.match_id || ''} modelSelection={primary?.selection} />
-          <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
-          <StakeCard pick={primary} />
-          <AlternativePicks picks={alternatives} />
-          <EvidenceBoard signals={signals} pick={primary} m={m} />
-          <ModelConsensus models={prediction.models} home={m?.home_team} away={m?.away_team} />
-          <MemoryWeights prediction={prediction} models={prediction.models} />
-          <DataQuality q={prediction.data_quality} />
-        </>
+        ) : (
+          <div className="rounded-xl border border-white/[0.07] bg-[#161616] p-6 text-center space-y-4">
+            <div className="text-3xl">?</div>
+            <div>
+              <div className="text-sm font-semibold text-white">No prediction yet</div>
+              <div className="text-xs text-gray-500 mt-1">{predictionError || "The system hasn't run a prediction for this match. You can trigger one now."}</div>
+            </div>
+            <button onClick={onPredict} disabled={predicting} className="w-full py-3 rounded-xl border border-purple-500/40 bg-purple-500/[0.08] text-sm font-semibold text-purple-300 hover:bg-purple-500/[0.15] transition disabled:opacity-40 active:scale-[0.98]">
+              {predicting ? 'Running prediction...' : 'Run Prediction Now'}
+            </button>
+          </div>
+        )
       )}
+
+      {prediction && <LiveGoalPanel picks={picks} m={m} prediction={prediction} />}
+      {prediction && <PortfolioBadge prediction={prediction} />}
+      {primary ? <DecisionCard pick={primary} /> : <NoPickDecisionCard reason={noPickReason} />}
+      {primary && <GradedResultCard prediction={prediction} pick={primary} />}
+      <CompactAiAnalysisCard analysis={aiAnalysis} />
+      <EngineAgreementPanel m={m} />
+      <UserPickPanel matchId={matchId} modelSelection={primary?.selection} />
+      <IntelligencePanel intelligence={contextualIntelligence} riskManagement={riskManagement} />
+      {primary && <StakeCard pick={primary} />}
+      <AlternativePicks picks={alternatives} />
+      <EvidenceBoard signals={signals} pick={primary || { selection: 'No pick' }} m={m} />
+      <ModelConsensus models={prediction?.models} home={m?.home_team} away={m?.away_team} />
+      <MemoryWeights prediction={prediction} models={prediction?.models} />
+      <DataQuality q={prediction?.data_quality} />
     </div>
   );
 };

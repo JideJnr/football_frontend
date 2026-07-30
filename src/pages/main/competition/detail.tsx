@@ -129,6 +129,10 @@ export default function CompetitionDetail() {
   const bufferSummary = pageData?.buffer_summary ?? {};
   const bufferStatus = pageData?.buffer_status ?? {};
   const matches: any[] = pageData?.matches ?? [];
+  const teamWatchers: any[] = pageData?.team_watchers ?? [];
+  const topWatchers = teamWatchers
+    .filter((watcher) => Number(watcher?.match_count ?? 0) > 0)
+    .slice(0, 8);
 
   const total = bufferStatus?.total ?? bufferSummary?.total ?? 0;
   const enriched = bufferStatus?.enriched ?? bufferSummary?.enriched ?? 0;
@@ -359,6 +363,46 @@ export default function CompetitionDetail() {
             </div>
           );
         })()}
+
+        {topWatchers.length > 0 && (
+          <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span className="text-[12px] font-bold text-white">Team Watchers</span>
+              <span className="ml-auto text-[9px] text-gray-600">{teamWatchers.length} analysts</span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {topWatchers.map((watcher) => {
+                const profile = watcher?.profile ?? {};
+                const record = profile?.record ?? {};
+                const market = profile?.preferred_markets?.[0];
+                return (
+                  <div key={watcher.team_id} className="rounded-md border border-white/[0.06] bg-black/20 p-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-[11px] font-bold text-white">{watcher.team_name}</div>
+                        <div className="text-[9px] text-gray-600">{record.form || 'new'} · {watcher.match_count} matches</div>
+                      </div>
+                      <div className="shrink-0 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
+                        {Math.round(Number(profile.team_score ?? 0))}
+                      </div>
+                    </div>
+                    {market && (
+                      <div className="mt-1.5 rounded bg-white/[0.04] px-2 py-1 text-[9px] font-semibold text-gray-300">
+                        {String(market.market || '').replace(/_/g, ' ')}
+                      </div>
+                    )}
+                    {watcher.last_brief && (
+                      <div className="mt-1.5 text-[9px] leading-relaxed text-gray-600" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {watcher.last_brief}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* filter bar */}
         <div className="mt-3 flex flex-wrap items-center gap-2">

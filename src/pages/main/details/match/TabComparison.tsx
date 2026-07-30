@@ -112,8 +112,10 @@ const TeamMatchRow = ({ event, teamName }: { event: any; teamName: string }) => 
   const r    = resultForTeam(event, teamName);
   const g    = teamGoalsInMatch(event, teamName);
   const opp  = getOppName(event, teamName) || '?';
-  const isHome = sameTeam(teamNameOf(event?.home_team || event?.homeTeam), teamName);
+  const homeTeamName = teamNameOf(event?.home_team || event?.homeTeam);
+  const isHome = sameTeam(homeTeamName, teamName);
   const date = fmtDateTime(event?.start_timestamp || event?.startTimestamp || event?.start_time);
+  console.log('[TeamMatchRow]', { teamName, homeTeamName, awayTeamName: teamNameOf(event?.away_team || event?.awayTeam), isHome, opp, eventId: event?.id });
   return (
     <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${resultBg(r)}`}>
       <ResultBadge result={r} />
@@ -227,6 +229,27 @@ const CommonOppRow = ({ item, homeTeam, awayTeam }: { item: CommonOpponent; home
 const TabComparison = ({ m }: { m: any }) => {
   const homeMatches: any[] = m?.home_last_matches || [];
   const awayMatches: any[] = m?.away_last_matches || [];
+
+  console.log('[TabComparison]', {
+    homeTeam: m.home_team,
+    awayTeam: m.away_team,
+    homeMatchesCount: homeMatches.length,
+    awayMatchesCount: awayMatches.length,
+    homeMatchesSample: homeMatches.slice(0, 2).map(e => ({
+      id: e?.id,
+      home_team: e?.home_team,
+      away_team: e?.away_team,
+      homeTeamName: teamNameOf(e?.home_team || e?.homeTeam),
+      awayTeamName: teamNameOf(e?.away_team || e?.awayTeam),
+    })),
+    awayMatchesSample: awayMatches.slice(0, 2).map(e => ({
+      id: e?.id,
+      home_team: e?.home_team,
+      away_team: e?.away_team,
+      homeTeamName: teamNameOf(e?.home_team || e?.homeTeam),
+      awayTeamName: teamNameOf(e?.away_team || e?.awayTeam),
+    })),
+  });
 
   if (homeMatches.length === 0 && awayMatches.length === 0) {
     return <Empty msg="No recent match data available" />;
