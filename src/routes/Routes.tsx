@@ -16,6 +16,7 @@ const Rating = React.lazy(() => import("../pages/main/prediction/rating/index"))
 const Competitions = React.lazy(() => import("../pages/main/competition/page"));
 const CompetitionDetail = React.lazy(() => import("../pages/main/competition/detail"));
 const TeamWatchers = React.lazy(() => import("../pages/main/team-watchers/page"));
+const TeamWatcherDetail = React.lazy(() => import("../pages/main/team-watchers/detail"));
 const Pipelines = React.lazy(() => import("../pages/main/pipelines/page"));
 const Scheduler = React.lazy(() => import("../pages/main/scheduler/page"));
 const Splash = React.lazy(() => import("../pages/splash/splash"));
@@ -56,6 +57,7 @@ const Routes: React.FC = () => {
       <Route path="/competitions" exact component={Competitions} />
       <Route path="/competition/:key" exact component={CompetitionDetail} />
       <Route path="/team-watchers" exact component={TeamWatchers} />
+      <Route path="/team-watchers/:teamKey" exact component={TeamWatcherDetail} />
       <Route path="/pipelines" exact component={Pipelines} />
       <Route path="/scheduler" exact component={Scheduler} />
       <Route path="/country/:id" exact component={CountryDetails} />

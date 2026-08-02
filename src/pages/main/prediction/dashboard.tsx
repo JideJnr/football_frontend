@@ -332,7 +332,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => runAction("refresh", refreshPredictions)}
                 disabled={!!running}
@@ -346,6 +346,12 @@ const Dashboard = () => {
                 className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-300 disabled:opacity-40"
               >
                 {running === "grade" ? "Grading..." : "Grade Results"}
+              </button>
+              <button
+                onClick={() => router.push('/team-watchers', 'forward', 'push')}
+                className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-gray-300"
+              >
+                Team Watchers
               </button>
             </div>
 

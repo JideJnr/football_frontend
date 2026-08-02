@@ -1,6 +1,6 @@
 import { IonContent } from '@ionic/react';
 import { useIonRouter } from '@ionic/react';
-import { BarChart3, Brain, TrendingUp, Zap, Star, Settings2 } from 'lucide-react';
+import { BarChart3, Brain, ShieldCheck, TrendingUp, Zap, Star, Settings2 } from 'lucide-react';
 
 const features = [
   {
@@ -18,6 +18,14 @@ const features = [
     route: '/prediction/value-bets',
     accent: 'yellow',
     badge: 'Edge',
+  },
+  {
+    icon: ShieldCheck,
+    label: 'Team Watchers',
+    description: 'Open the long-term team memory for filtered league analysis',
+    route: '/team-watchers',
+    accent: 'green',
+    badge: 'New',
   },
   {
     icon: Zap,
@@ -57,6 +65,7 @@ const accentMap: Record<string, { text: string; bg: string; border: string; icon
   emerald: { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', iconBg: 'bg-emerald-500/15' },
   yellow:  { text: 'text-yellow-400',  bg: 'bg-yellow-500/10',  border: 'border-yellow-500/30',  iconBg: 'bg-yellow-500/15' },
   blue:    { text: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/30',    iconBg: 'bg-blue-500/15' },
+  green:   { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', iconBg: 'bg-emerald-500/15' },
   purple:  { text: 'text-purple-400',  bg: 'bg-purple-500/10',  border: 'border-purple-500/30',  iconBg: 'bg-purple-500/15' },
   orange:  { text: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/30',  iconBg: 'bg-orange-500/15' },
   pink:    { text: 'text-pink-400',    bg: 'bg-pink-500/10',    border: 'border-pink-500/30',    iconBg: 'bg-pink-500/15' },

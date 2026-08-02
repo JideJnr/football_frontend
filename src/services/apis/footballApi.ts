@@ -219,8 +219,14 @@ export const getCompetitionSpecialDashboard = (bufferLimit = 50) =>
   api.get('/composite/competition-special/dashboard', { params: { buffer_limit: bufferLimit } }).then(r => r.data);
 
 // ── Prediction history ───────────────────────────────────────
-export const getTeamWatchers = (limit = 100) =>
-  api.get('/team-watchers', { params: { limit } }).then(r => r.data);
+export const getTeamWatchers = (limit = 100, leagueName = '') =>
+  api.get('/team-watchers', { params: { limit, league_name: leagueName || undefined } }).then(r => r.data);
+
+export const getTeamWatcher = (teamKey: string, limit = 30) =>
+  api.get(`/team-watchers/${encodeURIComponent(teamKey)}`, { params: { limit } }).then(r => r.data);
+
+export const getCompetitionTeamWatchers = (competitionKey: string, limit = 80) =>
+  api.get(`/competition-special/${encodeURIComponent(competitionKey)}/team-watchers`, { params: { limit } }).then(r => r.data);
 
 export const inspectSportyTeamWatcherIds = (limit = 20) =>
   api.get('/team-watchers/inspect-sporty', { params: { limit } }).then(r => r.data);
