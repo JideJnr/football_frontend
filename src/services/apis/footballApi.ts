@@ -234,6 +234,9 @@ export const inspectSportyTeamWatcherIds = (limit = 20) =>
 export const backfillTeamWatchers = (limit = 200) =>
   api.post('/team-watchers/backfill', null, { params: { limit } }).then(r => r.data);
 
+export const rebuildTeamWatcherProfiles = (limit = 5000) =>
+  api.post('/team-watchers/rebuild-profiles', null, { params: { limit } }).then(r => r.data);
+
 export const refreshPredictions = () =>
   api.post('/predictions/refresh').then(r => r.data);
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import { useIonRouter } from '@ionic/react';
 import { ArrowLeft, Brain, ChevronRight, RefreshCw, Search, ShieldCheck, SlidersHorizontal } from 'lucide-react';
-import { backfillTeamWatchers, getTeamWatchers, inspectSportyTeamWatcherIds } from '../../../services/apis/footballApi';
+import { backfillTeamWatchers, getTeamWatchers, inspectSportyTeamWatcherIds, rebuildTeamWatcherProfiles } from '../../../services/apis/footballApi';
 
 const statBox = 'rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-2';
 
@@ -18,6 +19,7 @@ const pretty = (value: any) => {
 
 export default function TeamWatchersPage() {
   const router = useIonRouter();
+  const history = useHistory();
   const [watchers, setWatchers] = useState<any[]>([]);
   const [sportyInspect, setSportyInspect] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +56,19 @@ export default function TeamWatchersPage() {
       await load();
     } catch (err: any) {
       setMsg(err?.response?.data?.detail || err?.message || 'Backfill failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runRebuildProfiles = async () => {
+    setBusy(true);
+    try {
+      const res = await rebuildTeamWatcherProfiles();
+      setMsg(`Rebuilt ${res.rebuilt ?? 0} profiles (${res.errors ?? 0} errors)`);
+      await load();
+    } catch (err: any) {
+      setMsg(err?.response?.data?.detail || err?.message || 'Rebuild failed');
     } finally {
       setBusy(false);
     }
@@ -109,7 +124,7 @@ export default function TeamWatchersPage() {
           </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-4 gap-2">
+        <div className="mt-3 grid grid-cols-5 gap-2">
           <div className={statBox}>
             <div className="text-base font-bold text-white">{watchers.length}</div>
             <div className="text-[9px] font-semibold uppercase tracking-wider text-gray-600">Watchers</div>
@@ -125,6 +140,10 @@ export default function TeamWatchersPage() {
           <button onClick={runBackfill} disabled={busy} className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.08] px-2 py-2 text-center disabled:opacity-40">
             <div className="text-base font-bold text-emerald-300">{busy ? '...' : 'Run'}</div>
             <div className="text-[9px] font-semibold uppercase tracking-wider text-emerald-400">Backfill</div>
+          </button>
+          <button onClick={runRebuildProfiles} disabled={busy} className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.08] px-2 py-2 text-center disabled:opacity-40">
+            <div className="text-base font-bold text-cyan-300">{busy ? '...' : 'Fix'}</div>
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-cyan-400">Profiles</div>
           </button>
         </div>
 
@@ -192,7 +211,7 @@ export default function TeamWatchersPage() {
           return (
             <button
               key={watcher.team_key}
-              onClick={() => router.push(`/team-watchers/${encodeURIComponent(watcher.team_key)}`, 'forward', 'push')}
+              onClick={() => history.push(`/team-watchers/${encodeURIComponent(watcher.team_key)}`)}
               className="w-full px-4 py-3 text-left transition hover:bg-white/[0.02]"
             >
               <div className="flex items-start gap-3">

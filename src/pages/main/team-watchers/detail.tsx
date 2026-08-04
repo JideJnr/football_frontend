@@ -35,8 +35,18 @@ export default function TeamWatcherDetailPage() {
   useEffect(() => { load(); }, [teamKey]);
 
   const watcher = data?.watcher ?? {};
-  const profile = watcher?.profile ?? {};
-  const venue = profile?.venue_split ?? {};
+  // profile_json may be stored as '{}' — fall back to top-level watcher fields
+  const profile = (watcher?.profile && Object.keys(watcher.profile).length > 0)
+    ? watcher.profile
+    : {
+        analyst_score: watcher?.overview?.learned_signals ? 0 : 0,
+        trend: null,
+        record: null,
+        preferred_markets: watcher?.overview?.learned_signals?.preferred_markets ?? [],
+        prediction_context: { confidence: 'low', market_focus: [] },
+        venue_split: watcher?.venue_split ?? {},
+      };
+  const venue = profile?.venue_split ?? watcher?.venue_split ?? {};
   const home = venue?.home ?? {};
   const away = venue?.away ?? {};
   const matches: any[] = data?.matches ?? [];
