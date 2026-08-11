@@ -1,6 +1,7 @@
 import { IonContent, IonPage, IonRefresher, IonRefresherContent, useIonRouter } from "@ionic/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getValueBets, triggerBufferCleanup } from "../../../../services/apis/footballApi";
+import AddToBetSlipButton from "../../../../components/betslip/AddToBetSlipButton";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
@@ -98,36 +99,57 @@ const ValueBets = () => {
             ) : (
               <div className="space-y-3">
                 {bets.map((bet, index) => (
-                  <button
+                  <div
                     key={`${bet.sportybet_id}-${bet.selection}-${index}`}
-                    onClick={() => bet.sportybet_id && router.push(`/match/${bet.sportybet_id}`, "forward", "push")}
-                    className="w-full text-left rounded-lg border border-white/[0.07] bg-[#161616] px-4 py-3 hover:border-emerald-500/40"
+                    className="rounded-lg border border-white/[0.07] bg-[#161616] hover:border-emerald-500/40 transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-white truncate">{bet.match}</div>
-                        <div className="text-[11px] text-gray-600 truncate">{bet.tournament || "Tournament"} - {bet.selection}</div>
+                    <button
+                      onClick={() => bet.sportybet_id && router.push(`/match/${bet.sportybet_id}`, "forward", "push")}
+                      className="w-full text-left px-4 py-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-white truncate">{bet.match}</div>
+                          <div className="text-[11px] text-gray-600 truncate">{bet.tournament || "Tournament"} - {bet.selection}</div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-sm font-bold text-emerald-400">+{bet.edge}%</div>
+                          <div className="text-[10px] text-gray-600">@ {bet.decimal_odds}</div>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-sm font-bold text-emerald-400">+{bet.edge}%</div>
-                        <div className="text-[10px] text-gray-600">@ {bet.decimal_odds}</div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded bg-white/[0.04] py-2">
+                          <div className="text-[10px] text-gray-600">Model</div>
+                          <div className="text-xs font-bold text-white">{bet.model_probability}%</div>
+                        </div>
+                        <div className="rounded bg-white/[0.04] py-2">
+                          <div className="text-[10px] text-gray-600">Implied</div>
+                          <div className="text-xs font-bold text-white">{bet.implied_probability}%</div>
+                        </div>
+                        <div className="rounded bg-white/[0.04] py-2">
+                          <div className="text-[10px] text-gray-600">Stake / 100</div>
+                          <div className="text-xs font-bold text-white">{bet.kelly?.stake_per_100 ?? 0}</div>
+                        </div>
                       </div>
+                    </button>
+                    <div className="px-4 pb-3">
+                      <AddToBetSlipButton
+                        prediction={{
+                          match_id: bet.sportybet_id || bet.match_id || String(index),
+                          match_name: bet.match,
+                          league_name: bet.tournament || 'Unknown league',
+                          country_name: bet.country || 'Unknown',
+                          best_pick: {
+                            type: 'value_bet',
+                            pick_type: 'value_bet',
+                            selection: bet.selection,
+                            odds: bet.decimal_odds,
+                            confidence: bet.model_probability,
+                          },
+                        }}
+                      />
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded bg-white/[0.04] py-2">
-                        <div className="text-[10px] text-gray-600">Model</div>
-                        <div className="text-xs font-bold text-white">{bet.model_probability}%</div>
-                      </div>
-                      <div className="rounded bg-white/[0.04] py-2">
-                        <div className="text-[10px] text-gray-600">Implied</div>
-                        <div className="text-xs font-bold text-white">{bet.implied_probability}%</div>
-                      </div>
-                      <div className="rounded bg-white/[0.04] py-2">
-                        <div className="text-[10px] text-gray-600">Stake / 100</div>
-                        <div className="text-xs font-bold text-white">{bet.kelly?.stake_per_100 ?? 0}</div>
-                      </div>
-                    </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}

@@ -3,6 +3,7 @@ import { Target, Brain, CheckCircle, AlertCircle, Clock, X } from 'lucide-react'
 import { Sec, Empty } from './shared';
 import { trackUserBehavior, getUserPickForMatch } from '../../../../services/apis/footballApi';
 import { getValueHunterContext } from '../../../../prediction/engineLearning';
+import AddToBetSlipButton from '../../../../components/betslip/AddToBetSlipButton';
 
 const num = (v: any, fb = 0) => {
   const n = Number(v);
@@ -1321,6 +1322,22 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
   const noPickReason = audit?.no_prediction?.reason || state?.message || predictionError;
   const matchId = m?.id || m?.sportybet_id || m?.match_id || '';
 
+  // Prepare prediction data for bet slip
+  const betSlipPrediction = primary ? {
+    match_id: matchId,
+    match_name: m?.match_name || m?.name || 'Unknown match',
+    league_name: m?.league_name || m?.tournament || 'Unknown league',
+    country_name: m?.country_name || m?.category || 'Unknown',
+    best_pick: {
+      type: primary.type,
+      pick_type: primary.type,
+      selection: primary.selection,
+      odds: primary.odds,
+      confidence: primary.confidence,
+      reason: primary.reason || primary.reasoning,
+    },
+  } : null;
+
   return (
     <div className="space-y-3 px-4 py-4">
       <PredictionActions
@@ -1355,6 +1372,14 @@ const TabPredictions = ({ m, onPredict, onAnalyze, predicting, analyzing, action
       {prediction && <PortfolioBadge prediction={prediction} />}
       {primary ? <DecisionCard pick={primary} /> : <NoPickDecisionCard reason={noPickReason} />}
       {primary && <GradedResultCard prediction={prediction} pick={primary} />}
+
+      {/* Add to Bet Slip button - adjacent to primary prediction */}
+      {betSlipPrediction && (
+        <div className="px-1">
+          <AddToBetSlipButton prediction={betSlipPrediction} />
+        </div>
+      )}
+
       <CompactAiAnalysisCard analysis={aiAnalysis} />
       <EngineAgreementPanel m={m} />
       <UserPickPanel matchId={matchId} modelSelection={primary?.selection} />

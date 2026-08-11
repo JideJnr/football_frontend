@@ -4,6 +4,7 @@ import { usePredictionStore } from '../../../../prediction/usePredictionStore';
 import { MatchSignal } from '../../../../prediction/engine';
 import { getPredictionsToday } from '../../../../services/apis/footballApi';
 import CustomHeader from '../../../../components/templates/header/header';
+import AddToBetSlipButton from '../../../../components/betslip/AddToBetSlipButton';
 
 const formatTime = (ms: number) =>
   new Date(ms).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -183,12 +184,31 @@ function Rating() {
                   const conf = parseInt(pred.best_pick?.confidence || 0);
                   const badge = confBadge(conf);
                   const picks: any[] = pred.picks || [];
+
+                  // Prepare bet slip data
+                  const betSlipData = pred.best_pick?.selection ? {
+                    match_id: pred.match_id || '',
+                    match_name: pred.match_name || 'Unknown match',
+                    league_name: pred.league_name || 'Unknown league',
+                    country_name: pred.country_name || '',
+                    best_pick: {
+                      type: pred.best_pick.type || pred.best_pick.pick_type,
+                      pick_type: pred.best_pick.type || pred.best_pick.pick_type,
+                      selection: pred.best_pick.selection,
+                      odds: pred.best_pick.odds,
+                      confidence: pred.best_pick.confidence,
+                    },
+                  } : null;
+
                   return (
                     <div
                       key={pred.match_id || idx}
-                      className="border border-[#1e1e1e] bg-[#161616] rounded-xl p-3 mb-2 cursor-pointer hover:border-[#2a2a2a] transition"
-                      onClick={() => router.push(`/match/${pred.match_id}`, 'forward', 'push')}
+                      className="border border-[#1e1e1e] bg-[#161616] rounded-xl p-3 mb-2 transition hover:border-[#2a2a2a]"
                     >
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/match/${pred.match_id}`, 'forward', 'push')}
+                      >
                       {/* Rank + badge */}
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -233,6 +253,14 @@ function Rating() {
                       {/* Reason */}
                       {pred.best_pick?.reason && (
                         <div className="text-[10px] text-gray-600 mt-1.5 truncate">{pred.best_pick.reason}</div>
+                      )}
+                      </div>
+
+                      {/* Add to Bet Slip */}
+                      {betSlipData && (
+                        <div className="mt-2 pt-2 border-t border-white/[0.06]">
+                          <AddToBetSlipButton prediction={betSlipData} />
+                        </div>
                       )}
                     </div>
                   );

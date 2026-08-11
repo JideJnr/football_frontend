@@ -3,6 +3,144 @@
 // ─────────────────────────────────────────────────────────────
 import { MatchEngineAssignment } from './engineLearning';
 
+// ─── Learned Values Fetcher ─────────────────────────────────────────────────────
+//
+//  Fetches learned thresholds and weights from the backend API.
+//  Falls back to hardcoded defaults when no learned data exists.
+
+interface LearnedThresholds {
+  min_confidence: number;
+  block_loss_rate: number;
+  caution_loss_rate: number;
+  trust_win_rate: number;
+  confidence_cap: number;
+  samples: number;
+}
+
+interface LearnedWeights {
+  form_delta_weight: number;
+  goals_delta_weight: number;
+  fatigue_weight: number;
+  motivation_weight: number;
+  h2h_weight: number;
+  pressure_weight: number;
+  poisson_weight: number;
+  samples: number;
+}
+
+interface LearnedEngineRule {
+  engine_id: string;
+  rule_index: number;
+  min_probability: number;
+  min_odds: number;
+  edge_threshold: number;
+  samples: number;
+  win_rate: number;
+}
+
+const LEARNED_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+let learnedThresholdsCache: { data: LearnedThresholds | null; timestamp: number } = { data: null, timestamp: 0 };
+let learnedWeightsCache: { data: LearnedWeights | null; timestamp: number } = { data: null, timestamp: 0 };
+let learnedEngineRulesCache: { data: LearnedEngineRule[]; timestamp: number } = { data: [], timestamp: 0 };
+
+const fetchLearnedThresholds = async (league: string = '', pickType: string = ''): Promise<LearnedThresholds | null> => {
+  const now = Date.now();
+  if (learnedThresholdsCache.data && now - learnedThresholdsCache.timestamp < LEARNED_CACHE_TTL) {
+    return learnedThresholdsCache.data;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    if (league) params.set('league', league);
+    if (pickType) params.set('pick_type', pickType);
+
+    const response = await fetch(`/learning/thresholds?${params.toString()}`);
+    if (!response.ok) return null;
+
+    const result = await response.json();
+    if (result.status === 'success' && result.thresholds) {
+      learnedThresholdsCache = { data: result.thresholds, timestamp: now };
+      return result.thresholds;
+    }
+  } catch {
+    // Ignore fetch errors, fall back to defaults
+  }
+
+  return null;
+};
+
+const fetchLearnedWeights = async (league: string = ''): Promise<LearnedWeights | null> => {
+  const now = Date.now();
+  if (learnedWeightsCache.data && now - learnedWeightsCache.timestamp < LEARNED_CACHE_TTL) {
+    return learnedWeightsCache.data;
+  }
+
+  try {
+    const params = new URLSearchParams();
+    if (league) params.set('league', league);
+
+    const response = await fetch(`/learning/signal-weights?${params.toString()}`);
+    if (!response.ok) return null;
+
+    const result = await response.json();
+    if (result.status === 'success' && result.weights) {
+      learnedWeightsCache = { data: result.weights, timestamp: now };
+      return result.weights;
+    }
+  } catch {
+    // Ignore fetch errors, fall back to defaults
+  }
+
+  return null;
+};
+
+const fetchLearnedEngineRules = async (): Promise<LearnedEngineRule[]> => {
+  const now = Date.now();
+  if (learnedEngineRulesCache.data.length > 0 && now - learnedEngineRulesCache.timestamp < LEARNED_CACHE_TTL) {
+    return learnedEngineRulesCache.data;
+  }
+
+  try {
+    const response = await fetch('/learning/model-weights');
+    if (!response.ok) return [];
+
+    const result = await response.json();
+    if (result.status === 'success' && result.model_weights) {
+      // Convert model weights to engine rules format
+      const rules: LearnedEngineRule[] = [];
+      // This is a simplified conversion - in practice, the backend would return
+      // properly formatted engine rules
+      learnedEngineRulesCache = { data: rules, timestamp: now };
+      return rules;
+    }
+  } catch {
+    // Ignore fetch errors, fall back to defaults
+  }
+
+  return [];
+};
+
+// Default learned values (fallback when no data exists)
+const DEFAULT_LEARNED_THRESHOLDS: LearnedThresholds = {
+  min_confidence: 50.0,
+  block_loss_rate: 0.75,
+  caution_loss_rate: 0.55,
+  trust_win_rate: 0.65,
+  confidence_cap: 88.0,
+  samples: 0,
+};
+
+const DEFAULT_LEARNED_WEIGHTS: LearnedWeights = {
+  form_delta_weight: 0.18,
+  goals_delta_weight: 0.03,
+  fatigue_weight: 0.08,
+  motivation_weight: 1.5,
+  h2h_weight: 0.06,
+  pressure_weight: 1.5,
+  poisson_weight: 0.5,
+  samples: 0,
+};
+
 // ─── Opponent-weighted form ────────────────────────────────────────────────────
 //
 //  Instead of treating every W/D/L equally, we weight each result by how strong
@@ -828,11 +966,11 @@ export interface ContextAdjustment {
   factors: string[];
 }
 
-export const applyContextAdjustment = (
+export const applyContextAdjustment = async (
   rawProb: number,
   side: '1' | 'X' | '2',
   match: any,
-): ContextAdjustment => {
+): Promise<ContextAdjustment> => {
   const factors: string[] = [];
   let delta = 0;
 
@@ -902,7 +1040,10 @@ export const applyContextAdjustment = (
   // ── 4. Fixture fatigue ──────────────────────────────────────────────
   const fatigue = calcFixtureFatigue(recent);
   if (fatigue.fatigueMultiplier !== 1.0) {
-     const fatigueDelta = (fatigue.fatigueMultiplier - 1) * 0.08;
+     // Use learned fatigue weight if available
+     const learnedWeights = await fetchLearnedWeights(match?.tournament || match?.league || '');
+     const fatigueWeight = learnedWeights?.fatigue_weight ?? DEFAULT_LEARNED_WEIGHTS.fatigue_weight;
+     const fatigueDelta = (fatigue.fatigueMultiplier - 1) * fatigueWeight;
     delta += fatigueDelta;
     factors.push(`Fixture fatigue: ${fatigue.detail} (${fatigueDelta > 0 ? '+' : ''}${(fatigueDelta * 100).toFixed(1)}%)`);
   }
@@ -910,12 +1051,18 @@ export const applyContextAdjustment = (
   // ── 5. Motivation factor ────────────────────────────────────────────
   const motivation = calcMotivation(match);
   if (side === '1' && motivation.homeMotivation !== 1.0) {
-     const motDelta = rawProb * (motivation.homeMotivation - 1) * 1.5;
+     // Use learned motivation weight if available
+     const learnedWeights = await fetchLearnedWeights(match?.tournament || match?.league || '');
+     const motivationWeight = learnedWeights?.motivation_weight ?? DEFAULT_LEARNED_WEIGHTS.motivation_weight;
+     const motDelta = rawProb * (motivation.homeMotivation - 1) * motivationWeight;
      delta += motDelta;
      factors.push(`Home motivation: ${motivation.homeReason} (${motivation.homeMotivation.toFixed(2)}x, ${motDelta > 0 ? '+' : ''}${(motDelta * 100).toFixed(1)}%)`);
    }
    if (side === '2' && motivation.awayMotivation !== 1.0) {
-     const motDelta = rawProb * (motivation.awayMotivation - 1) * 1.5;
+     // Use learned motivation weight if available
+     const learnedWeights = await fetchLearnedWeights(match?.tournament || match?.league || '');
+     const motivationWeight = learnedWeights?.motivation_weight ?? DEFAULT_LEARNED_WEIGHTS.motivation_weight;
+     const motDelta = rawProb * (motivation.awayMotivation - 1) * motivationWeight;
     delta += motDelta;
     factors.push(`Away motivation: ${motivation.awayReason} (${motivation.awayMotivation.toFixed(2)}x, ${motDelta > 0 ? '+' : ''}${(motDelta * 100).toFixed(1)}%)`);
   }
@@ -923,8 +1070,11 @@ export const applyContextAdjustment = (
   // ── 6. H2H bias ────────────────────────────────────────────────────────────
   const h2h = calcH2HBias(match);
   if (h2h.meetings >= 3) {
-     const h2hDelta = side === '1' ? h2h.bias * 0.06
-                    : side === '2' ? -h2h.bias * 0.06
+     // Use learned H2H weight if available
+     const learnedWeights = await fetchLearnedWeights(match?.tournament || match?.league || '');
+     const h2hWeight = learnedWeights?.h2h_weight ?? DEFAULT_LEARNED_WEIGHTS.h2h_weight;
+     const h2hDelta = side === '1' ? h2h.bias * h2hWeight
+                    : side === '2' ? -h2h.bias * h2hWeight
                    : 0; // draws: no H2H adjustment
     delta += h2hDelta;
     if (Math.abs(h2hDelta) > 0.005) {
@@ -935,12 +1085,18 @@ export const applyContextAdjustment = (
   // ── 7. Table pressure ──────────────────────────────────────────────────────
   const pressure = calcTablePressure(match);
   if (side === '1' && pressure.homeMultiplier !== 1.0) {
-     const pressureDelta = rawProb * (pressure.homeMultiplier - 1) * 1.5;
+     // Use learned pressure weight if available
+     const learnedWeights = await fetchLearnedWeights(match?.tournament || match?.league || '');
+     const pressureWeight = learnedWeights?.pressure_weight ?? DEFAULT_LEARNED_WEIGHTS.pressure_weight;
+     const pressureDelta = rawProb * (pressure.homeMultiplier - 1) * pressureWeight;
      delta += pressureDelta;
      factors.push(`Table pressure: ${pressure.detail} (${pressureDelta > 0 ? '+' : ''}${(pressureDelta * 100).toFixed(1)}%)`);
    }
    if (side === '2' && pressure.awayMultiplier !== 1.0) {
-     const pressureDelta = rawProb * (pressure.awayMultiplier - 1) * 1.5;
+     // Use learned pressure weight if available
+     const learnedWeights = await fetchLearnedWeights(match?.tournament || match?.league || '');
+     const pressureWeight = learnedWeights?.pressure_weight ?? DEFAULT_LEARNED_WEIGHTS.pressure_weight;
+     const pressureDelta = rawProb * (pressure.awayMultiplier - 1) * pressureWeight;
     delta += pressureDelta;
      factors.push(`Table pressure: ${pressure.detail} (${pressureDelta > 0 ? '+' : ''}${(pressureDelta * 100).toFixed(1)}%)`);
    }
@@ -950,21 +1106,25 @@ export const applyContextAdjustment = (
    const awayEG = deriveExpectedGoals(awayRecent, match?.away_team || '', standings, false);
    const poisson = poisson1x2(homeEG.lambda, awayEG.lambda);
 
+   // Use learned Poisson weight if available
+   const learnedWeights = await fetchLearnedWeights(match?.tournament || match?.league || '');
+   const poissonWeight = learnedWeights?.poisson_weight ?? DEFAULT_LEARNED_WEIGHTS.poisson_weight;
+
    if (side === '1') {
      const poissonDelta = poisson.home - rawProb;
-     delta += poissonDelta * 0.5;
+     delta += poissonDelta * poissonWeight;
      if (Math.abs(poissonDelta) > 0.01) {
        factors.push(`Poisson model: P(1)=${(poisson.home * 100).toFixed(1)}% (λ=${poisson.lambdaHome})`);
      }
    } else if (side === '2') {
      const poissonDelta = poisson.away - rawProb;
-     delta += poissonDelta * 0.5;
+     delta += poissonDelta * poissonWeight;
      if (Math.abs(poissonDelta) > 0.01) {
        factors.push(`Poisson model: P(2)=${(poisson.away * 100).toFixed(1)}% (λ=${poisson.lambdaAway})`);
      }
    } else {
      const poissonDelta = poisson.draw - rawProb;
-     delta += poissonDelta * 0.5;
+     delta += poissonDelta * poissonWeight;
      if (Math.abs(poissonDelta) > 0.01) {
        factors.push(`Poisson model: P(X)=${(poisson.draw * 100).toFixed(1)}%`);
      }
@@ -1301,12 +1461,12 @@ const pickSignalType = (pick: any, probability: number): SignalType => {
   return 'rule_match';
 };
 
-const backendPickToSignal = (
+const backendPickToSignal = async (
   match: any,
   prediction: any,
   pick: any,
   engines: PredictionEngine[],
-): MatchSignal | null => {
+): Promise<MatchSignal | null> => {
   if (!pick || pick.type === 'no_bet') return null;
   const engine = engines.find(e => e.id === preferredEngineId(pick)) || engines[0];
   if (!engine) return null;
@@ -1324,7 +1484,7 @@ const backendPickToSignal = (
     : selection.includes('draw') || selection === 'x' ? 'X' : '1';
 
   // Apply context adjustment to the probability
-  const contextAdj = applyContextAdjustment(probability, side, match);
+  const contextAdj = await applyContextAdjustment(probability, side, match);
 
   return {
     matchId: String(match.sportybet_id || match.id || prediction.match_id || ''),
@@ -1354,15 +1514,15 @@ const backendPickToSignal = (
   };
 };
 
-export const runEngines = (matches: any[], engines: PredictionEngine[]): MatchSignal[] => {
+export const runEngines = async (matches: any[], engines: PredictionEngine[]): Promise<MatchSignal[]> => {
   const signals: MatchSignal[] = [];
 
   for (const match of matches) {
     const prediction = backendPrediction(match);
     const picks = Array.isArray(prediction?.picks) ? prediction.picks : [];
-    const matchSignals = picks
-      .map((pick: any) => backendPickToSignal(match, prediction, pick, engines))
-      .filter(Boolean) as MatchSignal[];
+    const matchSignals = (await Promise.all(
+      picks.map((pick: any) => backendPickToSignal(match, prediction, pick, engines))
+    )).filter(Boolean) as MatchSignal[];
 
     // Record predictions in learning store for AI-powered tracking
     for (const signal of matchSignals) {

@@ -2,6 +2,7 @@ import { useParams } from 'react-router';
 import { usePredictionStore } from '../../../../prediction/usePredictionStore';
 import { getValueHunterContext } from '../../../../prediction/engineLearning';
 import { useEffect } from 'react';
+import AddToBetSlipButton from '../../../../components/betslip/AddToBetSlipButton';
 
 const PredictionPage = () => {
   const { matchId } = useParams<{ matchId: string }>();
@@ -10,6 +11,22 @@ const PredictionPage = () => {
   const assignments = matchId ? (matchAssignments[matchId] || []) : [];
   const matchSignals = matchId ? signals.filter((s: any) => s.matchId === matchId) : [];
   const valueHunterContext = matchId ? getValueHunterContext(matchId, {}) : null;
+
+  // Prepare bet slip data from the best signal
+  const bestSignal = matchSignals.length > 0 ? matchSignals[0] : null;
+  const betSlipData = matchId && bestSignal ? {
+    match_id: matchId,
+    match_name: bestSignal.matchName || 'Unknown match',
+    league_name: bestSignal.tournament || 'Unknown league',
+    country_name: '',
+    best_pick: {
+      type: bestSignal.market,
+      pick_type: bestSignal.market,
+      selection: bestSignal.pick,
+      odds: bestSignal.odds,
+      confidence: bestSignal.confidence === 'high' ? 75 : bestSignal.confidence === 'medium' ? 55 : 40,
+    },
+  } : null;
 
   useEffect(() => {
     if (matchId) {
@@ -86,6 +103,13 @@ const PredictionPage = () => {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Add to Bet Slip */}
+      {betSlipData && (
+        <div className="px-1">
+          <AddToBetSlipButton prediction={betSlipData} />
         </div>
       )}
 

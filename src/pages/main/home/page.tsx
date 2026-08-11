@@ -2,6 +2,7 @@ import { IonContent, IonRefresher, IonRefresherContent, useIonRouter } from "@io
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useFootballContext } from "../../../contexts/useFootballContext";
 import { LIVE_WS_URL } from "../../../services/apis/footballApi";
+import AddToBetSlipButton from "../../../components/betslip/AddToBetSlipButton";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -240,9 +241,24 @@ const MatchCard = ({ m, onClick }: MatchCardProps) => {
   const live = isLive(m);
   const hasOdds = m.odds_1x2?.home;
 
+  // Prepare bet slip data if match has a prediction
+  const betSlipData = m?.prediction?.best_pick ? {
+    match_id: m.sportybet_id || m.id || '',
+    match_name: m.match_name || `${m.home_team} vs ${m.away_team}`,
+    league_name: m.league_name || m.tournament || 'Unknown league',
+    country_name: m.country_name || '',
+    best_pick: {
+      type: m.prediction.best_pick.type || m.prediction.best_pick.pick_type,
+      pick_type: m.prediction.best_pick.type || m.prediction.best_pick.pick_type,
+      selection: m.prediction.best_pick.selection || m.prediction.best_pick.pick || '',
+      odds: m.prediction.best_pick.odds,
+      confidence: m.prediction.best_pick.confidence,
+    },
+  } : null;
+
   return (
     <div
-      className="group px-4 py-3 border-b border-white/5 last:border-0 cursor-pointer transition-all duration-150 hover:bg-white/[0.03] active:bg-white/[0.06]"
+      className="group relative px-4 py-3 border-b border-white/5 last:border-0 cursor-pointer transition-all duration-150 hover:bg-white/[0.03] active:bg-white/[0.06]"
       onClick={onClick}
     >
       {/* Teams row */}
@@ -315,6 +331,16 @@ const MatchCard = ({ m, onClick }: MatchCardProps) => {
               <span className="text-xs font-semibold text-gray-200 mt-0.5">{val}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Add to Bet Slip - positioned absolutely on the right */}
+      {betSlipData && (
+        <div
+          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <AddToBetSlipButton prediction={betSlipData} />
         </div>
       )}
     </div>

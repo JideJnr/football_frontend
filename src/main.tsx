@@ -3,12 +3,6 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ToastContainer } from "react-toastify";
 
-if (import.meta.env.DEV) {
-  import("eruda").then((eruda) => {
-    eruda.default.init();
-  });
-}
-
 const container = document.getElementById("root");
 const root = createRoot(container!);
 root.render(

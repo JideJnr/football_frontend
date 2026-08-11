@@ -4,6 +4,7 @@ import { useFootballContext } from '../../../../contexts/useFootballContext';
 import { usePredictionStore } from '../../../../prediction/usePredictionStore';
 import { MatchSignal } from '../../../../prediction/engine';
 import CustomHeader from '../../../../components/templates/header/header';
+import AddToBetSlipButton from '../../../../components/betslip/AddToBetSlipButton';
 
 const formatTime = (ms: number) =>
   new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -263,6 +264,25 @@ function Suggestions() {
                 </button>
               </div>
             )}
+
+            {/* Add to Bet Slip */}
+            <div className="pt-1">
+              <AddToBetSlipButton
+                prediction={{
+                  match_id: signal.matchId,
+                  match_name: signal.matchName,
+                  league_name: signal.tournament || 'Unknown league',
+                  country_name: '',
+                  best_pick: {
+                    type: signal.market,
+                    pick_type: signal.market,
+                    selection: signal.pick,
+                    odds: signal.odds,
+                    confidence: signal.confidence === 'high' ? 75 : signal.confidence === 'medium' ? 55 : 40,
+                  },
+                }}
+              />
+            </div>
 
             {signal.status === 'accepted' && (
               <div className="flex gap-2">

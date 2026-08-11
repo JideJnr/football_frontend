@@ -17,6 +17,7 @@ import "./index.css";
 import { ContextProvider } from "./contexts/useContextProvider";
 import Loading from "./components/loading/Loading";
 import Routes from "./routes/Routes";
+import BetSlipWidget from "./components/betslip/BetSlipWidget";
 
 setupIonicReact();
 
@@ -28,6 +29,7 @@ const App: React.FC = () => {
           <Suspense fallback={<Loading />}>
             <Routes />
           </Suspense>
+          <BetSlipWidget />
         </ContextProvider>
       </IonReactRouter>
     </IonApp>

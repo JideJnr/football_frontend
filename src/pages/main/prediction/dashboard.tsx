@@ -6,6 +6,7 @@ import {
   refreshPredictions,
   triggerGradeResults,
 } from "../../../services/apis/footballApi";
+import AddToBetSlipButton from "../../../components/betslip/AddToBetSlipButton";
 
 const pct = (value: any, fallback = "--") => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return fallback;
@@ -146,12 +147,28 @@ const PredictionCard = ({ prediction, onOpen }: { prediction: any; onOpen: () =>
   const coverage = dataCoverage(prediction);
   const created = prediction.created_at ? new Date(prediction.created_at) : null;
 
+  // Prepare bet slip data
+  const betSlipData = primary?.selection ? {
+    match_id: prediction.match_id || prediction.sportybet_id || '',
+    match_name: prediction.match_name || 'Unknown match',
+    league_name: prediction.league_name || 'Unknown league',
+    country_name: prediction.country_name || '',
+    best_pick: {
+      type: primary.type,
+      pick_type: primary.type,
+      selection: primary.selection,
+      odds: primary.odds,
+      confidence: primary.confidence,
+    },
+  } : null;
+
   return (
-    <button
-      onClick={onOpen}
-      className="w-full rounded-lg border border-white/[0.07] bg-[#161616] p-4 text-left transition hover:border-emerald-500/40"
-    >
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-lg border border-white/[0.07] bg-[#161616] transition hover:border-emerald-500/40">
+      <button
+        onClick={onOpen}
+        className="w-full text-left p-4"
+      >
+        <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-white">{prediction.match_name || "Match"}</div>
           <div className="mt-1 truncate text-[11px] text-gray-600">{prediction.league_name || "Tournament"}</div>
@@ -227,7 +244,15 @@ const PredictionCard = ({ prediction, onOpen }: { prediction: any; onOpen: () =>
           ))}
         </div>
       )}
-    </button>
+      </button>
+
+      {/* Add to Bet Slip */}
+      {betSlipData && (
+        <div className="px-4 pb-3">
+          <AddToBetSlipButton prediction={betSlipData} />
+        </div>
+      )}
+    </div>
   );
 };
 

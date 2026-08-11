@@ -7,6 +7,7 @@ import {
   triggerIngestUpcoming,
   triggerMatchAndEnrich,
 } from "../../services/apis/footballApi";
+import AddToBetSlipButton from "../../components/betslip/AddToBetSlipButton";
 
 const fmtTime = (value: any) => {
   if (!value) return "--:--";
@@ -173,12 +174,31 @@ const UpcomingAnalytics = () => {
                   const confidence = Number(match.best_pick?.confidence || 0);
                   const lifecycle = match.lifecycle?.current || (match.predicted ? "predicted" : match.enriched ? "enriched" : "discovered");
                   const memory = memoryLine(match.prediction);
+
+                  // Prepare bet slip data
+                  const betSlipData = match.best_pick?.selection ? {
+                    match_id: match.sportybet_id || match.id || '',
+                    match_name: `${match.home_team} vs ${match.away_team}`,
+                    league_name: match.tournament || 'Unknown league',
+                    country_name: match.country_name || '',
+                    best_pick: {
+                      type: match.best_pick.type || match.best_pick.pick_type,
+                      pick_type: match.best_pick.type || match.best_pick.pick_type,
+                      selection: match.best_pick.selection,
+                      odds: match.best_pick.odds,
+                      confidence: match.best_pick.confidence,
+                    },
+                  } : null;
+
                   return (
-                    <button
+                    <div
                       key={match.sportybet_id}
-                      onClick={() => router.push(`/match/${match.sportybet_id}`, "forward", "push")}
-                      className="w-full text-left rounded-lg border border-white/[0.07] bg-[#161616] px-4 py-3 hover:border-emerald-500/40"
+                      className="rounded-lg border border-white/[0.07] bg-[#161616] hover:border-emerald-500/40 transition-colors"
                     >
+                      <button
+                        onClick={() => router.push(`/match/${match.sportybet_id}`, "forward", "push")}
+                        className="w-full text-left px-4 py-3"
+                      >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-sm font-semibold text-white truncate">{match.home_team} vs {match.away_team}</div>
@@ -213,7 +233,15 @@ const UpcomingAnalytics = () => {
                           {memory && <div className="text-[10px] text-emerald-500/80 mt-1">{memory}</div>}
                         </div>
                       )}
-                    </button>
+                      </button>
+
+                      {/* Add to Bet Slip */}
+                      {betSlipData && (
+                        <div className="px-4 pb-3">
+                          <AddToBetSlipButton prediction={betSlipData} />
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>

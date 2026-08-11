@@ -97,11 +97,11 @@ export const usePredictionStore = create<PredictionState>((set, get) => ({
     setInterval(() => get().loadBackendPredictions(), 60000);
   },
 
-  runPredictions: (matches: any[]) => {
+  runPredictions: async (matches: any[]) => {
     set({ running: true });
     // Backend predictions are the authority. The client-side engine is
     // kept as a fallback for matches without backend data.
-    const signals = runEngines(matches, get().engines);
+    const signals = await runEngines(matches, get().engines);
     set({ signals, running: false, lastRun: Date.now() });
   },
 
