@@ -46,8 +46,12 @@ const SchedulerPage = () => {
 
   const load = useCallback(async () => {
     try {
-      const res = await getSchedulerIntervals(true);
-      setJobs(res.jobs ?? []);
+      const res = await getSchedulerIntervals(false);
+      const sorted = [...(res.jobs ?? [])].sort((a: SchedulerJob, b: SchedulerJob) => {
+        const priority = (job: SchedulerJob) => job.job_id.startsWith('competition_') ? 0 : 1;
+        return priority(a) - priority(b) || a.label.localeCompare(b.label);
+      });
+      setJobs(sorted);
     } catch (e: any) {
       setMessage(e?.response?.data?.detail || e?.message || 'Could not load scheduler intervals');
     } finally {
@@ -105,7 +109,7 @@ const SchedulerPage = () => {
             <div className="flex items-center justify-between rounded-xl bg-[#161616] border border-white/[0.07] px-4 py-3">
               <div>
                 <div className="text-sm font-bold text-white">{jobs.length} active jobs</div>
-                <div className="text-[11px] text-gray-500 mt-0.5">Intervals apply immediately to running scheduler jobs</div>
+                <div className="text-[11px] text-gray-500 mt-0.5">Competition special and analysis times apply immediately to running scheduler jobs</div>
               </div>
               <button
                 onClick={resetDefaults}
@@ -130,7 +134,12 @@ const SchedulerPage = () => {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-gray-100">{job.label}</div>
-                      <div className="text-[10px] text-gray-600 mt-0.5">{job.job_id}</div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">
+                        {job.job_id}
+                        {job.job_id.startsWith('competition_') && (
+                          <span className="ml-2 text-emerald-300">competition</span>
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-emerald-300">{formatSeconds(job.interval_seconds)}</div>

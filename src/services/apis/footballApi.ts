@@ -7,7 +7,9 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 // Local:   VITE_API_BASE_URL=http://127.0.0.1:8000
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
-const api = axios.create({ baseURL: BASE_URL });
+const api = axios.create({
+  baseURL: BASE_URL,
+});
 
 const SPORTYBET_POST_URL = 'https://www.sportybet.com/api/ng/factsCenter/wapConfigurableEventsByOrder';
 
@@ -258,6 +260,12 @@ export const saveBetbuilder = (payload: { selections: any[]; request?: any; buil
 
 export const buildAutoBetbuilder = (payload: any) =>
   api.post('/betbuilder/auto', payload).then(r => r.data);
+
+export const buildManualBet = (payload: { target_odds: number; max_total_odds?: number; stake: number; candidate_limit?: number; request_code?: boolean }) =>
+  api.post('/betbuilder/manual', payload).then(r => r.data);
+
+export const buildLlmBet = (payload: { target_odds: number; max_total_odds?: number; stake: number; candidate_limit?: number; request_code?: boolean }) =>
+  api.post('/betbuilder/llm', payload).then(r => r.data);
 
 export const bookBetbuilder = (payload: { selections: any[]; stake: number; loadingShareCode?: string | null }) =>
   api.post('/betbuilder/book', payload).then(r => r.data);
