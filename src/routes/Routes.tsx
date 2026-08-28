@@ -55,6 +55,7 @@ const Routes: React.FC = () => {
       <Route path="/suggestions" exact component={Suggestions} />
       <Route path="/rating" exact component={Rating} />
       <Route path="/competitions" exact component={Competitions} />
+      <Route path="/competition/:competitionKey/team/:teamKey" exact component={TeamWatcherDetail} />
       <Route path="/competition/:key" exact component={CompetitionDetail} />
       <Route path="/team-watchers" exact component={TeamWatchers} />
       <Route path="/team-watchers/:teamKey" exact component={TeamWatcherDetail} />

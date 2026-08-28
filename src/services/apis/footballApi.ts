@@ -230,6 +230,9 @@ export const getTeamWatcher = (teamKey: string, limit = 30) =>
 export const getCompetitionTeamWatchers = (competitionKey: string, limit = 80) =>
   api.get(`/competition-special/${encodeURIComponent(competitionKey)}/team-watchers`, { params: { limit } }).then(r => r.data);
 
+export const getCompetitionTeamWatcher = (competitionKey: string, teamId: string) =>
+  api.get(`/competition-special/${encodeURIComponent(competitionKey)}/team-watchers/${encodeURIComponent(teamId)}`).then(r => r.data);
+
 export const inspectSportyTeamWatcherIds = (limit = 20) =>
   api.get('/team-watchers/inspect-sporty', { params: { limit } }).then(r => r.data);
 

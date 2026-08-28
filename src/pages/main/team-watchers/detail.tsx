@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useIonRouter } from '@ionic/react';
 import { ArrowLeft, Brain, CalendarDays, Database, RefreshCw, ShieldCheck } from 'lucide-react';
-import { getTeamWatcher } from '../../../services/apis/footballApi';
+import { getCompetitionTeamWatcher, getTeamWatcher } from '../../../services/apis/footballApi';
 
 const pct = (value: number) => `${Math.round(Number(value || 0) * 100)}%`;
 
@@ -13,7 +13,7 @@ const pill = (value: string) => (
 );
 
 export default function TeamWatcherDetailPage() {
-  const { teamKey } = useParams<{ teamKey: string }>();
+  const { teamKey, competitionKey } = useParams<{ teamKey: string; competitionKey?: string }>();
   const router = useIonRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,9 @@ export default function TeamWatcherDetailPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await getTeamWatcher(teamKey, 40);
+      const res = competitionKey
+        ? await getCompetitionTeamWatcher(competitionKey, teamKey)
+        : await getTeamWatcher(teamKey, 40);
       setData(res);
       setMsg('');
     } catch (err: any) {
@@ -32,7 +34,7 @@ export default function TeamWatcherDetailPage() {
     }
   };
 
-  useEffect(() => { load(); }, [teamKey]);
+  useEffect(() => { load(); }, [teamKey, competitionKey]);
 
   const watcher = data?.watcher ?? {};
   // profile_json may be stored as '{}' — fall back to top-level watcher fields
@@ -62,7 +64,7 @@ export default function TeamWatcherDetailPage() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[16px] font-bold text-white">{watcher.team_name || decodeURIComponent(teamKey)}</h1>
             <p className="text-[10px] text-gray-600">
-              {watcher.league_name || 'League unknown'} · {watcher.position || 'unranked'} · {watcher.match_count || 0} matches
+              {watcher.league_name || watcher.competition_key || competitionKey || 'League unknown'} · {watcher.position || 'unranked'} · {watcher.match_count || 0} matches
             </p>
           </div>
           <button onClick={load} disabled={loading} className="rounded-md border border-white/[0.08] bg-white/[0.04] p-1.5 text-gray-400 disabled:opacity-40">

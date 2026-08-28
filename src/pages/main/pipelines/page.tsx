@@ -92,8 +92,6 @@ const PipelinesPage = () => {
 
   useEffect(() => {
     load();
-    const t = window.setInterval(load, 8000);
-    return () => window.clearInterval(t);
   }, [load]);
 
   // Toggle single pipeline — persists immediately to the backend engine_state table

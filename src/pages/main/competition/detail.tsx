@@ -377,7 +377,16 @@ export default function CompetitionDetail() {
                 const record = profile?.record ?? {};
                 const market = profile?.preferred_markets?.[0];
                 return (
-                  <div key={watcher.team_id} className="rounded-md border border-white/[0.06] bg-black/20 p-2">
+                  <button
+                    key={watcher.team_id}
+                    type="button"
+                    onClick={() => router.push(
+                      watcher.detail_path || `/competition/${encodeURIComponent(key)}/team/${encodeURIComponent(watcher.team_id)}`,
+                      'forward',
+                      'push'
+                    )}
+                    className="rounded-md border border-white/[0.06] bg-black/20 p-2 text-left transition active:bg-white/[0.04]"
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate text-[11px] font-bold text-white">{watcher.team_name}</div>
@@ -397,7 +406,7 @@ export default function CompetitionDetail() {
                         {watcher.last_brief}
                       </div>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>

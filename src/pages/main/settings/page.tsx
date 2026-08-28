@@ -1,5 +1,5 @@
 import { useIonRouter } from '@ionic/react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   triggerIngestUpcoming,
   triggerIngestLive,
@@ -9,7 +9,6 @@ import {
   purgeGhostMatches,
   triggerRefreshBufferOdds,
   runSofaPipeline,
-  getPipelines,
 } from '../../../services/apis/footballApi';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,8 +48,8 @@ const Settings = () => {
   const [bufferStats, setBufferStats] = useState<any>(null);
   const [activity, setActivity] = useState<{ current?: ActivityEvent; events: ActivityEvent[] }>({ events: [] });
   const [results, setResults] = useState<Record<string, { status: Status; msg: string }>>({});
-  // Pipeline summary for the nav button badge
-  const [pipelineSummary, setPipelineSummary] = useState<{ enabled: number; total: number } | null>(null);
+  const logSectionRef = useRef<HTMLDivElement | null>(null);
+  const [isLogVisible, setIsLogVisible] = useState(false);
 
   const loadBufferStats = useCallback(async () => {
     try {
@@ -60,23 +59,32 @@ const Settings = () => {
     } catch {}
   }, []);
 
-  const loadPipelineSummary = useCallback(async () => {
-    try {
-      const res = await getPipelines();
-      const all: any[] = res.pipelines ?? [];
-      setPipelineSummary({ enabled: all.filter((p: any) => p.enabled).length, total: all.length });
-    } catch {}
+  useEffect(() => {
+    loadBufferStats();
+  }, [loadBufferStats]);
+
+  useEffect(() => {
+    const node = logSectionRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsLogVisible(entry.isIntersecting);
+      },
+      { threshold: 0.25 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
+    if (!isLogVisible) return;
+
     loadBufferStats();
-    loadPipelineSummary();
-    const t = window.setInterval(() => {
-      loadBufferStats();
-      loadPipelineSummary();
-    }, 6000);
+    const t = window.setInterval(loadBufferStats, 6000);
     return () => window.clearInterval(t);
-  }, [loadBufferStats, loadPipelineSummary]);
+  }, [isLogVisible, loadBufferStats]);
 
   const run = async (key: string, fn: () => Promise<any>, fmt: (res: any) => string) => {
     setResults(r => ({ ...r, [key]: { status: 'loading', msg: '' } }));
@@ -137,7 +145,7 @@ const Settings = () => {
       <div className="px-4 py-4 space-y-6">
 
         {/* ── Activity log ────────────────────────────────────────────────── */}
-        <div>
+        <div ref={logSectionRef}>
           <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">System Activity</div>
           <div className="rounded-xl bg-[#161616] border border-white/[0.07] overflow-hidden">
             <button
@@ -221,9 +229,7 @@ const Settings = () => {
               path: '/pipelines',
               icon: '⚙',
               label: 'Pipeline Control',
-              desc: pipelineSummary
-                ? `${pipelineSummary.enabled}/${pipelineSummary.total} pipelines active — toggle live, prematch, SofaScore, and more`
-                : 'Toggle live, prematch, SofaScore-only and other pipelines',
+              desc: 'Toggle live, prematch, SofaScore-only and other pipelines',
               highlight: true,
             },
             { path: '/scheduler',                 icon: 'SC', label: 'Scheduler',             desc: 'Adjust run intervals for active pipeline jobs',          highlight: true },
